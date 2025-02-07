@@ -16,7 +16,7 @@ app = Flask(__name__)
 # Enable CORS for all routes (local, deployed frontends, and file URLs)
 CORS(app, origins=[
     "http://127.0.0.1:5500",  # Local dev environment
-    "https://mist-ai.onrender.com",  # Render deployment
+    "https://mist-ai-64pc.onrender.com",  # Render deployment
     "https://mistai.netlify.app",  # Netlify site
     "file:///D:/Mist.AI",  # Local file URL (Windows)
     "file:///media/removable/SanDisk/Mist.AI",  # Removable media (Linux/Mac)
