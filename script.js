@@ -29,7 +29,7 @@ async function sendMessage() {
         backendUrl = 'http://127.0.0.1:5000/chat';  // Flask running locally
     } else {
         // For production environments (Netlify frontend, Render backend)
-        backendUrl = 'https://mist-ai.onrender.com/chat';  // Deployed Flask API
+        backendUrl = 'https://mist-ai-64pc.onrender.com/chat';  // Deployed Flask API
     }
 
     try {
