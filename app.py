@@ -72,4 +72,5 @@ def chat():
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    # Ensure app is running on 0.0.0.0 (allow external access) and the right port (from Render environment)
+    app.run(debug=True, host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
