@@ -15,7 +15,7 @@ async function sendMessage() {
     userMessageElement.textContent = "You: " + userMessage;
     messagesDiv.appendChild(userMessageElement);
 
-    // Dynamically choose the backend URL based on the environment and file URL
+    // Dynamically choose the backend URL based on the environment
     const hostname = window.location.hostname;
     const isFileUrl = window.location.protocol === 'file:';
 
@@ -26,10 +26,10 @@ async function sendMessage() {
         backendUrl = 'http://127.0.0.1:5000/chat';  // Assuming your Flask app is running locally
     } else if (hostname === 'localhost' || hostname === '127.0.0.1') {
         // For local dev environment
-        backendUrl = 'http://127.0.0.1:5000/chat';
+        backendUrl = 'http://127.0.0.1:5000/chat';  // Flask running locally
     } else {
-        // For production environments (Netlify, Render)
-        backendUrl = 'https://mist-ai.onrender.com/chat';  // Render deployment
+        // For production environments (Netlify frontend, Render backend)
+        backendUrl = 'https://mist-ai.onrender.com/chat';  // Deployed Flask API
     }
 
     try {
