@@ -15,13 +15,22 @@ async function sendMessage() {
     userMessageElement.textContent = "You: " + userMessage;
     messagesDiv.appendChild(userMessageElement);
 
-    // Dynamically choose the backend URL based on the environment
-    const backendUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-        ? 'http://127.0.0.1:5000/chat'  // Local dev environment
-        : window.location.hostname === 'mistai.netlify.app'
-            ? 'https://mistai.netlify.app/chat'  // Netlify site
-            : 'https://mist-ai.onrender.com/chat';  // Render deployment
+    // Dynamically choose the backend URL based on the environment and file URL
+    const hostname = window.location.hostname;
+    const isFileUrl = window.location.protocol === 'file:';
 
+    let backendUrl;
+
+    if (isFileUrl) {
+        // For file-based URLs (either local or removable media)
+        backendUrl = 'http://127.0.0.1:5000/chat';  // Assuming your Flask app is running locally
+    } else if (hostname === 'localhost' || hostname === '127.0.0.1') {
+        // For local dev environment
+        backendUrl = 'http://127.0.0.1:5000/chat';
+    } else {
+        // For production environments (Netlify, Render)
+        backendUrl = 'https://mist-ai.onrender.com/chat';  // Render deployment
+    }
 
     try {
         // Send the message to the backend at /chat
@@ -32,17 +41,29 @@ async function sendMessage() {
         });
 
         const data = await response.json();
+        console.log("Backend response:", data); // Log the backend response
 
         if (response.ok) {
-            // Display Mist.AI's reply
-            const botMessageElement = document.createElement("div");
-            botMessageElement.textContent = "Mist.AI: " + data.response;
-            messagesDiv.appendChild(botMessageElement);
+            // Check if Showdown is loaded
+            if (typeof showdown !== 'undefined') {
+                console.log("Showdown is loaded correctly");
+
+                // Create a Showdown converter
+                const converter = new showdown.Converter();
+
+                // Convert the markdown response to HTML using Showdown
+                const formattedResponse = converter.makeHtml(data.response || "");
+
+                const botMessageElement = document.createElement("div");
+                botMessageElement.innerHTML = "Mist.AI: " + formattedResponse; // Set the HTML content
+                messagesDiv.appendChild(botMessageElement);
+            } else {
+                console.error("Showdown is not a function. Make sure the CDN is correct.");
+            }
         } else {
             console.error("Server error:", data.error);
             alert("Error: " + data.error);
         }
-
 
     } catch (error) {
         console.error("Error during fetch:", error);
