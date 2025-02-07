@@ -14,7 +14,7 @@ genai.configure(api_key=os.environ["GEMINI_API_KEY"])
 app = Flask(__name__)
 
 # Enable CORS for all routes
-CORS(app, origins=["http://127.0.0.1:5500"])  # Allow your frontend URL
+CORS(app, origins=["https://mist-ai.onrender.com/"])  # Allow your frontend URL
 
 # Serve the index.html file for the main route
 @app.route('/')
