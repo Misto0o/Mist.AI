@@ -1,5 +1,5 @@
 import os
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify
 from flask_cors import CORS
 import google.generativeai as genai
 from dotenv import load_dotenv
@@ -8,20 +8,18 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Configure the Gemi API with the API key
-genai.configure(api_key=os.environ["GEMINI_API_KEY"])
+genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
 
 # Initialize Flask app
 app = Flask(__name__)
 
-# Enable CORS for all routes
-CORS(app, origins=["https://mist-ai.onrender.com/"])  # Allow your frontend URL
+# Enable CORS for all routes (local and deployed frontends)
+CORS(app, origins=[
+    "http://127.0.0.1:5500",  # Local dev environment
+    "https://mist-ai.onrender.com",  # Render deployment
+    "https://mistai.netlify.app"  # Netlify site
+])
 
-# Serve the index.html file for the main route
-@app.route('/')
-def index():
-    return send_from_directory(os.getcwd(), 'index.html')
-
-# Handle the chat messages from frontend
 @app.route('/chat', methods=['POST'])
 def chat():
     try:
@@ -54,6 +52,10 @@ def chat():
         # Send user message to Gemi API and get the response
         response = chat_session.send_message(user_message)
 
+        # Check if it's the first message and send an introduction
+        if user_message.lower() in ["hi", "hello", "hey", "greetings"]:
+            response.text = "Hello! I'm Mist.AI, built on Gemini technology. How can I assist you today?"
+
         # Return the response text from Gemi
         return jsonify({"response": response.text})
 
@@ -62,5 +64,6 @@ def chat():
         print(f"❌ Server Error: {e}")
         return jsonify({"error": f"Internal server error: {str(e)}"}), 500
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     app.run(debug=True)
