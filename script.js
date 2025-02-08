@@ -1,39 +1,38 @@
 async function sendMessage() {
-    // Get the message from the input field with id "user-input"
-    const userMessage = document.getElementById("user-input").value;
+    const userInput = document.getElementById("user-input");
+    const userMessage = userInput.value.trim();
+    if (userMessage === "") return;
 
-    if (userMessage.trim() === "") {
-        alert("Please enter a message.");
-        return;
-    }
-
-    // Get the chat-box container where messages are displayed
     const messagesDiv = document.getElementById("chat-box");
 
-    // Display the user's message
-    const userMessageElement = document.createElement("div");
-    userMessageElement.textContent = "You: " + userMessage;
-    messagesDiv.appendChild(userMessageElement);
+    // Instantly clear user input field
+    userInput.value = '';
 
-    // Dynamically choose the backend URL based on the environment
+    // Create a user message bubble
+    const userMessageElement = document.createElement("div");
+    userMessageElement.classList.add("message", "user-message");
+    userMessageElement.textContent = userMessage;
+    messagesDiv.appendChild(userMessageElement);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+    // Create a "thinking" bubble
+    const thinkingBubble = document.createElement("div");
+    thinkingBubble.classList.add("message", "bot-message", "thinking");
+    thinkingBubble.innerHTML = `<span class="dots">Mist.AI is thinking<span>.</span><span>.</span><span>.</span></span>`;
+    messagesDiv.appendChild(thinkingBubble);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+    // Backend URL logic
     const hostname = window.location.hostname;
     const isFileUrl = window.location.protocol === 'file:';
-
-    let backendUrl;
-
-    if (isFileUrl) {
-        // For file-based URLs (either local or removable media)
-        backendUrl = 'http://127.0.0.1:5000/chat';  // Assuming your Flask app is running locally
-    } else if (hostname === 'localhost' || hostname === '127.0.0.1') {
-        // For local dev environment
-        backendUrl = 'http://127.0.0.1:5000/chat';  // Flask running locally
-    } else {
-        // For production environments (Netlify frontend, Render backend)
-        backendUrl = 'https://mist-ai-64pc.onrender.com/chat';  // Deployed Flask API
-    }
+    let backendUrl = isFileUrl || hostname === 'localhost' || hostname === '127.0.0.1' 
+        ? 'http://127.0.0.1:5000/chat' 
+        : 'https://mist-ai-64pc.onrender.com/chat';
 
     try {
-        // Send the message to the backend at /chat
+        // **Simulate thinking time before fetching response**
+        await new Promise(resolve => setTimeout(resolve, 2000)); // 2 seconds delay
+
         const response = await fetch(backendUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -41,35 +40,63 @@ async function sendMessage() {
         });
 
         const data = await response.json();
-        console.log("Backend response:", data); // Log the backend response
+        console.log("Backend response:", data);
 
-        if (response.ok) {
-            // Check if Showdown is loaded
-            if (typeof showdown !== 'undefined') {
-                console.log("Showdown is loaded correctly");
+        // Remove "thinking..." bubble
+        thinkingBubble.remove();
 
-                // Create a Showdown converter
-                const converter = new showdown.Converter();
+        // AI message container
+        const botMessageElement = document.createElement("div");
+        botMessageElement.classList.add("message", "bot-message");
 
-                // Convert the markdown response to HTML using Showdown
-                const formattedResponse = converter.makeHtml(data.response || "");
-
-                const botMessageElement = document.createElement("div");
-                botMessageElement.innerHTML = "Mist.AI: " + formattedResponse; // Set the HTML content
-                messagesDiv.appendChild(botMessageElement);
-            } else {
-                console.error("Showdown is not a function. Make sure the CDN is correct.");
+        // Typing effect for generative response
+        async function typeMessage(element, text) {
+            let displayedText = "";
+            let speed = Math.random() * 50 + 50; // Randomized speed for each character
+            for (let i = 0; i < text.length; i++) {
+                displayedText += text[i];
+                element.textContent = displayedText;
+                await new Promise(resolve => setTimeout(resolve, speed)); // Typing delay for each char
+                messagesDiv.scrollTop = messagesDiv.scrollHeight; // Keep scrolling down
             }
-        } else {
-            console.error("Server error:", data.error);
-            alert("Error: " + data.error);
+
+            // After a certain point, display the rest of the message at once
+            setTimeout(() => {
+                element.textContent = text;
+            }, 1000); // 1 second after typing finishes, show the rest immediately
         }
+
+        if (data.response.startsWith("```") && data.response.endsWith("```")) {
+            // Code block response
+            const codeContent = data.response.replace(/```/g, "");
+            const codeBlock = document.createElement("pre");
+            const codeElement = document.createElement("code");
+
+            codeElement.classList.add("language-javascript");
+            await typeMessage(codeElement, codeContent);
+
+            codeBlock.appendChild(codeElement);
+            botMessageElement.appendChild(codeBlock);
+            hljs.highlightElement(codeElement); // Apply syntax highlighting
+        } else {
+            // Regular text response with typing effect
+            await typeMessage(botMessageElement, "Mist.AI: " + data.response);
+        }
+
+        messagesDiv.appendChild(botMessageElement);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
 
     } catch (error) {
         console.error("Error during fetch:", error);
-        alert("An error occurred while sending your message. Please try again.");
+        alert("An error occurred while sending your message.");
+        thinkingBubble.remove();
     }
-
-    // Clear the input field after sending the message
-    document.getElementById("user-input").value = '';
 }
+
+
+// Send message on Enter key press
+document.getElementById("user-input").addEventListener("keypress", function(event) {
+    if (event.key === "Enter") {
+        sendMessage();
+    }
+});
