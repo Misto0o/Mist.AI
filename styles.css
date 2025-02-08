@@ -1,4 +1,4 @@
-/* General Reset and Body Styling */
+/* General Reset */
 * {
     margin: 0;
     padding: 0;
@@ -7,7 +7,7 @@
 
 body {
     font-family: 'Arial', sans-serif;
-    background-color: #1e1e1e; /* Darker background for a sleek look */
+    background-color: #1e1e1e;
     color: #ddd;
     display: flex;
     justify-content: center;
@@ -15,13 +15,13 @@ body {
     height: 100vh;
     text-align: center;
     font-size: 16px;
-    overflow: hidden; /* Prevents scrollbars on the body */
+    overflow: hidden;
 }
 
-/* Container (centered chat window) */
+/* Chat Container */
 .container {
     width: 100%;
-    max-width: 800px; /* Slightly wider than before */
+    max-width: 900px;
     background-color: #333;
     border-radius: 12px;
     box-shadow: 0 6px 15px rgba(0, 0, 0, 0.2);
@@ -29,22 +29,12 @@ body {
     display: flex;
     flex-direction: column;
     gap: 20px;
-    height: 80vh; /* Max height of container */
+    height: 85vh;
 }
 
-/* Title Styling */
-h1 {
-    font-size: 2.5em;
-    color: #fff;
-    margin-bottom: 20px;
-    font-weight: 700;
-    letter-spacing: 1px;
-    text-align: center;
-}
-
-/* Chatbox Styling */
+/* Chatbox */
 .chat-box {
-    flex-grow: 1; /* Allows chat box to grow and take remaining space */
+    flex-grow: 1;
     width: 100%;
     border-radius: 12px;
     padding: 20px;
@@ -56,46 +46,62 @@ h1 {
     color: #ddd;
     font-size: 1.1em;
     line-height: 1.5em;
+    max-height: 70vh;
 }
 
 /* Chat Bubbles */
-.chat-box .message {
+.message {
     max-width: 80%;
     padding: 15px;
     border-radius: 18px;
-    margin-bottom: 20px;
-    display: inline-block;
+    margin-bottom: 10px;
     word-wrap: break-word;
-    background-color: #444;
-    color: #ddd;
 }
 
-/* User's message */
-.chat-box .user-message {
+.user-message {
     background-color: #4CAF50;
     color: white;
     align-self: flex-end;
-    text-align: right;
     border-radius: 18px 18px 0 18px;
-    font-weight: 500;
 }
 
-/* Bot's message */
-.chat-box .bot-message {
+/* Add sliding animation for the bot message */
+@keyframes slideIn {
+    0% {
+        transform: translateX(-100%); /* Start from the left */
+    }
+    100% {
+        transform: translateX(0); /* Move to its final position */
+    }
+}
+
+
+.bot-message {
     background-color: #444;
     color: #ddd;
     align-self: flex-start;
-    text-align: left;
     border-radius: 18px 18px 18px 0;
-    font-weight: 400;
+    animation: slideIn 1s ease-out forwards; /* Slide-in animation */
 }
 
-/* Input and Send Button Styling */
+
+/* Code Block */
+pre {
+    background-color: #222;
+    color: #00ff88;
+    font-family: 'Courier New', monospace;
+    padding: 10px;
+    border-radius: 8px;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    overflow-x: auto;
+    border-left: 4px solid #4CAF50;
+}
+
+/* Input Field */
 .input-container {
     display: flex;
     gap: 12px;
-    justify-content: space-between;
-    align-items: center;
 }
 
 input {
@@ -104,45 +110,24 @@ input {
     border: 2px solid #555;
     border-radius: 25px;
     font-size: 1em;
-    outline: none;
     background-color: #444;
     color: #ddd;
-    transition: border-color 0.3s ease;
-    font-weight: 400;
-}
-
-input::placeholder {
-    color: #bbb;
-}
-
-input:focus {
-    border-color: #4CAF50;
 }
 
 button {
     padding: 12px 24px;
     background-color: #4CAF50;
     color: white;
-    border: none;
     border-radius: 25px;
     font-size: 1em;
     cursor: pointer;
-    transition: background-color 0.3s ease;
-    font-weight: 500;
 }
 
 button:hover {
     background-color: #45a049;
 }
 
-/* Button & Input Focus Styles */
-button:active,
-input:focus {
-    transform: scale(0.98);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-/* Optional Custom Scrollbar Styling */
+/* Scrollbar */
 .chat-box::-webkit-scrollbar {
     width: 8px;
 }
@@ -150,4 +135,43 @@ input:focus {
 .chat-box::-webkit-scrollbar-thumb {
     background-color: #444;
     border-radius: 10px;
+}
+
+/* Thinking Bubble */
+.thinking {
+    background-color: #555;
+    color: #bbb;
+    font-style: italic;
+    opacity: 0.8;
+    padding: 12px;
+    border-radius: 15px;
+    display: inline-block;
+    align-self: flex-start;
+}
+
+/* Typing Dots Animation */
+.dots span {
+    animation: dotsBlink 1.5s infinite;
+    display: inline-block;
+}
+
+.dots span:nth-child(1) { animation-delay: 0s; }
+.dots span:nth-child(2) { animation-delay: 0.3s; }
+.dots span:nth-child(3) { animation-delay: 0.6s; }
+
+@keyframes dotsBlink {
+    0% { opacity: 0.3; }
+    50% { opacity: 1; }
+    100% { opacity: 0.3; }
+}
+
+/* Modify typing animation */
+@keyframes typing {
+    0% { opacity: 0.2; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
+.bot-message.typing {
+    animation: typing 1s infinite;
 }

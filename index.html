@@ -1,24 +1,30 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" href="favicon.ico" type="image/x-icon">
-    <title>Mist.AI Chatbot</title>
+    <title>Mist.AI Chat</title>
     <link rel="stylesheet" href="styles.css">
-</head>
 
+    <!-- Highlight.js for Syntax Highlighting -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/atom-one-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
+    <script>hljs.highlightAll();</script>
+
+    <!-- Showdown.js for Markdown Support -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/showdown/2.1.0/showdown.min.js"></script>
+</head>
 <body>
     <div class="container">
-        <h1>Mist.AI</h1>
+        <h1>Mist.AI Chat</h1>
         <div id="chat-box" class="chat-box"></div>
+
         <div class="input-container">
-            <input type="text" id="user-input" placeholder="Type your message..." />
+            <input type="text" id="user-input" placeholder="Type a message..." autocomplete="off">
             <button onclick="sendMessage()">Send</button>
         </div>
     </div>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/showdown/1.9.1/showdown.min.js"></script>
+
     <script src="script.js"></script>
 </body>
 </html>
