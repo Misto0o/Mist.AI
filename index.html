@@ -17,6 +17,20 @@
 
     <!-- Showdown.js for Markdown support (must be loaded before script.js) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/showdown/2.1.0/showdown.min.js"></script>
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.css">
+
+    <link rel="icon" href="mistaifaviocn/favicon.ico" type="image/x-icon">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Open Graph meta tags -->
+    <meta property="og:title" content="Mist.AI" />
+    <meta property="og:description"
+        content="Mist AI is a powerful assistant built on Gemini AI and the Google API, delivering detailed and intelligent responses with precision." />
+    <meta property="og:image" content='images/mistai.png' />
+    <meta property="og:url" content="https://mistai.netlify.app/" />
+    <meta property="og:type" content="website" />
+
+
 </head>
 
 <body>
@@ -39,7 +53,8 @@
 
             <div class="field has-addons">
                 <div class="control is-expanded">
-                    <input class="input is-dark" type="text" id="user-input" placeholder="Type a message..." autocomplete="off">
+                    <input class="input is-dark" type="text" id="user-input" placeholder="Type a message..."
+                        autocomplete="off">
                 </div>
                 <div class="control">
                     <button class="button is-success" onclick="sendMessage()">Send</button>
@@ -51,4 +66,5 @@
     <!-- Custom Script -->
     <script src="script.js"></script>
 </body>
+
 </html>
