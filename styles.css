@@ -1,109 +1,103 @@
 /* General Reset */
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-}
-
+html,
 body {
-    font-family: 'Arial', sans-serif;
     background-color: #1e1e1e;
     color: #ddd;
-    display: flex;
+    font-family: 'Arial', sans-serif;
     height: 100vh;
-    text-align: center;
-    font-size: 16px;
-    overflow: hidden;
 }
 
 /* Main Layout */
 .main-container {
     display: flex;
-    width: 100vw;
     height: 100vh;
 }
 
-/* Sidebar Styles */
+/* Sidebar */
 .sidebar {
-    width: 250px;
+    width: 260px;
     height: 100vh;
-    background-color: #1c1c1c;
+    background: linear-gradient(135deg, #1c1c1c 30%, #292929 100%);
+    padding: 20px;
     position: fixed;
-    top: 0;
     left: 0;
+    top: 0;
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 20px 0;
-    transition: 0.3s ease;
+    justify-content: flex-start;
+    box-shadow: 4px 0 10px rgba(0, 0, 0, 0.2);
+    border-right: 2px solid rgba(255, 255, 255, 0.1);
+    transition: all 0.3s ease-in-out;
+    overflow-y: auto;
 }
 
-/* Sidebar Title */
-.sidebar .logo {
-    font-size: 28px;
-    color: #4dbf00;
+/* Sidebar Header */
+.menu-label {
     font-weight: bold;
-    margin-bottom: 30px;
-}
-
-/* Sidebar Button */
-.logo-button {
-    background: none;
-    border: none;
-    cursor: pointer;
-}
-
-/* Menu List */
-.menu-list {
-    list-style: none;
-    padding: 0;
-    margin-top: 20px;
+    text-transform: uppercase;
+    color: #4dbf00;
+    font-size: 1.2rem;
+    padding: 15px 0;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.1);
     width: 100%;
     text-align: center;
 }
 
-.menu-list-item {
-    padding: 12px 0;
-    font-size: 18px;
+/* Sidebar Links */
+.menu-list {
+    list-style: none;
+    padding: 0;
+    width: 100%;
+    margin-top: 20px;
+}
+
+.menu-list a {
     color: #ddd;
-    cursor: pointer;
-    transition: 0.3s ease;
+    font-size: 17px;
+    padding: 12px 20px;
+    display: block;
+    border-radius: 8px;
+    transition: all 0.3s ease-in-out;
+    font-weight: 500;
+    text-align: center;
+    text-decoration: none;
 }
 
-.menu-list-item:hover,
-.menu-list-item.active {
-    background-color: #333;
+.menu-list a:hover {
+    background: rgba(77, 191, 0, 0.15);
     color: #4dbf00;
+    transform: translateX(5px);
 }
 
-/* Chat Container (Now Takes the Remaining Space) */
-.container {
-    flex-grow: 1; /* Expands to fill remaining space */
-    background-color: #333;
-    border-radius: 12px;
-    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.2);
+/* Active link (Optional) */
+.menu-list a:active {
+    background-color: rgba(77, 191, 0, 0.3);
+}
+
+/* Chat Container */
+.chat-container {
+    flex-grow: 1;
     padding: 20px;
+    margin-left: 250px;
     display: flex;
     flex-direction: column;
-    gap: 20px;
-    height: 100vh;
-    margin-left: 250px; /* Ensures it's placed next to the sidebar */
+    justify-content: center;
+    align-items: center;
 }
 
-/* Chatbox */
+/* Chat Box */
 .chat-box {
-    flex-grow: 1;
     width: 100%;
+    height: 60vh;
+    background-color: #2b2b2b;
     border-radius: 12px;
     padding: 20px;
-    background-color: #2b2b2b;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
     gap: 15px;
-    color: #ddd;
-    font-size: 1.1em;
-    line-height: 1.5em;
+    box-shadow: 0px 6px 15px rgba(0, 0, 0, 0.2);
 }
 
 /* Chat Bubbles */
@@ -129,46 +123,19 @@ body {
     border-radius: 18px 18px 18px 0;
 }
 
-/* Code Block */
-pre {
-    background-color: #222;
-    color: #00ff88;
-    font-family: 'Courier New', monospace;
-    padding: 10px;
-    border-radius: 8px;
-    white-space: pre-wrap;
-    word-wrap: break-word;
-    overflow-x: auto;
-    border-left: 4px solid #4CAF50;
-}
-
-/* Input Field */
-.input-container {
-    display: flex;
-    gap: 12px;
-}
-
-input {
-    width: 75%;
-    padding: 12px;
-    border: 2px solid #555;
-    border-radius: 25px;
-    font-size: 1em;
+/* Input Box */
+.input {
     background-color: #444;
+    border-color: #555;
     color: #ddd;
 }
 
-button {
-    padding: 12px 24px;
-    background-color: #4CAF50;
-    color: white;
-    border-radius: 25px;
-    font-size: 1em;
-    cursor: pointer;
+.input::placeholder {
+    color: #aaa;
 }
 
-button:hover {
-    background-color: #45a049;
+.button {
+    border-radius: 25px;
 }
 
 /* Scrollbar */
@@ -181,64 +148,88 @@ button:hover {
     border-radius: 10px;
 }
 
-/* Thinking Bubble */
-.thinking {
-    background-color: #555;
-    color: #bbb;
-    font-style: italic;
-    opacity: 0.8;
-    padding: 12px;
-    border-radius: 15px;
-    display: inline-block;
-    align-self: flex-start;
-}
+/* 📱 Responsive Chat Container */
+@media (max-width: 768px) {
 
-/* Typing Dots Animation */
-.dots span {
-    animation: dotsBlink 1.5s infinite;
-    display: inline-block;
-}
-
-.dots span:nth-child(1) { animation-delay: 0s; }
-.dots span:nth-child(2) { animation-delay: 0.3s; }
-.dots span:nth-child(3) { animation-delay: 0.6s; }
-
-/* Sidebar Links */
-.menu-list-item a {
-    text-decoration: none;
-    color: inherit;
-    font-size: 18px;
-    display: block;
-    padding: 12px 0;
-    transition: 0.3s ease;
-}
-
-.menu-list-item a:hover {
-    color: #4dbf00;
-    background-color: #333;
-}
-
-
-@keyframes dotsBlink {
-    0% { opacity: 0.3; }
-    50% { opacity: 1; }
-    100% { opacity: 0.3; }
-}
-
-/* Responsive Fixes */
-@media (max-width: 900px) {
-    .main-container {
+    /* Chat Container */
+    .chat-container {
+        margin-left: 0;
+        /* Remove left margin for small screens */
+        margin-bottom: 250px;
+        /* Make space for the fixed sidebar */
+        padding: 10px;
         flex-direction: column;
-        align-items: center;
-        height: auto;
+        justify-content: flex-start;
+        align-items: stretch;
     }
 
-    .container {
-        width: 100vw; /* Make chat full width on small screens */
-        margin-left: 0; /* Remove margin when sidebar is hidden */
+    /* Chat Box */
+    .chat-box {
+        height: calc(100vh - 120px);
+        /* Adjust height to fill space between header and bottom sidebar */
+        border-radius: 12px;
+        padding: 15px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+        box-shadow: 0px 6px 15px rgba(0, 0, 0, 0.2);
     }
 
     .sidebar {
-        display: none; /* Hide sidebar on small screens */
+        width: 100%;
+        height: 120px;
+        /* Set height instead of full-screen */
+        position: absolute;
+        bottom: 0;
+        top: auto;
+        /* Remove from top */
+        left: 0;
+        flex-direction: row;
+        /* Align items in a row */
+        justify-content: space-around;
+        /* Evenly distribute items */
+        padding: 10px 0;
+        border-top: 2px solid rgba(255, 255, 255, 0.1);
+        border-right: none;
+        overflow-x: auto;
+        white-space: nowrap;
+    }
+
+    .menu-label {
+        font-size: 1.2rem !important;
+        display: block;
+        line-height: 1.4;
+        white-space: pre-wrap;
+    }
+
+    .menu-list {
+        display: flex;
+        flex-direction: row;
+        justify-content: space-between;
+        width: 100%;
+        padding: 0;
+        font-size: 1.2rem;
+    }
+
+    .menu-list li {
+        display: inline-block;
+        margin: 0 10px;
+    }
+
+    .menu-list a {
+        font-size: 14px;
+        padding: 8px 12px;
+        text-align: center;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 5px;
+        transition: all 0.3s ease;
+    }
+
+    .menu-list a:hover {
+        background: rgba(77, 191, 0, 0.15);
+        color: #4dbf00;
     }
 }

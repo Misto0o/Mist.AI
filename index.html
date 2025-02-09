@@ -5,47 +5,50 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mist.AI Chat</title>
+
+    <!-- Bulma CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.9.4/css/bulma.min.css">
+
+    <!-- Custom Styles -->
     <link rel="stylesheet" href="styles.css">
 
     <!-- GSAP for animations -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
 
-    <!-- Showdown.js for Markdown support -->
+    <!-- Showdown.js for Markdown support (must be loaded before script.js) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/showdown/2.1.0/showdown.min.js"></script>
 </head>
 
 <body>
     <div class="main-container">
-        <!-- Chat Window -->
-        <div class="container">
-            <h1>Mist.AI</h1>
-            <div id="chat-box" class="chat-box"></div>
-
-            <div class="input-container">
-                <input type="text" id="user-input" placeholder="Type a message..." autocomplete="off">
-                <button onclick="sendMessage()">Send</button>
-            </div>
-        </div>
         <!-- Sidebar -->
-        <!-- Sidebar -->
-        <div class="sidebar">
-            <h1 class="logo">My Creators Contact</h1>
+        <aside class="menu sidebar">
+            <p class="menu-label has-text-centered has-text-success is-size-4">My Creators Contact</p>
             <ul class="menu-list">
-                <li class="menu-list-item active">
-                    <a href="https://builtbykristian.netlify.app" target="_blank">About Me</a>
-                </li>
-                <li class="menu-list-item">
-                    <a href="https://github.com/Misto0o/Mist.AI" target="_blank">My Github Code!</a>
-        </li>
-        <li class="menu-list-item" onclick="showRandomPrompt()">
-            Random Prompt
-        </li>
-        <li class="menu-list-item" onclick="showFunFact()">
-            Fun Fact
-        </li>
-        </div>
+                <li><a href="https://builtbykristian.netlify.app" target="_blank">About Me</a></li>
+                <li><a href="https://github.com/Misto0o/Mist.AI" target="_blank">My Github Code!</a></li>
+                <li><a onclick="showRandomPrompt()">Random Prompt</a></li>
+                <li><a onclick="showFunFact()">Fun Fact</a></li>
+            </ul>
+        </aside>
 
-        <script defer src="script.js"></script>
+        <!-- Chat Section -->
+        <section class="container chat-container">
+            <h1 class="title has-text-white">Mist.AI</h1>
+            <div id="chat-box" class="box chat-box"></div>
+
+            <div class="field has-addons">
+                <div class="control is-expanded">
+                    <input class="input is-dark" type="text" id="user-input" placeholder="Type a message..." autocomplete="off">
+                </div>
+                <div class="control">
+                    <button class="button is-success" onclick="sendMessage()">Send</button>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Custom Script -->
+    <script src="script.js"></script>
 </body>
-
 </html>
