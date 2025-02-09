@@ -10,18 +10,75 @@ body {
     background-color: #1e1e1e;
     color: #ddd;
     display: flex;
-    justify-content: center;
-    align-items: center;
     height: 100vh;
     text-align: center;
     font-size: 16px;
     overflow: hidden;
 }
 
-/* Chat Container */
-.container {
+/* Main Layout */
+.main-container {
+    display: flex;
+    width: 100vw;
+    height: 100vh;
+}
+
+/* Sidebar Styles */
+.sidebar {
+    width: 250px;
+    height: 100vh;
+    background-color: #1c1c1c;
+    position: fixed;
+    top: 0;
+    left: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px 0;
+    transition: 0.3s ease;
+}
+
+/* Sidebar Title */
+.sidebar .logo {
+    font-size: 28px;
+    color: #4dbf00;
+    font-weight: bold;
+    margin-bottom: 30px;
+}
+
+/* Sidebar Button */
+.logo-button {
+    background: none;
+    border: none;
+    cursor: pointer;
+}
+
+/* Menu List */
+.menu-list {
+    list-style: none;
+    padding: 0;
+    margin-top: 20px;
     width: 100%;
-    max-width: 900px;
+    text-align: center;
+}
+
+.menu-list-item {
+    padding: 12px 0;
+    font-size: 18px;
+    color: #ddd;
+    cursor: pointer;
+    transition: 0.3s ease;
+}
+
+.menu-list-item:hover,
+.menu-list-item.active {
+    background-color: #333;
+    color: #4dbf00;
+}
+
+/* Chat Container (Now Takes the Remaining Space) */
+.container {
+    flex-grow: 1; /* Expands to fill remaining space */
     background-color: #333;
     border-radius: 12px;
     box-shadow: 0 6px 15px rgba(0, 0, 0, 0.2);
@@ -29,7 +86,8 @@ body {
     display: flex;
     flex-direction: column;
     gap: 20px;
-    height: 85vh;
+    height: 100vh;
+    margin-left: 250px; /* Ensures it's placed next to the sidebar */
 }
 
 /* Chatbox */
@@ -46,7 +104,6 @@ body {
     color: #ddd;
     font-size: 1.1em;
     line-height: 1.5em;
-    max-height: 70vh;
 }
 
 /* Chat Bubbles */
@@ -65,25 +122,12 @@ body {
     border-radius: 18px 18px 0 18px;
 }
 
-/* Add sliding animation for the bot message */
-@keyframes slideIn {
-    0% {
-        transform: translateX(-100%); /* Start from the left */
-    }
-    100% {
-        transform: translateX(0); /* Move to its final position */
-    }
-}
-
-
 .bot-message {
     background-color: #444;
     color: #ddd;
     align-self: flex-start;
     border-radius: 18px 18px 18px 0;
-    animation: slideIn 1s ease-out forwards; /* Slide-in animation */
 }
-
 
 /* Code Block */
 pre {
@@ -159,19 +203,42 @@ button:hover {
 .dots span:nth-child(2) { animation-delay: 0.3s; }
 .dots span:nth-child(3) { animation-delay: 0.6s; }
 
+/* Sidebar Links */
+.menu-list-item a {
+    text-decoration: none;
+    color: inherit;
+    font-size: 18px;
+    display: block;
+    padding: 12px 0;
+    transition: 0.3s ease;
+}
+
+.menu-list-item a:hover {
+    color: #4dbf00;
+    background-color: #333;
+}
+
+
 @keyframes dotsBlink {
     0% { opacity: 0.3; }
     50% { opacity: 1; }
     100% { opacity: 0.3; }
 }
 
-/* Modify typing animation */
-@keyframes typing {
-    0% { opacity: 0.2; }
-    50% { opacity: 0.5; }
-    100% { opacity: 1; }
-}
+/* Responsive Fixes */
+@media (max-width: 900px) {
+    .main-container {
+        flex-direction: column;
+        align-items: center;
+        height: auto;
+    }
 
-.bot-message.typing {
-    animation: typing 1s infinite;
+    .container {
+        width: 100vw; /* Make chat full width on small screens */
+        margin-left: 0; /* Remove margin when sidebar is hidden */
+    }
+
+    .sidebar {
+        display: none; /* Hide sidebar on small screens */
+    }
 }
