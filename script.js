@@ -1,6 +1,7 @@
-// Initialize Showdown converter
+// Initialize Showdown converter for markdown
 const converter = new showdown.Converter({ simpleLineBreaks: true });
 
+// Function to send messages
 async function sendMessage(userMessage = null) {
     const userInput = document.getElementById("user-input");
     const messagesDiv = document.getElementById("chat-box");
@@ -24,14 +25,14 @@ async function sendMessage(userMessage = null) {
         gsap.fromTo(userMessageElement, { opacity: 0, y: -10 }, { opacity: 1, y: 0, duration: 0.3 });
     }
 
-    // Create a "thinking" bubble
+    // Create a "thinking" bubble while waiting for the response
     const thinkingBubble = document.createElement("div");
     thinkingBubble.classList.add("message", "bot-message", "thinking");
     thinkingBubble.innerHTML = `<span class="dots">Mist.AI is thinking<span>.</span><span>.</span><span>.</span></span>`;
     messagesDiv.appendChild(thinkingBubble);
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
 
-    // Backend URL logic
+    // Backend URL logic based on hostname
     const hostname = window.location.hostname;
     const isFileUrl = window.location.protocol === 'file:';
     let backendUrl = isFileUrl || hostname === 'localhost' || hostname === '127.0.0.1'
@@ -41,6 +42,7 @@ async function sendMessage(userMessage = null) {
     try {
         console.time("API Response Time");
 
+        // Fetch response from the backend API
         const response = await fetch(backendUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -57,20 +59,20 @@ async function sendMessage(userMessage = null) {
             throw new Error("No response from API");
         }
 
-        // Remove "thinking..." bubble
+        // Remove the "thinking..." bubble once the response is ready
         thinkingBubble.remove();
 
-        // AI message container
+        // Create AI message container
         const botMessageElement = document.createElement("div");
         botMessageElement.classList.add("message", "bot-message");
 
         // Check if response contains a code block (``` or inline `code`)
         if (data.response.includes("```")) {
-            // Multi-line code block
-            const codeContent = data.response.replace(/```/g, "").trim();
+            // Extract and display code block content
+            const codeContent = data.response.match(/```(?:\w+)?\n([\s\S]*?)\n```/);
             const codeBlock = document.createElement("pre");
             const codeElement = document.createElement("code");
-            codeElement.textContent = codeContent;
+            codeElement.textContent = codeContent ? codeContent[1].trim() : data.response;
             codeBlock.appendChild(codeElement);
             botMessageElement.appendChild(codeBlock);
         } else {
@@ -78,6 +80,10 @@ async function sendMessage(userMessage = null) {
             const formattedResponse = converter.makeHtml(data.response);
             botMessageElement.innerHTML = "Mist.AI: " + formattedResponse;
         }
+
+        // Dynamically adjust the typing animation based on message length
+        const stepsCount = botMessageElement.textContent.length;
+        botMessageElement.style.animation = `typing ${stepsCount * 0.1}s steps(${stepsCount}) forwards`;
 
         messagesDiv.appendChild(botMessageElement);
         messagesDiv.scrollTop = messagesDiv.scrollHeight;
@@ -129,4 +135,16 @@ document.getElementById("user-input").addEventListener("keypress", function(even
     if (event.key === "Enter") {
         sendMessage();
     }
+});
+
+// Handle window resize (Fixing the undefined modelContainer issue)
+window.addEventListener('resize', () => {
+    const modelContainer = document.getElementById("model-container");
+    if (!modelContainer) return; // Prevent error if element does not exist
+
+    const width = modelContainer.clientWidth;
+    const height = modelContainer.clientHeight;
+    camera.aspect = width / height;
+    camera.updateProjectionMatrix();
+    renderer.setSize(width, height);
 });
