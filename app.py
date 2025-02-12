@@ -18,7 +18,13 @@ genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 cohere_client = cohere.Client(os.getenv("COHERE_API_KEY"))
 
 app = Flask(__name__)
-CORS(app, supports_credentials=True)
+CORS(app, origins=[
+    "http://127.0.0.1:5500",  # Local dev environment
+    "https://mist-ai-64pc.onrender.com",  # Render deployment
+    "https://mistai.netlify.app",  # Netlify site
+    "file:///D:/Mist.AI",  # Local file URL (Windows)
+    "file:///media/removable/SanDisk/Mist.AI",  # Removable media (Linux/Mac)
+])
 
 @app.route('/chat', methods=['POST'])
 def chat():
