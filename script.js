@@ -33,7 +33,9 @@ async function sendMessage(userMessage = null) {
     messagesDiv.appendChild(thinkingBubble);
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
 
-    const backendUrl = window.location.protocol === 'file:' || ['localhost', '127.0.0.1'].includes(window.location.hostname)
+    const hostname = window.location.hostname;
+    const isFileUrl = window.location.protocol === 'file:';
+    let backendUrl = isFileUrl || hostname === 'localhost' || hostname === '127.0.0.1'
         ? 'http://127.0.0.1:5000/chat'
         : 'https://mist-ai-64pc.onrender.com/chat';
 
