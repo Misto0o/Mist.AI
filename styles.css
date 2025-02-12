@@ -148,6 +148,48 @@ body {
     border-radius: 10px;
 }
 
+/* Animation to highlight model switch */
+@keyframes modelSwitch {
+    0% {
+        transform: scale(1);
+        opacity: 1;
+    }
+
+    50% {
+        transform: scale(1.2);
+        opacity: 0.8;
+    }
+
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+.swap-button {
+    background-color: #4CAF50;
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+    border-radius: 5px;
+}
+
+.swap-button:hover {
+    background-color: #45a049;
+}
+
+.icon {
+    margin-left: 10px;
+}
+
+/* Apply animation when the model is switched */
+.model-switch {
+    animation: modelSwitch 0.5s ease-in-out;
+}
+
+
 /* 📱 Responsive Chat Container */
 @media (max-width: 768px) {
 
