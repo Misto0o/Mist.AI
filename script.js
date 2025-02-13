@@ -77,47 +77,68 @@ document.getElementById("user-input").addEventListener("keypress", function (eve
     }
 });
 
-// Function to swap between AI models
-function swapContent() {
-    currentModel = currentModel === 'gemini' ? 'commandR' : 'gemini';
+document.addEventListener("DOMContentLoaded", function() {
+    let isSwapping = false; // Flag to prevent multiple swaps
 
-    const currentOption = document.getElementById("current-option");
-    const currentIcon = document.getElementById("current-icon");
-    if (!currentOption || !currentIcon) return;
+    function swapContent() {
+        const swapButton = document.querySelector(".swap-button");
+        
+        if (isSwapping) return; // If currently swapping, ignore the click
 
-    gsap.to(currentOption, {
-        opacity: 0, duration: 0.2, onComplete: () => {
-            currentOption.textContent = currentModel === 'commandR' ? 'CommandR' : 'Gemini';
-            gsap.to(currentOption, { opacity: 1, duration: 0.2 });
-        }
-    });
+        isSwapping = true; // Set flag to true to block further swaps
 
-    gsap.to(currentIcon, {
-        opacity: 0, duration: 0.2, onComplete: () => {
-            currentIcon.textContent = currentModel === 'commandR' ? '🔄' : '⚡';
-            gsap.to(currentIcon, { opacity: 1, duration: 0.2 });
-        }
-    });
+        // Add the 'disabled' class to the button (graying out)
+        swapButton.classList.add("disabled");
 
-    const notification = document.createElement("div");
-    notification.classList.add("notification");
-    notification.textContent = `Model switched to: ${currentModel === 'commandR' ? 'CommandR' : 'Gemini'}`;
-    document.body.appendChild(notification);
+        currentModel = currentModel === 'gemini' ? 'commandR' : 'gemini';
 
-    gsap.fromTo(notification, { opacity: 0, y: -20 }, {
-        opacity: 1, y: 0, duration: 0.5, ease: "power2.out", onComplete: () => {
-            setTimeout(() => {
-                gsap.to(notification, {
-                    opacity: 0, y: 20, duration: 0.3, ease: "power2.in", onComplete: () => {
-                        notification.remove();
-                    }
-                });
-            }, 2000);
-        }
-    });
+        const currentOption = document.getElementById("current-option");
+        const currentIcon = document.getElementById("current-icon");
+        if (!currentOption || !currentIcon) return;
 
-    sendMessage(`Model switched to: ${currentModel}`);
-}
+        gsap.to(currentOption, {
+            opacity: 0, duration: 0.2, onComplete: () => {
+                currentOption.textContent = currentModel === 'commandR' ? 'CommandR' : 'Gemini';
+                gsap.to(currentOption, { opacity: 1, duration: 0.2 });
+            }
+        });
+
+        gsap.to(currentIcon, {
+            opacity: 0, duration: 0.2, onComplete: () => {
+                currentIcon.textContent = currentModel === 'commandR' ? '🔄' : '⚡';
+                gsap.to(currentIcon, { opacity: 1, duration: 0.2 });
+            }
+        });
+
+        const notification = document.createElement("div");
+        notification.classList.add("notification");
+        notification.textContent = `Model switched to: ${currentModel === 'commandR' ? 'CommandR' : 'Gemini'}`;
+        document.body.appendChild(notification);
+
+        gsap.fromTo(notification, { opacity: 0, y: -20 }, {
+            opacity: 1, y: 0, duration: 0.5, ease: "power2.out", onComplete: () => {
+                setTimeout(() => {
+                    gsap.to(notification, {
+                        opacity: 0, y: 20, duration: 0.3, ease: "power2.in", onComplete: () => {
+                            notification.remove();
+                        }
+                    });
+                }, 2000);
+            }
+        });
+
+        sendMessage(`Model switched to: ${currentModel}`);
+
+        // Set a timeout for the cooldown
+        setTimeout(() => {
+            isSwapping = false; // Reset the flag after the cooldown period
+            swapButton.classList.remove("disabled"); // Remove the 'disabled' class after the cooldown
+        }, 4500); // 4.5 seconds cooldown
+    }
+
+    // Attach the function to the button
+    document.querySelector(".swap-button").onclick = swapContent;
+});
 
 // Handle window resize (Fixing the undefined modelContainer issue)
 window.addEventListener('resize', () => {

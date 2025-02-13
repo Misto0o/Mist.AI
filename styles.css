@@ -189,6 +189,13 @@ body {
     animation: modelSwitch 0.5s ease-in-out;
 }
 
+.disabled {
+    opacity: 0.5;
+    background-color: gray;
+    pointer-events: none; /* Prevents button from being clicked */
+    cursor: not-allowed; /* Change cursor to indicate that it's not clickable */
+}
+
 
 /* 📱 Responsive Chat Container */
 @media (max-width: 768px) {
