@@ -77,6 +77,17 @@ document.getElementById("user-input").addEventListener("keypress", function (eve
     }
 });
 
+// Function to show a random prompt
+function showRandomPrompt() {
+    sendMessage("random prompt");
+}
+
+// Function to show a fun fact
+function showFunFact() {
+    sendMessage("fun fact");
+}
+
+
 document.addEventListener("DOMContentLoaded", function() {
     let isSwapping = false; // Flag to prevent multiple swaps
 

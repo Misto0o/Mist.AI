@@ -23,7 +23,7 @@ Mist AI is a powerful AI assistant built on **Gemini AI** and the **Command R AI
 Mist AI processes your queries using **Gemini AI**, providing detailed insights with efficiency and accuracy. With new **Command R** integration, its knowledge will expand even further!  
 
 ## 🛠️ Future Plans  
-- 🔹 **ChatGPT API support** for enhanced data retrieval  
+- 🔹 **ChatGPT API / Meta support** for enhanced data retrieval  
 - 🔹 **UI/UX improvements** for a smoother experience  
 
 ---
