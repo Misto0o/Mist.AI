@@ -6,6 +6,9 @@ let currentModel = 'gemini';
 let canSendMessage = true; // Prevent spamming
 let isSwapping = false; // Prevent multiple swaps
 
+// Load previous session memory or create new memory
+let chatMemory = []; // Memory resets on refresh
+
 // Function to send messages
 async function sendMessage(userMessage = null) {
     const userInput = document.getElementById("user-input");
