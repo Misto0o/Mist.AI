@@ -44,15 +44,23 @@ def chat():
         context_text = "\n".join(f"{msg['role']}: {msg['content']}" for msg in chat_context)
         full_prompt = f"{context_text}\nUser: {user_message}\nMist.AI:"
 
+        # Get AI response
         response_content = (
             get_gemini_response(full_prompt) if model_choice == "gemini"
             else get_cohere_response(full_prompt)
         )
 
+        # 🔹 Print logs (Visible in Render)
+        print("\n🔹 New Chat Interaction 🔹")
+        print(f"👤 User: {user_message}")
+        print(f"🤖 Mist.AI ({model_choice}): {response_content}\n")
+
         return jsonify({"response": response_content})
 
     except Exception as e:
+        print(f"❌ Error: {str(e)}")  # Logs errors in Render
         return jsonify({"error": str(e)}), 500
+
 
 def get_gemini_response(prompt):
     try:
