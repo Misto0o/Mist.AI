@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
+
 # Check if environment variables are set
 if not os.getenv("GEMINI_API_KEY") or not os.getenv("COHERE_API_KEY"):
     raise ValueError("Missing required API keys in environment variables.")
@@ -27,58 +28,46 @@ CORS(app, origins=[
     "file:///media/removable/SanDisk/Mist.AI",  # Removable media (Linux/Mac)
 ])
 
+
 @app.route('/chat', methods=['POST'])
 def chat():
     try:
         data = request.get_json()
-        user_message = data.get("message", "").strip().lower()
+        user_message = data.get("message", "").strip()
+        chat_context = data.get("context", [])  # Get past messages
         model_choice = data.get("model", "gemini")
 
         if not user_message:
             return jsonify({"error": "Message cannot be empty"}), 400
 
-        if "random prompt" in user_message:
-            response_content = get_random_prompt()
-        elif "fun fact" in user_message:
-            response_content = get_random_fun_fact()
-        else:
-            response_content = (
-                get_gemini_response(user_message) if model_choice == "gemini"
-                else get_cohere_response(user_message)
-            )
+        # Format past messages as a conversation history
+        context_text = "\n".join(f"{msg['role']}: {msg['content']}" for msg in chat_context)
+        full_prompt = f"{context_text}\nUser: {user_message}\nMist.AI:"
+
+        response_content = (
+            get_gemini_response(full_prompt) if model_choice == "gemini"
+            else get_cohere_response(full_prompt)
+        )
 
         return jsonify({"response": response_content})
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-def get_gemini_response(user_message):
+def get_gemini_response(prompt):
     try:
-        generation_config = {
-            "temperature": 1,
-            "top_p": 0.95,
-            "top_k": 40,
-            "max_output_tokens": 8192,
-            "response_mime_type": "text/plain",
-        }
-
-        model = genai.GenerativeModel(
-            model_name="gemini-2.0-flash", 
-            generation_config=generation_config
-        )
-
+        model = genai.GenerativeModel("gemini-2.0-flash")
         chat_session = model.start_chat(history=[])
-        response = chat_session.send_message(user_message)
+        response = chat_session.send_message(prompt)
         return response.text.strip()
-
     except Exception as e:
         return f"❌ Error fetching from Gemini: {str(e)}"
-    
-def get_cohere_response(user_message):
+
+def get_cohere_response(prompt):
     try:
         response = cohere_client.generate(
             model="command-r-plus-08-2024",
-            prompt=user_message,
+            prompt=prompt,
             temperature=0.7,
             max_tokens=200
         )
