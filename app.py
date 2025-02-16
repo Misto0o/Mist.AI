@@ -5,6 +5,7 @@ from flask_cors import CORS
 import google.generativeai as genai
 import cohere
 from dotenv import load_dotenv
+import logging 
 
 # Load environment variables
 load_dotenv()
@@ -55,9 +56,9 @@ def chat():
         )
 
         # 🔹 Print logs (Visible in Render)
-        print("\n🔹 New Chat Interaction 🔹")
-        print(f"👤 User: {user_message}")
-        print(f"🤖 Mist.AI ({model_choice}): {response_content}\n")
+        print("\n🔹 New Chat Interaction 🔹", flush=True)
+        print(f"👤 User: {user_message}", flush=True)
+        print(f"🤖 Mist.AI ({model_choice}): {response_content}\n", flush=True)
 
         return jsonify({"response": response_content})
 
@@ -139,45 +140,43 @@ def get_random_fun_fact():
     return random.choice(fun_facts)
 
 if __name__ == "__main__":
-    # This flag will make sure the tests are only run once
-    if not hasattr(app, 'has_run'):
-        app.has_run = True
-        
-        print("🚀 Starting Mist.AI server...")
-        
-        # Test Cohere API call before starting the server
-        try:
-            print("Testing Cohere API...")
-            test_response = cohere_client.generate(
-                model="command-r-plus-08-2024",
-                prompt="Hello, Cohere!",
-                max_tokens=10
-            )
-            print(f"Cohere API Test Successful: {test_response.generations[0].text.strip()}")
-        except Exception as e:
-            print(f"❌ Cohere API Test Failed: {str(e)}")
-
-        # Test Gemini API call before starting the server
-        try:
-            print("Testing Gemini API...")
-            generation_config = {
-                "temperature": 1,
-                "top_p": 0.95,
-                "top_k": 40,
-                "max_output_tokens": 8192,
-                "response_mime_type": "text/plain",
-            }
-
-            model = genai.GenerativeModel(
-                model_name="gemini-2.0-flash", 
-                generation_config=generation_config
-            )
-
-            chat_session = model.start_chat(history=[])
-            response = chat_session.send_message("Hello, Gemini!")
-            print(f"Gemini API Test Successful: {response.text.strip()}")
-        except Exception as e:
-            print(f"❌ Gemini API Test Failed: {str(e)}")
+    logging.basicConfig(level=logging.DEBUG)  # Enable debug logging
     
-    # Start Flask app
+    print("🚀 Starting Mist.AI server...")
+
+    # Test Cohere API call before starting the server
+    try:
+        print("Testing Cohere API...")
+        test_response = cohere_client.generate(
+            model="command-r-plus-08-2024",
+            prompt="Hello, Cohere!",
+            max_tokens=10
+        )
+        print(f"Cohere API Test Successful: {test_response.generations[0].text.strip()}")
+    except Exception as e:
+        print(f"❌ Cohere API Test Failed: {str(e)}")
+
+    # Test Gemini API call before starting the server
+    try:
+        print("Testing Gemini API...")
+        generation_config = {
+            "temperature": 1,
+            "top_p": 0.95,
+            "top_k": 40,
+            "max_output_tokens": 8192,
+            "response_mime_type": "text/plain",
+        }
+
+        model = genai.GenerativeModel(
+            model_name="gemini-2.0-flash", 
+            generation_config=generation_config
+        )
+
+        chat_session = model.start_chat(history=[])
+        response = chat_session.send_message("Hello, Gemini!")
+        print(f"Gemini API Test Successful: {response.text.strip()}")
+    except Exception as e:
+        print(f"❌ Gemini API Test Failed: {str(e)}")
+
+    # ✅ Start Flask app (Only once)
     app.run(debug=True, host="0.0.0.0", port=5000)
