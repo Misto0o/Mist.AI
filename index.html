@@ -28,16 +28,10 @@
         <section class="container chat-container">
             <h1 class="title has-text-white">Mist.AI</h1>
             <div id="chat-box" class="box chat-box"></div>
-
-            <div class="field has-addons">
-                <div class="control is-expanded">
-                    <input class="input is-dark" type="text" id="user-input" placeholder="Type a message..." autocomplete="off">
-                </div>
-                <div class="control">
-                    <button class="button is-success" onclick="sendMessage()">Send</button>
-                </div>
+            <div class="chat-input-container">
+                <button id="slash-button" class="slash-button">/</button>
+                <input class="input is-dark" type="text" id="user-input" placeholder="Type a message..." autocomplete="off">
             </div>
-
             <button class="swap-button" onclick="swapContent('CommandR', '🔄')">
                 <span id="current-option">Gemini</span>
                 <i class="icon" id="current-icon">🔄</i>
