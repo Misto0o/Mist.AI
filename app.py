@@ -40,6 +40,10 @@ def chat():
         if not user_message:
             return jsonify({"error": "Message cannot be empty"}), 400
 
+        # 🔹 Handle special commands
+        if user_message.startswith("/"):
+            return jsonify({"response": handle_command(user_message)})
+
         # Format past messages as a conversation history
         context_text = "\n".join(f"{msg['role']}: {msg['content']}" for msg in chat_context)
         full_prompt = f"{context_text}\nUser: {user_message}\nMist.AI:"
@@ -61,6 +65,35 @@ def chat():
         print(f"❌ Error: {str(e)}")  # Logs errors in Render
         return jsonify({"error": str(e)}), 500
 
+
+def handle_command(command):
+    """Handles special commands like /rps, /flipcoin, /joke, and /riddle."""
+    command = command.lower()
+
+    if command == "/flipcoin":
+        return "🪙 " + random.choice(["Heads!", "Tails!"])
+
+    if command == "/rps":
+        return "✊ ✋ ✌️ I choose: " + random.choice(["Rock 🪨", "Paper 📄", "Scissors ✂️"])
+
+    if command == "/joke":
+        jokes = [
+            "Why don’t programmers like nature? It has too many bugs.",
+            "Why do Java developers wear glasses? Because they don’t see sharp.",
+            "I told my computer I needed a break, and now it won’t stop sending me KitKats."
+        ]
+        return random.choice(jokes)
+
+    if command == "/riddle":
+        riddles = [
+            ("I speak without a mouth and hear without ears. What am I?", "An echo."),
+            ("The more you take, the more you leave behind. What am I?", "Footsteps."),
+            ("What has to be broken before you can use it?", "An egg."),
+        ]
+        riddle = random.choice(riddles)
+        return f"🤔 {riddle[0]}\n\n*Answer: {riddle[1]}*"
+
+    return "❌ Unknown command. Try `/flipcoin`, `/rps`, `/joke`, or `/riddle`."
 
 def get_gemini_response(prompt):
     try:

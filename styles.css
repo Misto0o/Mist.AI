@@ -192,8 +192,80 @@ body {
 .disabled {
     opacity: 0.5;
     background-color: gray;
-    pointer-events: none; /* Prevents button from being clicked */
-    cursor: not-allowed; /* Change cursor to indicate that it's not clickable */
+    pointer-events: none;
+    /* Prevents button from being clicked */
+    cursor: not-allowed;
+    /* Change cursor to indicate that it's not clickable */
+}
+
+/* Chat Input Container */
+.chat-input-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 100%;
+    background: #444;
+    border-radius: 25px;
+    padding: 5px;
+}
+
+/* Chat Input Field */
+#user-input {
+    flex-grow: 1;
+    border: none;
+    background: transparent;
+    color: #ddd;
+    padding: 10px 15px 10px 35px; /* Makes space for the / */
+    font-size: 1rem;
+    outline: none;
+    position: relative;
+    z-index: 2; /* Ensures input stays interactive */
+}
+
+/* Slash Button (Inside the Input, Clickable) */
+.slash-button {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #aaa;
+    font-size: 1.2rem;
+    cursor: pointer;
+    background: none;
+    border: none;
+    z-index: 3; /* Ensures button stays clickable */
+    transition: color 0.2s ease-in-out;
+}
+
+.slash-button:hover {
+    color: #fff;
+}
+
+#command-suggestions {
+    position: absolute;
+    background: #222;
+    color: #fff;
+    border: 1px solid #444;
+    padding: 5px;
+    display: none;
+    z-index: 1000;
+    border-radius: 5px;
+    cursor: pointer;
+    
+    /* ✨ Additional Styles */
+    font-family: 'Arial', sans-serif;
+    font-size: 14px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+    transition: opacity 0.2s ease-in-out;
+}
+
+#command-suggestions .suggestion-item {
+    padding: 8px 12px;
+    transition: background 0.2s;
+}
+
+#command-suggestions .suggestion-item:hover {
+    background: #333;
 }
 
 

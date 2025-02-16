@@ -137,6 +137,8 @@ function swapContent() {
     showNotification(`Model switched to: ${currentModel === 'commandR' ? 'CommandR' : 'Gemini'}`);
     sendMessage(`Model switched to: ${currentModel}`);
 
+
+
     setTimeout(() => {
         isSwapping = false;
         swapButton.classList.remove("disabled");
@@ -152,6 +154,97 @@ function showRandomPrompt() {
 function showFunFact() {
     sendMessage("fun fact");
 }
+
+function showNotification(message) {
+    const notification = document.createElement("div");
+    notification.classList.add("notification");
+    notification.textContent = message;
+    document.body.appendChild(notification);
+
+    gsap.fromTo(notification, { opacity: 0, y: -20 }, {
+        opacity: 1, y: 0, duration: 0.5, ease: "power2.out", onComplete: () => {
+            setTimeout(() => {
+                gsap.to(notification, {
+                    opacity: 0, y: 20, duration: 0.3, ease: "power2.in", onComplete: () => {
+                        notification.remove();
+                    }
+                });
+            }, 2000);
+        }
+    });
+}
+
+const inputField = document.getElementById("user-input");
+const slashButton = document.getElementById("slash-button");
+
+// Create suggestion box dynamically
+const suggestionsBox = document.createElement("div");
+suggestionsBox.id = "command-suggestions";
+suggestionsBox.style.position = "absolute";
+suggestionsBox.style.background = "#222";
+suggestionsBox.style.color = "#fff";
+suggestionsBox.style.border = "1px solid #444";
+suggestionsBox.style.padding = "5px";
+suggestionsBox.style.display = "none";
+suggestionsBox.style.zIndex = "1000";
+suggestionsBox.style.borderRadius = "5px";
+suggestionsBox.style.cursor = "pointer";
+document.body.appendChild(suggestionsBox);
+
+// Command list
+const commands = ["/flipcoin", "/rps", "/joke", "/riddle"];
+
+// Show suggestions when typing "/"
+inputField.addEventListener("input", (e) => {
+    const value = e.target.value;
+    if (value.startsWith("/")) {
+        showSuggestions();
+    } else {
+        suggestionsBox.style.display = "none";
+    }
+});
+
+// Show suggestions when clicking the "/" button
+slashButton.addEventListener("click", (e) => {
+    e.preventDefault(); // Prevent form submission if inside a form
+
+    // Set input field value to "/" only if it's empty
+    if (!inputField.value.startsWith("/")) {
+        inputField.value = "/";
+    }
+
+    inputField.focus(); // Focus input field
+    showSuggestions(); // Show suggestions
+});
+
+// Function to show the suggestions box
+function showSuggestions() {
+    suggestionsBox.innerHTML = commands.map(cmd => `<div class="suggestion-item">${cmd}</div>`).join("");
+
+    // Position suggestion box under the input field
+    const rect = inputField.getBoundingClientRect();
+    suggestionsBox.style.left = `${rect.left}px`;
+    suggestionsBox.style.top = `${rect.bottom + window.scrollY + 5}px`; // Added slight offset for spacing
+
+    suggestionsBox.style.display = "block";
+}
+
+// Click on a suggestion to autofill the input
+suggestionsBox.addEventListener("click", (e) => {
+    if (e.target.classList.contains("suggestion-item")) {
+        inputField.value = e.target.innerText;
+        suggestionsBox.style.display = "none";
+        inputField.focus();
+    }
+});
+
+// Hide suggestions when clicking outside
+document.addEventListener("click", (e) => {
+    if (!inputField.contains(e.target) && !suggestionsBox.contains(e.target) && e.target !== slashButton) {
+        suggestionsBox.style.display = "none";
+    }
+});
+
 
 // Attach event listeners
 document.addEventListener("DOMContentLoaded", function () {
