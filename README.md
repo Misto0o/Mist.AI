@@ -1,60 +1,63 @@
-# ☁️ Mist AI – V2.7.5 Slash Commands & UI Update  
+# ☁️ Mist.AI – V2.8.0 Weather, Easter Eggs & Bug Fixes  
 
-Mist AI is a powerful AI assistant built on **Gemini AI** and **Command R AI**. Designed for precision and depth, it delivers highly detailed and intelligent responses across various topics.  
+Mist.AI is a powerful AI assistant built on **Gemini AI** and **Command R AI**. Designed for precision and depth, it delivers highly detailed and intelligent responses across various topics.  
 
-🚀 **Current Version:** `V2.7.5`  
-📱 **Fully optimized for mobile**  
-⚡ **New Slash Commands (`/`) Added**  
-🔄 **Fixed Swap Command Bugs**  
-🎨 **Improved UI & CSS Styling**  
+🚀 **Current Version:** `V2.8.0`  
+🌦️ **New Weather Fetching Feature**  
+🥚 **Hidden Easter Eggs Added**  
+🔧 **Bug Fixes & UI Enhancements**  
 
 ---
 
-## ✨ Features  
-- ✅ **Powered by Gemini AI** – Delivers in-depth, accurate responses  
-- ✅ **Powered by Cohere/Command R AI** – Faster responses with advanced reasoning and context retention  
+## ✨ What's New?  
+### 🌦️ **Weather Fetching Integration**  
+- Mist.AI can now **fetch live weather updates** based on user input!  
+- Supports city abbreviations like `NYC`, `LA`, and `DC` for faster queries.  
+- Converts between **Celsius** and **Fahrenheit** for global accessibility.  
+
+### 🥚 **Easter Eggs & Fun Responses**  
+- Added hidden **Easter eggs** and inside jokes to make Mist.AI more interactive.  
+- Try asking:  
+  - `"Who's Mist?"`  
+  - `"Up up down down left right left right B A"`  
+  - `"What is the low taper fade meme?"`  
+  - `"JBL speaker"`  
+
+### 🔄 **Bug Fixes & Improvements**  
+- **Fixed AI response handling** for `/chat` API calls.  
+- **Enhanced UI animations** for smoother text input.  
+- **Fixed swap model button glitches**, ensuring a seamless experience.  
+- **Improved command suggestions** for faster `/` command recognition.  
+
+---
+
+## 📌 Features  
+- ✅ **Powered by Gemini AI & Command R AI**  
+- ✅ **Live Weather Fetching** – Real-time weather updates  
+- ✅ **Easter Eggs & Fun Commands** – Hidden jokes and references  
 - ✅ **Mobile Optimized** – Smooth experience across all devices  
-- ✅ **Switch Model Button** – Change the AI model to get different responses  
-- ✅ **Session-Based Memory** – Mist.AI now remembers your conversation while you stay on the page  
-- ✅ **Chat Cooldown Mechanism** – Prevents spam by limiting messages while Mist.AI is typing and enforcing a 5-second cooldown  
+- ✅ **Session-Based Memory** – Mist.AI remembers chats while you're on the page  
+- ✅ **Chat Cooldown** – Prevents spam by limiting messages while Mist.AI is typing  
 - ✅ **Slash Commands (`/`) Support** – Type `/` to get command suggestions  
   - `/flipcoin` – Flips a coin  
   - `/rps` – Play Rock, Paper, Scissors  
   - `/joke` – Get a random joke  
   - `/riddle` – Get a random riddle  
-- ✅ **Better CSS & UI Improvements** – Improved styling for text input, command dropdowns, and animations  
-- ✅ **Zapier Integration** – Server stays up every 2 hours, stopping at 12 AM to preserve API calls and restarting at 10 AM  
-- ✅ **Bug Fixes** – Fixed swap command inconsistencies and improved dropdown behavior  
+- ✅ **Improved UI & CSS** – Better input styling, animations, and dropdown behavior  
 
 ---
 
 ## 🌐 Live Preview  
-🔗 [Mist AI Website](https://mistai.netlify.app)  
-
----
-
-## 📌 How It Works  
-Mist AI processes your queries using **Gemini AI** and **Command R AI**, providing detailed insights with efficiency and accuracy. With **Command R AI** fully integrated, response times are now faster, and Mist.AI can handle even more complex queries.  
-
-### **🆕 Slash Commands (`/`)**  
-Mist.AI now includes a **command suggestion dropdown**. When you type `/`, a list of available commands appears, making it easier to use features like flipping a coin, telling a joke, or playing Rock, Paper, Scissors.  
-
-### **🔄 Swap Command Fixes**  
-- Fixed an issue where switching between AI models didn't work consistently.  
-- The swap button now correctly updates the UI and prevents unintended resets.  
-
-### **🎨 UI & CSS Changes**  
-- Improved the text input box styling for a smoother experience.  
-- Styled the **command dropdown** for better visibility.  
-- Adjusted button alignment and hover effects for better usability.  
+🔗 [Mist.AI Website](https://mistai.netlify.app)  
 
 ---
 
 ## 🛠️ Future Plans  
 - 🔹 **ChatGPT API / Meta support** for enhanced data retrieval  
-- 🔹 **Image Generation** Text To Image intergration  
-- 🔹 **UI/UX improvements** for a smoother experience  
-- 🔹 **More `/` commands** for advanced interactions  
+- 🔹 **Image Generation** – Limit users to 3 images per day  
+- 🔹 **More Easter Eggs** – Fun hidden responses  
+- 🔹 **Enhanced UI/UX** – More intuitive design and animations  
+- 🔹 **Expanded `/` Commands** – More interactive features  
 
 ---
 

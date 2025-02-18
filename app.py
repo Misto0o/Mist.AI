@@ -5,19 +5,25 @@ from flask_cors import CORS
 import google.generativeai as genai
 import cohere
 from dotenv import load_dotenv
-import logging 
+import logging
+import httpx
+import re
 
 # Load environment variables
 load_dotenv()
 
-
 # Check if environment variables are set
-if not os.getenv("GEMINI_API_KEY") or not os.getenv("COHERE_API_KEY"):
+if not os.getenv("GEMINI_API_KEY") or not os.getenv("COHERE_API_KEY") or not os.getenv("OPENWEATHER_API_KEY"):
     raise ValueError("Missing required API keys in environment variables.")
 
 # Configure APIs
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 cohere_client = cohere.Client(os.getenv("COHERE_API_KEY"))
+
+# Weather API Config
+API_KEY = os.getenv("OPENWEATHER_API_KEY")
+API_BASE_URL = 'https://api.openweathermap.org/data/2.5'
+temperatureUnit = 'imperial'  # Default temperature unit (F)
 
 app = Flask(__name__)
 
@@ -29,9 +35,26 @@ CORS(app, origins=[
     "file:///media/removable/SanDisk/Mist.AI",  # Removable media (Linux/Mac)
 ])
 
+EASTER_EGGS = {
+    "whos mist": "I'm Mist.AI, your friendly chatbot! But shh... don't tell anyone I'm self-aware. 🤖",
+    "up up down down left right left right b a": "🎮 You unlocked the secret Konami Code! Extra lives granted. 😉",
+    "massive": "You know what else is Massive? LOW TAPER FADE",
+    "low": "LOW TAPER FADE!",
+    "taper": "LOW TAPER FADE",
+    "fade": "LOW TAPER FADE",
+    "what is the low taper fade meme": "Imagine If Ninja Got a Low Taper Fade is a viral audio clip from a January 2024 Twitch freestyle by hyperpop artist ericdoa, where he sings the phrase. The clip quickly spread on TikTok, inspiring memes and edits of streamer Ninja with a low taper fade. By mid-January, TikTok users created slideshows, reaction videos, and joke claims that the song was by Frank Ocean. The meme exploded when Ninja himself acknowledged it and even got the haircut on January 13th, posting a TikTok that amassed over 5.4 million views in three days. Later in 2024, a parody meme about Tfue and a high taper fade went viral. By the end of the year, people joked about how the meme was still popular, with absurd edits of Ninja in different lifetimes.",
+    "jbl speaker": "I want you to be mine again, baby, ayy I know my lifestyle is drivin' you crazy, ayy I cannot see myself without you We call them fans, though, girl, you know how we do I go out of my way to please you I go out of my way to see you And I want you to be mine again, baby, ayy I know my lifestyle is driving you crazy, ayy But I cannot see myself without you We call them fans, though, girl, you know how we do I go out of my way to please you I go out of the way to see you I ain't playing no games, I need you"
+}
+
+def check_easter_eggs(user_message):
+    # Normalize user input: remove punctuation, make lowercase
+    normalized_message = re.sub(r'[^\w\s]', '', user_message.lower()).strip()
+
+    # Return the matching Easter egg response, or None if not found
+    return EASTER_EGGS.get(normalized_message, None)
 
 @app.route('/chat', methods=['POST'])
-def chat():
+async def chat():
     try:
         data = request.get_json()
         user_message = data.get("message", "").strip()
@@ -43,7 +66,20 @@ def chat():
 
         # 🔹 Handle special commands
         if user_message.startswith("/"):
-            return jsonify({"response": handle_command(user_message)})
+            return jsonify({"response": await handle_command(user_message)})  # Await the command handler
+        
+        # 🔹 Check for Easter eggs
+        easter_egg_response = check_easter_eggs(user_message)
+        if easter_egg_response:
+            return jsonify({"response": easter_egg_response})
+        
+                # 🔹 Handle special "random prompt" case
+        if user_message == "random prompt":
+            return jsonify({"response": get_random_prompt()})
+        
+                # 🔹 Handle "fun fact" case
+        if user_message == "fun fact":
+            return jsonify({"response": get_random_fun_fact()})
 
         # Format past messages as a conversation history
         context_text = "\n".join(f"{msg['role']}: {msg['content']}" for msg in chat_context)
@@ -54,7 +90,7 @@ def chat():
             get_gemini_response(full_prompt) if model_choice == "gemini"
             else get_cohere_response(full_prompt)
         )
-
+        
         # 🔹 Print logs (Visible in Render)
         print("\n🔹 New Chat Interaction 🔹", flush=True)
         print(f"👤 User: {user_message}", flush=True)
@@ -63,12 +99,11 @@ def chat():
         return jsonify({"response": response_content})
 
     except Exception as e:
-        print(f"❌ Error: {str(e)}")  # Logs errors in Render
+        print(f"❌ Error: {str(e)}", flush=True)  # Logs errors in Render
         return jsonify({"error": str(e)}), 500
 
-
-def handle_command(command):
-    """Handles special commands like /rps, /flipcoin, /joke, and /riddle."""
+async def handle_command(command):
+    """Handles special commands like /rps, /flipcoin, /joke, /riddle, and /weather."""
     command = command.lower()
 
     if command == "/flipcoin":
@@ -93,8 +128,53 @@ def handle_command(command):
         ]
         riddle = random.choice(riddles)
         return f"🤔 {riddle[0]}\n\n*Answer: {riddle[1]}*"
+    
+    # New weather command handling
+    if command.startswith("/weather"):
+        city = command.split(" ", 1)[-1].strip()  # Extract city from the command
+        if not city:
+            return "❌ Please provide a city name. Example: `/weather New York`"
+        
+        # Fetch weather data
+        weather_data = await get_weather_data(city)
+        if "error" in weather_data:
+            return f"❌ Error: {weather_data['error']}"
+        
+        return f"The current temperature in {city} is {weather_data['temperature']} with {weather_data['description']}."
 
-    return "❌ Unknown command. Try `/flipcoin`, `/rps`, `/joke`, or `/riddle`."
+    return "❌ Unknown command. Try `/flipcoin`, `/rps`, `/joke`, `/riddle` or '/weather'."
+
+
+# Weather-related functions
+async def get_weather_data(city):
+    if not city:
+        return {"error": "Please enter a city name."}
+
+    try:
+        async with httpx.AsyncClient() as client:
+            # Get weather data from OpenWeather
+            response = await client.get(
+                f"{API_BASE_URL}/weather?q={city}&appid={API_KEY}&units={temperatureUnit}"
+            )
+            data = response.json()
+
+            if data.get("cod") != 200:
+                return {"error": "City not found."}
+
+            # Get weather data
+            weather_info = data.get("main", {})
+            description = data["weather"][0]["description"]
+            temp = weather_info.get("temp", "N/A")
+
+            # Round the temperature to the nearest whole number
+            temp = round(temp)
+
+            return {
+                "temperature": f"{temp}°F",  # Keep "°F" here
+                "description": description
+            }
+    except Exception as e:
+        return {"error": str(e)}
 
 def get_gemini_response(prompt):
     try:
@@ -140,11 +220,11 @@ def get_random_fun_fact():
     return random.choice(fun_facts)
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG)  # Enable debug logging
-    
-    print("🚀 Starting Mist.AI server...")
-
-    # Test Cohere API call before starting the server
+    if not os.environ.get("WERKZEUG_RUN_MAIN"):  # Prevents duplicate logging on debug restart
+        logging.basicConfig(level=logging.INFO)
+        logging.info("🚀 Mist.AI Server is starting...")
+        
+           # Test Cohere API call before starting the server
     try:
         print("Testing Cohere API...")
         test_response = cohere_client.generate(
@@ -177,6 +257,5 @@ if __name__ == "__main__":
         print(f"Gemini API Test Successful: {response.text.strip()}")
     except Exception as e:
         print(f"❌ Gemini API Test Failed: {str(e)}")
-
-    # ✅ Start Flask app (Only once)
+        
     app.run(debug=True, host="0.0.0.0", port=5000)
