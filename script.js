@@ -137,22 +137,10 @@ function swapContent() {
     showNotification(`Model switched to: ${currentModel === 'commandR' ? 'CommandR' : 'Gemini'}`);
     sendMessage(`Model switched to: ${currentModel}`);
 
-
-
     setTimeout(() => {
         isSwapping = false;
         swapButton.classList.remove("disabled");
     }, 1300); // 1.3s cooldown
-}
-
-// Function to show a random prompt
-function showRandomPrompt() {
-    sendMessage("random prompt");
-}
-
-// Function to show a fun fact
-function showFunFact() {
-    sendMessage("fun fact");
 }
 
 function showNotification(message) {
@@ -192,7 +180,7 @@ suggestionsBox.style.cursor = "pointer";
 document.body.appendChild(suggestionsBox);
 
 // Command list
-const commands = ["/flipcoin", "/rps", "/joke", "/riddle"];
+const commands = ["/flipcoin", "/rps", "/joke", "/riddle", "/weather"];
 
 // Show suggestions when typing "/"
 inputField.addEventListener("input", (e) => {
@@ -253,6 +241,16 @@ document.addEventListener("DOMContentLoaded", function () {
         if (event.key === "Enter") sendMessage();
     });
 });
+
+// Function to show a random prompt
+function showRandomPrompt() {
+    sendMessage("random prompt");
+}
+
+// Function to show a fun fact
+function showFunFact() {
+    sendMessage("fun fact");
+}
 
 // Handle window resize
 window.addEventListener('resize', () => {
