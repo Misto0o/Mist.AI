@@ -7,10 +7,9 @@ body {
     height: 100vh;
 }
 
-/* Main Layout */
-.main-container {
-    display: flex;
-    height: 100vh;
+/* Theme transition animation */
+html {
+    transition: background-color 0.8s ease-in-out, color 0.8s ease-in-out;
 }
 
 /* Sidebar */
@@ -286,7 +285,7 @@ body {
 
     /* Chat Box */
     .chat-box {
-        height: calc(100vh - 120px);
+        height: calc(100vh - 180px);
         /* Adjust height to fill space between header and bottom sidebar */
         border-radius: 12px;
         padding: 15px;
