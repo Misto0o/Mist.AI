@@ -252,6 +252,150 @@ function showFunFact() {
     sendMessage("fun fact");
 }
 
+document.addEventListener("DOMContentLoaded", function () {
+    const themeSelect = document.getElementById("theme-select");
+
+    themeSelect.addEventListener("change", function () {
+        const selectedTheme = themeSelect.value;
+        
+        // Create the swipe effect
+        gsap.to("body", {
+            x: "100%",
+            opacity: 0,
+            duration: 0.3,
+            onComplete: () => {
+                // Remove existing theme classes
+                document.body.classList.remove("light-theme", "blue-theme", "midnight-theme", "cyberpunk-theme", "arctic-theme", "terminal-theme", "sunset-theme", "konami-theme");
+                // Apply the new theme
+                if (selectedTheme !== "dark") {
+                    document.body.classList.add(`${selectedTheme}-theme`);
+                }
+
+                // Animate back in
+                gsap.fromTo("body", { x: "-100%", opacity: 0 }, { x: "0%", opacity: 1, duration: 0.3 });
+            }
+        });
+    });
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+    const konamiCodeArrow = [
+        "ArrowUp", "ArrowUp", "ArrowDown", "ArrowDown",
+        "ArrowLeft", "ArrowRight", "ArrowLeft", "ArrowRight", "b", "a"
+    ];
+    const konamiCodeText = "up up down down left right left right b a start"; // Text sequence
+    let konamiInputArrow = [];
+    let textInput = ""; // For the typed Konami code
+
+    function checkKonamiCodeArrow(e) {
+        konamiInputArrow.push(e.key);
+    
+        if (konamiInputArrow.length > konamiCodeArrow.length) {
+            konamiInputArrow.shift(); // Remove the first item if the sequence is too long
+        }
+    
+        if (JSON.stringify(konamiInputArrow) === JSON.stringify(konamiCodeArrow)) {
+            unlockKonamiCode();
+            konamiInputArrow = []; // Reset after unlocking
+        }
+    }
+    
+
+    // Function to check for the Konami Code (text input)
+    function checkTextKonamiCode(e) {
+        if (e.key === 'Backspace') {
+            textInput = textInput.slice(0, -1); // Remove last character on backspace
+        } else if (e.key.length === 1) {
+            textInput += e.key.toLowerCase(); // Add typed character to input
+        }
+
+        if (textInput === konamiCodeText) {
+            unlockKonamiCode();
+            textInput = ''; // Reset text input after unlocking
+        }
+    }
+
+    // Function to unlock the Konami code
+    function unlockKonamiCode() {
+        console.log("Konami Code Detected!");
+
+        // Apply Konami theme
+        document.body.classList.add('konami-theme');
+        console.log("Konami theme applied!");
+
+        // Clear the input field after the code is entered
+        const userInput = document.getElementById('user-input');
+        if (userInput) {
+            userInput.value = ''; // Clear the input field
+        }
+
+        // Send a special message to the chat
+        sendChatMessage("🎮 You unlocked the secret Konami Code! Extra lives granted (Check Themes). 😉");
+
+        // Show the Konami theme in the dropdown
+        const konamiOption = document.getElementById('konami-option');
+        if (konamiOption) {
+            konamiOption.style.display = 'block'; // Make the Konami theme option visible
+        }
+    }
+
+    // Listen for keypresses to check for Konami code (arrow keys)
+    window.addEventListener('keydown', checkKonamiCodeArrow);
+
+    // Listen for text input in the chat input field
+    const userInput = document.getElementById('user-input');
+    if (userInput) {
+        userInput.addEventListener('keyup', checkTextKonamiCode); // Using 'keyup' to check input after key release
+    }
+});
+
+// Function to send chat messages (you can customize this to match your chat UI setup)
+function sendChatMessage(message) {
+    const chatBox = document.getElementById('chat-box');
+    if (chatBox) {
+        // Create a new div element for the message
+        const messageDiv = document.createElement('div');
+        messageDiv.classList.add('chat-message');
+        messageDiv.textContent = message;
+
+        // Append the message to the chat box
+        chatBox.appendChild(messageDiv);
+
+        // Scroll to the bottom of the chat (optional)
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+}
+
+// Function to send chat messages (you can customize this to match your chat UI setup)
+function sendChatMessage(message) {
+    const chatBox = document.getElementById('chat-box');
+    if (chatBox) {
+        // Create a new div element for the message
+        const messageDiv = document.createElement('div');
+        messageDiv.classList.add('chat-message');
+        messageDiv.textContent = message;
+
+        // Append the message to the chat box
+        chatBox.appendChild(messageDiv);
+
+        // Scroll to the bottom of the chat (optional)
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+}
+
+// Function to send a message back to the chat (or backend)
+function sendChatMessage(message) {
+    // Example of sending the message to the chat
+    const chatBox = document.getElementById('chat-box');
+    const newMessage = document.createElement('div');
+    newMessage.classList.add('chat-message');
+    const messageDiv = document.createElement('div');
+    messageDiv.classList.add('chat-message', 'konami-message');  // Add 'konami-message' class
+    messageDiv.textContent = message;
+    newMessage.textContent = message;
+    chatBox.appendChild(newMessage);
+}
+
 // Handle window resize
 window.addEventListener('resize', () => {
     const modelContainer = document.getElementById("model-container");

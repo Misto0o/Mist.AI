@@ -1,0 +1,805 @@
+/* THEMED CHAT MESSAGES */
+.light-theme .user-message {
+    background-color: #1565C0;
+}
+
+.light-theme .bot-message {
+    background-color: #ddd;
+    color: #222;
+}
+
+.blue-theme .user-message {
+    background-color: #64ffda;
+    color: #0d47a1;
+}
+
+.blue-theme .bot-message {
+    background-color: #1565C0;
+}
+
+/* Midnight Blue Theme */
+.midnight-theme .user-message {
+    background-color: #2563EB;
+    color: #D1D5DB;
+}
+
+.midnight-theme .bot-message {
+    background-color: #1E293B;
+    color: #E5E7EB;
+}
+
+/* Cyberpunk Neon Theme */
+.cyberpunk-theme .user-message {
+    background-color: #FF4081;
+    color: #1A1A2E;
+}
+
+.cyberpunk-theme .bot-message {
+    background-color: #00E5FF;
+    color: #1A1A2E;
+}
+
+/* Arctic Frost Theme */
+.arctic-theme .user-message {
+    background-color: #64B5F6;
+    color: #1E3A5F;
+}
+
+.arctic-theme .bot-message {
+    background-color: #E3F2FD;
+    color: #1E3A5F;
+}
+
+/* Retro Terminal Theme */
+.terminal-theme .user-message {
+    background-color: #00FF41;
+    color: #0D1B0D;
+}
+
+.terminal-theme .bot-message {
+    background-color: #008F11;
+    color: #E0E0E0;
+}
+
+/* Sunset Dusk Theme */
+.sunset-theme .user-message {
+    background-color: #FF8C42;
+    color: #2C1E3D;
+}
+
+.sunset-theme .bot-message {
+    background-color: #D7263D;
+    color: #FDE68A;
+}
+
+/* Sidebar */
+.sidebar {
+    padding: 15px;
+    border-radius: 10px;
+    border-left: 5px solid transparent;
+}
+
+/* Themed Sidebar */
+.light-theme .sidebar {
+    background-color: #f5f5f5;
+    border-left-color: #1565C0;
+    color: #222;
+}
+
+.blue-theme .sidebar {
+    background-color: #E0F7FA;
+    border-left-color: #64ffda;
+    color: #0d47a1;
+}
+
+.midnight-theme .sidebar {
+    background-color: #1E293B;
+    border-left-color: #2563EB;
+    color: #D1D5DB;
+}
+
+.cyberpunk-theme .sidebar {
+    background-color: #1A1A2E;
+    border-left-color: #FF4081;
+    color: #FF4081;
+}
+
+.arctic-theme .sidebar {
+    background-color: #E3F2FD;
+    border-left-color: #64B5F6;
+    color: #1E3A5F;
+}
+
+.terminal-theme .sidebar {
+    background-color: #0D1B0D;
+    border-left-color: #00FF41;
+    color: #00FF41;
+}
+
+.sunset-theme .sidebar {
+    background-color: #2C1E3D;
+    border-left-color: #FF8C42;
+    color: #FF8C42;
+}
+
+/* Chat Input */
+.chat-input-container {
+    background: #444;
+    border-radius: 25px;
+    padding: 5px;
+    border: 2px solid transparent;
+}
+
+/* Themed Chat Input */
+.light-theme .chat-input-container {
+    background: #ddd;
+    color: #222;
+    border-color: #1565C0;
+}
+
+.blue-theme .chat-input-container {
+    background: #1976d2;
+    border-color: #64ffda;
+}
+
+.midnight-theme .chat-input-container {
+    background: #1E293B;
+    border-color: #2563EB;
+}
+
+.cyberpunk-theme .chat-input-container {
+    background: #FF4081;
+    color: #1A1A2E;
+    border-color: #00E5FF;
+}
+
+.arctic-theme .chat-input-container {
+    background: #E3F2FD;
+    color: #1E3A5F;
+    border-color: #64B5F6;
+}
+
+.terminal-theme .chat-input-container {
+    background: #0D1B0D;
+    color: #00FF41;
+    border-color: #00FF41;
+}
+
+.sunset-theme .chat-input-container {
+    background: #2C1E3D;
+    border-color: #FF8C42;
+}
+
+.light-theme .button {
+    background-color: #1976d2;
+    color: white;
+    border-color: #1565C0;
+}
+
+.blue-theme .button {
+    background-color: #64ffda;
+    color: #0d47a1;
+    border-color: #64ffda;
+}
+
+.midnight-theme .button {
+    background-color: #4F46E5;
+    color: white;
+    border-color: #2563EB;
+}
+
+.cyberpunk-theme .button {
+    background-color: #00E5FF;
+    color: #1A1A2E;
+    border-color: #FF4081;
+}
+
+.arctic-theme .button {
+    background-color: #64B5F6;
+    color: #1E3A5F;
+    border-color: #E3F2FD;
+}
+
+.terminal-theme .button {
+    background-color: #00FF41;
+    color: #0D1B0D;
+    border-color: #008F11;
+}
+
+.sunset-theme .button {
+    background-color: #FF8C42;
+    color: #2C1E3D;
+    border-color: #D7263D;
+}
+
+/* Chat Bubbles */
+.user-message, .bot-message {
+    border-radius: 15px;
+    padding: 10px;
+    border: 2px solid transparent;
+}
+
+/* Themed Chat Borders */
+.light-theme .user-message, .light-theme .bot-message {
+    border-color: #1565C0;
+}
+
+.blue-theme .user-message, .blue-theme .bot-message {
+    border-color: #64ffda;
+}
+
+.midnight-theme .user-message, .midnight-theme .bot-message {
+    border-color: #2563EB;
+}
+
+.cyberpunk-theme .user-message, .cyberpunk-theme .bot-message {
+    border-color: #FF4081;
+}
+
+.arctic-theme .user-message, .arctic-theme .bot-message {
+    border-color: #64B5F6;
+}
+
+.terminal-theme .user-message, .terminal-theme .bot-message {
+    border-color: #00FF41;
+}
+
+.sunset-theme .user-message, .sunset-theme .bot-message {
+    border-color: #FF8C42;
+}
+
+.chat-box::-webkit-scrollbar-thumb {
+    background-color: #444;
+}
+
+.light-theme .chat-box::-webkit-scrollbar-thumb {
+    background-color: #aaa;
+}
+
+.blue-theme .chat-box::-webkit-scrollbar-thumb {
+    background-color: #64ffda;
+}
+
+.midnight-theme .chat-box::-webkit-scrollbar-thumb {
+    background-color: #4F46E5;
+}
+
+.cyberpunk-theme .chat-box::-webkit-scrollbar-thumb {
+    background-color: #FF4081;
+}
+
+.arctic-theme .chat-box::-webkit-scrollbar-thumb {
+    background-color: #64B5F6;
+}
+
+.terminal-theme .chat-box::-webkit-scrollbar-thumb {
+    background-color: #00FF41;
+}
+
+.sunset-theme .chat-box::-webkit-scrollbar-thumb {
+    background-color: #FF8C42;
+}
+
+/* THEMED TITLE */
+.title {
+    font-weight: bold;
+}
+
+/* Light Theme */
+.light-theme .title {
+    color: #1565C0 !important;
+}
+
+/* Blue Theme */
+.blue-theme .title {
+    color: #64ffda !important;
+}
+
+/* Midnight Theme */
+.midnight-theme .title {
+    color: #2563EB !important;
+}
+
+/* Cyberpunk Theme */
+.cyberpunk-theme .title {
+    color: #FF4081 !important;
+}
+
+/* Arctic Theme */
+.arctic-theme .title {
+    color: #64B5F6 !important;
+}
+
+/* Terminal Theme */
+.terminal-theme .title {
+    color: #00FF41 !important;
+}
+
+/* Sunset Theme */
+.sunset-theme .title {
+    color: #FF8C42 !important;
+}
+
+/* THEMED MENU LABEL */
+.menu-label {
+    font-size: 1.2rem;
+    font-weight: bold;
+    text-align: center;
+}
+
+/* Light Theme */
+.light-theme .menu-label {
+    color: #1565C0 !important;
+}
+
+/* Blue Theme */
+.blue-theme .menu-label {
+    color: #64ffda !important;
+}
+
+/* Midnight Theme */
+.midnight-theme .menu-label {
+    color: #2563EB !important;
+}
+
+/* Cyberpunk Theme */
+.cyberpunk-theme .menu-label {
+    color: #FF4081 !important;
+}
+
+/* Arctic Theme */
+.arctic-theme .menu-label {
+    color: #64B5F6 !important;
+}
+
+/* Terminal Theme */
+.terminal-theme .menu-label {
+    color: #00FF41 !important;
+}
+
+/* Sunset Theme */
+.sunset-theme .menu-label {
+    color: #FF8C42 !important;
+}
+
+/* THEMED MENU LIST */
+.menu-list a {
+    display: block;
+    padding: 8px 15px;
+    border-radius: 8px;
+    transition: background-color 0.3s, color 0.3s;
+    font-weight: 500;
+}
+
+/* Light Theme */
+.light-theme .menu-list a {
+    color: #1565C0;
+}
+
+.light-theme .menu-list a:hover {
+    background-color: #1565C0;
+    color: white;
+}
+
+/* Blue Theme */
+.blue-theme .menu-list a {
+    color: #64ffda;
+}
+
+.blue-theme .menu-list a:hover {
+    background-color: #64ffda;
+    color: #0d47a1;
+}
+
+/* Midnight Theme */
+.midnight-theme .menu-list a {
+    color: #2563EB;
+}
+
+.midnight-theme .menu-list a:hover {
+    background-color: #2563EB;
+    color: white;
+}
+
+/* Cyberpunk Theme */
+.cyberpunk-theme .menu-list a {
+    color: #FF4081;
+}
+
+.cyberpunk-theme .menu-list a:hover {
+    background-color: #FF4081;
+    color: #1A1A2E;
+}
+
+/* Arctic Theme */
+.arctic-theme .menu-list a {
+    color: #64B5F6;
+}
+
+.arctic-theme .menu-list a:hover {
+    background-color: #64B5F6;
+    color: #1E3A5F;
+}
+
+/* Terminal Theme */
+.terminal-theme .menu-list a {
+    color: #00FF41;
+}
+
+.terminal-theme .menu-list a:hover {
+    background-color: #00FF41;
+    color: #0D1B0D;
+}
+
+/* Sunset Theme */
+.sunset-theme .menu-list a {
+    color: #FF8C42;
+}
+
+.sunset-theme .menu-list a:hover {
+    background-color: #FF8C42;
+    color: #2C1E3D;
+}
+
+/* === SWAP BUTTON THEMING === */
+.swap-button {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 8px 12px;
+    border-radius: 20px;
+    border: 2px solid transparent;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background 0.3s, color 0.3s, border-color 0.3s;
+}
+
+.light-theme .swap-button {
+    background-color: #1976d2;
+    color: white;
+    border-color: #1565C0;
+}
+
+.blue-theme .swap-button {
+    background-color: #64ffda;
+    color: #0d47a1;
+    border-color: #64ffda;
+}
+
+.midnight-theme .swap-button {
+    background-color: #4F46E5;
+    color: white;
+    border-color: #2563EB;
+}
+
+.cyberpunk-theme .swap-button {
+    background-color: #00E5FF;
+    color: #1A1A2E;
+    border-color: #FF4081;
+}
+
+.arctic-theme .swap-button {
+    background-color: #64B5F6;
+    color: #1E3A5F;
+    border-color: #E3F2FD;
+}
+
+.terminal-theme .swap-button {
+    background-color: #00FF41;
+    color: #0D1B0D;
+    border-color: #008F11;
+}
+
+.sunset-theme .swap-button {
+    background-color: #FF8C42;
+    color: #2C1E3D;
+    border-color: #D7263D;
+}
+
+.swap-button:hover {
+    opacity: 0.8;
+}
+
+/* === THEMED MENU LIST === */
+.menu-list a {
+    display: block;
+    padding: 8px 15px;
+    border-radius: 8px;
+    font-weight: 500;
+    transition: background-color 0.3s, color 0.3s, transform 0.2s ease-in-out;
+}
+
+.menu-list a:hover {
+    transform: scale(1.05);
+}
+
+/* Light Theme */
+.light-theme .menu-list a {
+    color: #1565C0;
+}
+
+.light-theme .menu-list a:hover {
+    background-color: #1565C0;
+    color: white;
+}
+
+/* Blue Theme */
+.blue-theme .menu-list a {
+    color: #64ffda;
+}
+
+.blue-theme .menu-list a:hover {
+    background-color: #64ffda;
+    color: #0d47a1;
+}
+
+/* Midnight Theme */
+.midnight-theme .menu-list a {
+    color: #2563EB;
+}
+
+.midnight-theme .menu-list a:hover {
+    background-color: #2563EB;
+    color: white;
+}
+
+/* Cyberpunk Theme */
+.cyberpunk-theme .menu-list a {
+    color: #FF4081;
+}
+
+.cyberpunk-theme .menu-list a:hover {
+    background-color: #FF4081;
+    color: #1A1A2E;
+}
+
+/* Arctic Theme */
+.arctic-theme .menu-list a {
+    color: #64B5F6;
+}
+
+.arctic-theme .menu-list a:hover {
+    background-color: #64B5F6;
+    color: #1E3A5F;
+}
+
+/* Terminal Theme */
+.terminal-theme .menu-list a {
+    color: #00FF41;
+}
+
+.terminal-theme .menu-list a:hover {
+    background-color: #00FF41;
+    color: #0D1B0D;
+}
+
+/* Sunset Theme */
+.sunset-theme .menu-list a {
+    color: #FF8C42;
+}
+
+.sunset-theme .menu-list a:hover {
+    background-color: #FF8C42;
+    color: #2C1E3D;
+}
+
+
+.theme-container {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: rgba(0, 0, 0, 0.7);
+    padding: 8px 12px;
+    border-radius: 5px;
+    z-index: 10;
+}
+
+.theme-container label {
+    color: white;
+    font-size: 14px;
+    margin-right: 5px;
+}
+
+#theme-select {
+    background: #333;
+    color: white;
+    border: 1px solid white;
+    border-radius: 4px;
+    padding: 3px 6px;
+    font-size: 14px;
+}
+
+/* Main Layout */
+.main-container {
+    display: flex;
+    height: 100vh;
+}
+
+/* Konami Code Theme - Retro Arcade Colors */
+.konami-theme .user-message {
+    background-color: #FF3131;  /* Electric Red for user messages */
+    color: #fff;
+}
+
+#konami-option {
+    display: block;
+}
+
+.konami-theme .bot-message {
+    background-color: #0D1B2A;  /* Dark Blue for bot messages */
+    color: #00FFFF;  /* Neon Cyan text */
+}
+
+/* Sidebar */
+.konami-theme .sidebar {
+    background-color: #111;  /* Deep black for arcade vibes */
+    border-left-color: #FF3131;
+    color: #FFD700;  /* Bright Yellow text */
+}
+
+/* Themed Chat Input */
+.konami-theme .chat-input-container {
+    background: #111;
+    color: #FFD700;
+    border-color: #FF3131;
+}
+
+/* Buttons */
+.konami-theme .button {
+    background-color: #FF3131;
+    color: white;
+    border-color: #FF3131;
+}
+
+.konami-theme .button:hover {
+    background-color: #FFD700; /* Bright Yellow on hover */
+    color: #111;
+}
+
+/* Chat Bubbles */
+.konami-theme .user-message, .konami-theme .bot-message {
+    border-color: #FF3131;
+}
+
+/* Themed Menu */
+.konami-theme .menu-list a {
+    color: #00FFFF;
+    background-color: #0D1B2A;
+}
+
+.konami-theme .menu-list a:hover {
+    background-color: #FF3131;
+    color: #fff;
+}
+
+/* Themed Swap Button */
+.konami-theme .swap-button {
+    background-color: #FF3131;
+    color: white;
+    border-color: #FF3131;
+}
+
+.konami-theme .swap-button:hover {
+    background-color: #00FFFF;
+    color: #111;
+}
+
+/* Title & Menu Label */
+.konami-theme .title, 
+.konami-theme .menu-label {
+    color: #FFD700 !important; /* Gold for that retro glow */
+}
+
+/* Glowing Effect for Retro Feel */
+@keyframes neonGlow {
+    0% { text-shadow: 0 0 5px #00FFFF, 0 0 10px #00FFFF, 0 0 20px #00FFFF; }
+    50% { text-shadow: 0 0 10px #FFD700, 0 0 20px #FFD700, 0 0 30px #FFD700; }
+    100% { text-shadow: 0 0 5px #00FFFF, 0 0 10px #00FFFF, 0 0 20px #00FFFF; }
+}
+
+.konami-theme .title {
+    animation: neonGlow 1.5s infinite alternate;
+}
+
+.konami-theme .chat-message {
+    background-color: #ffcc00; /* Bright yellow for retro vibes */
+    color: #000; /* Black text for contrast */
+    font-weight: bold;
+    font-family: 'Press Start 2P', cursive; /* Arcade-style font */
+    padding: 10px;
+    border-radius: 8px;
+    border: 2px solid #ff5722; /* Konami orange */
+    box-shadow: 0px 0px 10px rgba(255, 87, 34, 0.8);
+    animation: konami-glow 1s infinite alternate ease-in-out;
+}
+
+/* Optional: Add a glowing effect */
+@keyframes konami-glow {
+    0% {
+        box-shadow: 0px 0px 10px rgba(255, 87, 34, 0.8);
+    }
+    100% {
+        box-shadow: 0px 0px 20px rgba(255, 255, 0, 1);
+    }
+}
+
+/* 📱 Responsive Chat Container */
+@media (max-width: 768px) {
+
+    /* Chat Container */
+    .chat-container {
+        margin-left: 0;
+        /* Remove left margin for small screens */
+        margin-bottom: 250px;
+        /* Make space for the fixed sidebar */
+        padding: 10px;
+        flex-direction: column;
+        justify-content: flex-start;
+        align-items: stretch;
+    }
+
+    /* Chat Box */
+    .chat-box {
+        height: calc(100vh - 180px);
+        /* Adjust height to fill space between header and bottom sidebar */
+        border-radius: 12px;
+        padding: 15px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+        box-shadow: 0px 6px 15px rgba(0, 0, 0, 0.2);
+    }
+
+    .sidebar {
+        width: 100%;
+        height: 120px;
+        /* Set height instead of full-screen */
+        position: absolute;
+        bottom: 0;
+        top: auto;
+        /* Remove from top */
+        left: 0;
+        flex-direction: row;
+        /* Align items in a row */
+        justify-content: space-around;
+        /* Evenly distribute items */
+        padding: 10px 0;
+        border-top: 2px solid rgba(255, 255, 255, 0.1);
+        border-right: none;
+        overflow-x: auto;
+        white-space: nowrap;
+    }
+
+    .menu-label {
+        font-size: 1.2rem !important;
+        display: block;
+        line-height: 1.4;
+        white-space: pre-wrap;
+    }
+
+    .menu-list {
+        display: flex;
+        flex-direction: row;
+        justify-content: space-between;
+        width: 100%;
+        padding: 0;
+        font-size: 1.2rem;
+    }
+
+    .menu-list li {
+        display: inline-block;
+        margin: 0 10px;
+    }
+
+    .menu-list a {
+        font-size: 14px;
+        padding: 8px 12px;
+        text-align: center;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 5px;
+        transition: all 0.3s ease;
+    }
+}
