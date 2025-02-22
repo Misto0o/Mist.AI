@@ -67,7 +67,7 @@ def analyze_image(image_data):
         return f"❌ Image analysis error: {str(e)}"
 
 @app.route('/chat', methods=['POST', 'GET'])
-async def chat():
+def chat():
     """Handle chat requests, including test pings."""
     try:
         if request.method == "GET":
@@ -78,15 +78,18 @@ async def chat():
         if not data:
             return jsonify({"error": "Invalid request data"}), 400
 
-        user_message = data.get("message", "").strip()
+        user_message = data.get("content", "").strip()  # FIXED: Changed "message" to "content"
         model_choice = data.get("model", "gemini")
+
+        if not user_message:
+            return jsonify({"error": "Invalid input: 'content' argument must not be empty."}), 400
 
         # Easter Egg Check
         if (response := check_easter_eggs(user_message)):
             return jsonify({"response": response})
 
         # Get AI response
-        response_content = get_gemini_response(user_message) if model_choice == "gemini" else get_cohere_response(user_message)
+        response_content = get_gemini_response(user_message) if "gemini" in model_choice else get_cohere_response(user_message)
         return jsonify({"response": response_content})
 
     except Exception as e:
