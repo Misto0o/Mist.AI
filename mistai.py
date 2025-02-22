@@ -67,33 +67,47 @@ def analyze_image(image_data):
         return f"❌ Image analysis error: {str(e)}"
 
 @app.route('/chat', methods=['POST', 'GET'])
-def chat():
+async def chat():
     """Handle chat requests, including test pings."""
     try:
         if request.method == "GET":
-            return jsonify({"status": "🟢 Mist.AI is awake!"}), 200  # Simple response for GET
+            # Check if Mist.AI is really online
+            ai_status = check_ai_services()  # Custom function to check status
+            if not ai_status:
+                return jsonify({"status": "🔴 Mist.AI is OFFLINE"}), 503
+            return jsonify({"status": "🟢 Mist.AI is awake!"}), 200  # Online
         
         # **Handle JSON Text Chat**
         data = request.get_json()
         if not data:
             return jsonify({"error": "Invalid request data"}), 400
 
-        user_message = data.get("content", "").strip()  # FIXED: Changed "message" to "content"
+        # Support both "message" and "content"
+        user_message = data.get("message", data.get("content", "")).strip()
         model_choice = data.get("model", "gemini")
 
         if not user_message:
-            return jsonify({"error": "Invalid input: 'content' argument must not be empty."}), 400
+            return jsonify({"error": "Invalid input: 'message' or 'content' argument must not be empty."}), 400
 
         # Easter Egg Check
         if (response := check_easter_eggs(user_message)):
             return jsonify({"response": response})
 
         # Get AI response
-        response_content = get_gemini_response(user_message) if "gemini" in model_choice else get_cohere_response(user_message)
+        response_content = get_gemini_response(user_message) if model_choice == "gemini" else get_cohere_response(user_message)
         return jsonify({"response": response_content})
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+def check_ai_services():
+    """Check if AI services (Gemini/Cohere) are responsive."""
+    try:
+        test_response = get_gemini_response("ping")  # Test Gemini
+        return bool(test_response)  # If response exists, AI is online
+    except:
+        return False  # AI is offline
 
 async def handle_command(command):
     """Handles special commands like /rps, /flipcoin, /joke, /riddle, and /weather."""
