@@ -8,6 +8,8 @@ from dotenv import load_dotenv
 import logging
 import httpx
 import re
+from google.cloud import vision
+import base64
 
 # Load environment variables
 load_dotenv()
@@ -19,14 +21,14 @@ if not os.getenv("GEMINI_API_KEY") or not os.getenv("COHERE_API_KEY") or not os.
 # Configure APIs
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 cohere_client = cohere.Client(os.getenv("COHERE_API_KEY"))
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
 
 # Weather API Config
 API_KEY = os.getenv("OPENWEATHER_API_KEY")
 API_BASE_URL = 'https://api.openweathermap.org/data/2.5'
-temperatureUnit = 'imperial'  # Default temperature unit (F)
+temperatureUnit = 'imperial'
 
 app = Flask(__name__)
-
 CORS(app, origins=[
     "http://127.0.0.1:5500",  # Local dev environment
     "https://mist-ai-64pc.onrender.com",  # Render deployment
@@ -49,59 +51,45 @@ EASTER_EGGS = {
 }
 
 def check_easter_eggs(user_message):
-    # Normalize user input: remove punctuation, make lowercase
     normalized_message = re.sub(r'[^\w\s]', '', user_message.lower()).strip()
-
-    # Return the matching Easter egg response, or None if not found
     return EASTER_EGGS.get(normalized_message, None)
 
-@app.route('/chat', methods=['POST'])
-async def chat():
+def analyze_image(image_data):
+    """Analyze image using Google Vision API."""
     try:
+        image_content = base64.b64decode(image_data.split(",")[1]) if isinstance(image_data, str) else image_data
+        client = vision.ImageAnnotatorClient()
+        image = vision.Image(content=image_content)
+        response = client.label_detection(image=image)
+        labels = [label.description for label in response.label_annotations]
+        return f"Detected objects: {', '.join(labels)}" if labels else "No objects detected."
+    except Exception as e:
+        return f"❌ Image analysis error: {str(e)}"
+
+@app.route('/chat', methods=['POST', 'GET'])
+async def chat():
+    """Handle chat requests, including test pings."""
+    try:
+        if request.method == "GET":
+            return jsonify({"status": "🟢 Mist.AI is awake!"}), 200  # Simple response for GET
+        
+        # **Handle JSON Text Chat**
         data = request.get_json()
+        if not data:
+            return jsonify({"error": "Invalid request data"}), 400
+
         user_message = data.get("message", "").strip()
-        chat_context = data.get("context", [])  # Get past messages
         model_choice = data.get("model", "gemini")
 
-        if not user_message:
-            return jsonify({"error": "Message cannot be empty"}), 400
-
-        # 🔹 Handle special commands
-        if user_message.startswith("/"):
-            return jsonify({"response": await handle_command(user_message)})  # Await the command handler
-        
-        # 🔹 Check for Easter eggs
-        easter_egg_response = check_easter_eggs(user_message)
-        if easter_egg_response:
-            return jsonify({"response": easter_egg_response})
-        
-                # 🔹 Handle special "random prompt" case
-        if user_message == "random prompt":
-            return jsonify({"response": get_random_prompt()})
-        
-                # 🔹 Handle "fun fact" case
-        if user_message == "fun fact":
-            return jsonify({"response": get_random_fun_fact()})
-
-        # Format past messages as a conversation history
-        context_text = "\n".join(f"{msg['role']}: {msg['content']}" for msg in chat_context)
-        full_prompt = f"{context_text}\nUser: {user_message}\nMist.AI:"
+        # Easter Egg Check
+        if (response := check_easter_eggs(user_message)):
+            return jsonify({"response": response})
 
         # Get AI response
-        response_content = (
-            get_gemini_response(full_prompt) if model_choice == "gemini"
-            else get_cohere_response(full_prompt)
-        )
-        
-        # 🔹 Print logs (Visible in Render)
-        print("\n🔹 New Chat Interaction 🔹", flush=True)
-        print(f"👤 User: {user_message}", flush=True)
-        print(f"🤖 Mist.AI ({model_choice}): {response_content}\n", flush=True)
-
+        response_content = get_gemini_response(user_message) if model_choice == "gemini" else get_cohere_response(user_message)
         return jsonify({"response": response_content})
 
     except Exception as e:
-        print(f"❌ Error: {str(e)}", flush=True)  # Logs errors in Render
         return jsonify({"error": str(e)}), 500
 
 async def handle_command(command):
@@ -146,6 +134,23 @@ async def handle_command(command):
 
     return "❌ Unknown command. Try `/flipcoin`, `/rps`, `/joke`, `/riddle` or '/weather'."
 
+def get_gemini_response(prompt):
+    try:
+        model = genai.GenerativeModel("gemini-2.0-flash")
+        chat_session = model.start_chat(history=[])
+        response = chat_session.send_message(prompt)
+        return response.text.strip()
+    except Exception as e:
+        return f"❌ Error fetching from Gemini: {str(e)}"
+
+def get_cohere_response(prompt):
+    try:
+        response = cohere_client.generate(
+            model="command-r-plus-08-2024", prompt=prompt, temperature=0.7, max_tokens=200
+        )
+        return response.generations[0].text.strip()
+    except Exception as e:
+        return f"❌ Error fetching from Cohere: {str(e)}"
 
 # Weather-related functions
 async def get_weather_data(city):
@@ -178,86 +183,7 @@ async def get_weather_data(city):
     except Exception as e:
         return {"error": str(e)}
 
-def get_gemini_response(prompt):
-    try:
-        model = genai.GenerativeModel("gemini-2.0-flash")
-        chat_session = model.start_chat(history=[])
-        response = chat_session.send_message(prompt)
-        return response.text.strip()
-    except Exception as e:
-        return f"❌ Error fetching from Gemini: {str(e)}"
-
-def get_cohere_response(prompt):
-    try:
-        response = cohere_client.generate(
-            model="command-r-plus-08-2024",
-            prompt=prompt,
-            temperature=0.7,
-            max_tokens=200
-        )
-        return response.generations[0].text.strip()
-    except Exception as e:
-        return f"❌ Error fetching from Cohere: {str(e)}"
-
-# 🔹 Function to return a random writing prompt
-def get_random_prompt():
-    prompts = [
-        "Write about a futuristic world where AI controls everything.",
-        "Describe a conversation between a time traveler and their past self.",
-        "What if humans could live underwater? Write a short story about it.",
-        "You wake up in a video game world. What happens next?",
-        "Invent a new superhero and describe their powers.",
-    ]
-    return random.choice(prompts)
-
-# 🔹 Function to return a random fun fact
-def get_random_fun_fact():
-    fun_facts = [
-        "Honey never spoils. Archaeologists have found pots of honey in ancient tombs that are over 3,000 years old!",
-        "A group of flamingos is called a 'flamboyance.'",
-        "Bananas are berries, but strawberries aren't!",
-        "Octopuses have three hearts and blue blood.",
-        "There's a species of jellyfish that is biologically immortal!",
-    ]
-    return random.choice(fun_facts)
-
 if __name__ == "__main__":
-    if not os.environ.get("WERKZEUG_RUN_MAIN"):  # Prevents duplicate logging on debug restart
-        logging.basicConfig(level=logging.INFO)
-        logging.info("🚀 Mist.AI Server is starting...")
-        
-           # Test Cohere API call before starting the server
-    try:
-        print("Testing Cohere API...")
-        test_response = cohere_client.generate(
-            model="command-r-plus-08-2024",
-            prompt="Hello, Cohere!",
-            max_tokens=10
-        )
-        print(f"Cohere API Test Successful: {test_response.generations[0].text.strip()}")
-    except Exception as e:
-        print(f"❌ Cohere API Test Failed: {str(e)}")
-
-    # Test Gemini API call before starting the server
-    try:
-        print("Testing Gemini API...")
-        generation_config = {
-            "temperature": 1,
-            "top_p": 0.95,
-            "top_k": 40,
-            "max_output_tokens": 8192,
-            "response_mime_type": "text/plain",
-        }
-
-        model = genai.GenerativeModel(
-            model_name="gemini-2.0-flash", 
-            generation_config=generation_config
-        )
-
-        chat_session = model.start_chat(history=[])
-        response = chat_session.send_message("Hello, Gemini!")
-        print(f"Gemini API Test Successful: {response.text.strip()}")
-    except Exception as e:
-        print(f"❌ Gemini API Test Failed: {str(e)}")
-        
+    logging.basicConfig(level=logging.INFO)
+    logging.info("🚀 Mist.AI Server is starting...")
     app.run(debug=True, host="0.0.0.0", port=5000)

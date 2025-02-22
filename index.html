@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -12,6 +13,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/showdown/2.1.0/showdown.min.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.css">
     <link rel="icon" href="mistaifaviocn/favicon.ico" type="image/x-icon">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
 </head>
 
 <body>
@@ -29,35 +31,46 @@
         <section class="container chat-container">
             <h1 class="title has-text-white">Mist.AI</h1>
             <div id="chat-box" class="box chat-box"></div>
+
             <div class="chat-input-container">
                 <button id="slash-button" class="slash-button">/</button>
-                <input class="input is-dark" type="text" id="user-input" placeholder="Type a message..." autocomplete="off">
-                <div class="control">
-                    <button class="button is-success" onclick="sendMessage()">Send</button>
+
+                <input class="input is-dark" type="text" id="user-input" placeholder="Type a message..."
+                    autocomplete="off">
+
+                <div class="embedded-actions">
+                    <input type="file" id="imageInput" accept="image/*" style="display: none;">
+                    <label for="imageInput" class="icon-button">
+                        <i class="fa-solid fa-plus"></i>
+                    </label>
+                    <button class="icon-button" onclick="sendMessage()">
+                        <i class="fa-solid fa-paper-plane"></i>
+                    </button>
                 </div>
             </div>
+
             <button class="swap-button" onclick="swapContent('CommandR', '🔄')">
                 <span id="current-option">Gemini</span>
                 <i class="icon" id="current-icon">🔄</i>
-            </button>            
+            </button>
         </section>
-    </div>
 
-    <div class="theme-container">
-        <label for="theme-select">Theme:</label>
-        <select id="theme-select">
-            <option value="dark">Default</option>
-            <option value="light">Light</option>
-            <option value="blue">Blue</option>
-            <option value="midnight">Midnight</option>
-            <option value="cyberpunk">Cyberpunk</option>
-            <option value="arctic">Arctic</option>
-            <option value="terminal">Terminal</option>
-            <option value="sunset">Sunset</option>
-            <option value="konami" id="konami-option" style="display: none;">Konami Theme</option>
-        </select>
-    </div>
-    
-    <script src="script.js"></script>
+        <div class="theme-container">
+            <label for="theme-select">Theme:</label>
+            <select id="theme-select">
+                <option value="dark">Default</option>
+                <option value="light">Light</option>
+                <option value="blue">Blue</option>
+                <option value="midnight">Midnight</option>
+                <option value="cyberpunk">Cyberpunk</option>
+                <option value="arctic">Arctic</option>
+                <option value="terminal">Terminal</option>
+                <option value="sunset">Sunset</option>
+                <option value="konami" id="konami-option" style="display: none;">Konami Theme</option>
+            </select>
+        </div>
+
+        <script src="script.js"></script>
 </body>
+
 </html>
