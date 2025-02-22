@@ -257,7 +257,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     themeSelect.addEventListener("change", function () {
         const selectedTheme = themeSelect.value;
-        
+
         // Create the swipe effect
         gsap.to("body", {
             x: "100%",
@@ -289,17 +289,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function checkKonamiCodeArrow(e) {
         konamiInputArrow.push(e.key);
-    
+
         if (konamiInputArrow.length > konamiCodeArrow.length) {
             konamiInputArrow.shift(); // Remove the first item if the sequence is too long
         }
-    
+
         if (JSON.stringify(konamiInputArrow) === JSON.stringify(konamiCodeArrow)) {
             unlockKonamiCode();
             konamiInputArrow = []; // Reset after unlocking
         }
     }
-    
+
 
     // Function to check for the Konami Code (text input)
     function checkTextKonamiCode(e) {
@@ -366,23 +366,6 @@ function sendChatMessage(message) {
     }
 }
 
-// Function to send chat messages (you can customize this to match your chat UI setup)
-function sendChatMessage(message) {
-    const chatBox = document.getElementById('chat-box');
-    if (chatBox) {
-        // Create a new div element for the message
-        const messageDiv = document.createElement('div');
-        messageDiv.classList.add('chat-message');
-        messageDiv.textContent = message;
-
-        // Append the message to the chat box
-        chatBox.appendChild(messageDiv);
-
-        // Scroll to the bottom of the chat (optional)
-        chatBox.scrollTop = chatBox.scrollHeight;
-    }
-}
-
 // Function to send a message back to the chat (or backend)
 function sendChatMessage(message) {
     // Example of sending the message to the chat
@@ -394,6 +377,79 @@ function sendChatMessage(message) {
     messageDiv.textContent = message;
     newMessage.textContent = message;
     chatBox.appendChild(newMessage);
+}
+
+document.getElementById("imageInput").addEventListener("change", function (event) {
+    const file = event.target.files[0];
+
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function (e) {
+            const imageSrc = e.target.result;
+            displayUserImage(imageSrc);
+            sendImageToBackend(imageSrc);
+        };
+        reader.readAsDataURL(file);
+    }
+});
+
+function displayUserImage(imageSrc) {
+    const chatBox = document.getElementById("chat-box");
+    const messageDiv = document.createElement("div");
+    messageDiv.classList.add("message", "user-message");
+
+    const img = document.createElement("img");
+    img.src = imageSrc;
+    img.alt = "Uploaded Image";
+    img.style.maxWidth = "200px"; // Optional: Limit image size
+
+    messageDiv.appendChild(img);
+    chatBox.appendChild(messageDiv);
+}
+
+function displayBotResponse(message) {
+    const chatBox = document.getElementById("chat-box");
+    const messageDiv = document.createElement("div");
+    messageDiv.classList.add("message", "bot-message");
+    messageDiv.textContent = message;
+    chatBox.appendChild(messageDiv);
+}
+
+function sendImageToBackend(imageData) {
+    const file = new File([dataURItoBlob(imageData)], "upload.jpg", { type: "image/jpeg" });
+
+    const formData = new FormData();
+    formData.append("image", file); // Send as File object
+
+    fetch("/chat", {
+        method: "POST",
+        body: formData,
+    })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log("Server response:", data);
+            displayBotResponse(data.response);
+        })
+        .catch(error => console.error("Error uploading image:", error));
+}
+
+function dataURItoBlob(dataURI) {
+    let byteString = atob(dataURI.split(',')[1]);
+    let mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
+
+    let arrayBuffer = new ArrayBuffer(byteString.length);
+    let uint8Array = new Uint8Array(arrayBuffer);
+
+    for (let i = 0; i < byteString.length; i++) {
+        uint8Array[i] = byteString.charCodeAt(i);
+    }
+
+    return new Blob([uint8Array], { type: mimeString });
 }
 
 // Handle window resize
