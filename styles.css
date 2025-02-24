@@ -1,7 +1,8 @@
     /* ========================== */
     /*         GENERAL RESET      */
     /* ========================== */
-    html, body {
+    html,
+    body {
         background-color: #1e1e1e;
         color: #ddd;
         font-family: 'Arial', sans-serif;
@@ -133,14 +134,28 @@
     /* ========================== */
     /*        CHAT INPUT          */
     /* ========================== */
+    /* Style the input field */
     #user-input {
-        flex-grow: 1;
-        border: none;
-        background: transparent;
-        color: #ddd;
+        background-color: #222;
+        /* Dark background */
+        color: #fff;
+        /* Light text for contrast */
+        border: 1px solid #555;
+        /* Subtle border */
         padding: 10px;
-        font-size: 1rem;
-        outline: none;
+        /* Better spacing */
+        border-radius: 8px;
+        /* Rounded edges */
+        font-size: 16px;
+        /* Slightly bigger text */
+    }
+
+    /* Change placeholder text color */
+    #user-input::placeholder {
+        color: rgba(255, 255, 255, 0.6);
+        /* Light gray for better visibility */
+        font-style: italic;
+        /* Optional: italic for style */
     }
 
     .slash-button {
@@ -165,7 +180,7 @@
         color: #3273dc;
         transition: color 0.3s;
     }
-    
+
     .icon-button:hover {
         color: #276cda;
     }

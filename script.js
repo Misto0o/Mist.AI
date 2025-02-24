@@ -5,8 +5,6 @@ const converter = new showdown.Converter({ simpleLineBreaks: true });
 let currentModel = 'gemini';
 let canSendMessage = true; // Prevent spamming
 let isSwapping = false; // Prevent multiple swaps
-
-// Load previous session memory or create new memory
 let chatMemory = []; // Memory resets on refresh
 
 // Function to send messages
@@ -126,16 +124,9 @@ function swapContent() {
             }
         });
 
-        gsap.to(currentIcon, {
-            opacity: 0, duration: 0.2, onComplete: () => {
-                currentIcon.textContent = currentModel === 'commandR' ? '🔄' : '⚡';
-                gsap.to(currentIcon, { opacity: 1, duration: 0.2 });
-            }
-        });
+        showNotification(`Model switched to: ${currentModel === 'commandR' ? 'CommandR' : 'Gemini'}`);
+        sendMessage(`Model switched to: ${currentModel}`);
     }
-
-    showNotification(`Model switched to: ${currentModel === 'commandR' ? 'CommandR' : 'Gemini'}`);
-    sendMessage(`Model switched to: ${currentModel}`);
 
     setTimeout(() => {
         isSwapping = false;
@@ -232,25 +223,6 @@ document.addEventListener("click", (e) => {
         suggestionsBox.style.display = "none";
     }
 });
-
-
-// Attach event listeners
-document.addEventListener("DOMContentLoaded", function () {
-    document.querySelector(".swap-button").onclick = swapContent;
-    document.getElementById("user-input").addEventListener("keypress", function (event) {
-        if (event.key === "Enter") sendMessage();
-    });
-});
-
-// Function to show a random prompt
-function showRandomPrompt() {
-    sendMessage("random prompt");
-}
-
-// Function to show a fun fact
-function showFunFact() {
-    sendMessage("fun fact");
-}
 
 document.addEventListener("DOMContentLoaded", function () {
     const themeSelect = document.getElementById("theme-select");
@@ -349,23 +321,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// Function to send chat messages (you can customize this to match your chat UI setup)
-function sendChatMessage(message) {
-    const chatBox = document.getElementById('chat-box');
-    if (chatBox) {
-        // Create a new div element for the message
-        const messageDiv = document.createElement('div');
-        messageDiv.classList.add('chat-message');
-        messageDiv.textContent = message;
-
-        // Append the message to the chat box
-        chatBox.appendChild(messageDiv);
-
-        // Scroll to the bottom of the chat (optional)
-        chatBox.scrollTop = chatBox.scrollHeight;
-    }
-}
-
 // Function to send a message back to the chat (or backend)
 function sendChatMessage(message) {
     // Example of sending the message to the chat
@@ -379,78 +334,23 @@ function sendChatMessage(message) {
     chatBox.appendChild(newMessage);
 }
 
-document.getElementById("imageInput").addEventListener("change", function (event) {
-    const file = event.target.files[0];
+// Function to show a random prompt
+function showRandomPrompt() {
+    sendMessage("random prompt");
+}
 
-    if (file) {
-        const reader = new FileReader();
-        reader.onload = function (e) {
-            const imageSrc = e.target.result;
-            displayUserImage(imageSrc);
-            sendImageToBackend(imageSrc);
-        };
-        reader.readAsDataURL(file);
-    }
+// Function to show a fun fact
+function showFunFact() {
+    sendMessage("fun fact");
+}
+
+// Attach event listeners
+document.addEventListener("DOMContentLoaded", function () {
+    document.querySelector(".swap-button").onclick = swapContent;
+    document.getElementById("user-input").addEventListener("keypress", function (event) {
+        if (event.key === "Enter") sendMessage();
+    });
 });
-
-function displayUserImage(imageSrc) {
-    const chatBox = document.getElementById("chat-box");
-    const messageDiv = document.createElement("div");
-    messageDiv.classList.add("message", "user-message");
-
-    const img = document.createElement("img");
-    img.src = imageSrc;
-    img.alt = "Uploaded Image";
-    img.style.maxWidth = "200px"; // Optional: Limit image size
-
-    messageDiv.appendChild(img);
-    chatBox.appendChild(messageDiv);
-}
-
-function displayBotResponse(message) {
-    const chatBox = document.getElementById("chat-box");
-    const messageDiv = document.createElement("div");
-    messageDiv.classList.add("message", "bot-message");
-    messageDiv.textContent = message;
-    chatBox.appendChild(messageDiv);
-}
-
-function sendImageToBackend(imageData) {
-    const file = new File([dataURItoBlob(imageData)], "upload.jpg", { type: "image/jpeg" });
-
-    const formData = new FormData();
-    formData.append("image", file); // Send as File object
-
-    fetch("/chat", {
-        method: "POST",
-        body: formData,
-    })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`HTTP error! Status: ${response.status}`);
-            }
-            return response.json();
-        })
-        .then(data => {
-            console.log("Server response:", data);
-            displayBotResponse(data.response);
-        })
-        .catch(error => console.error("Error uploading image:", error));
-}
-
-function dataURItoBlob(dataURI) {
-    let byteString = atob(dataURI.split(',')[1]);
-    let mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
-
-    let arrayBuffer = new ArrayBuffer(byteString.length);
-    let uint8Array = new Uint8Array(arrayBuffer);
-
-    for (let i = 0; i < byteString.length; i++) {
-        uint8Array[i] = byteString.charCodeAt(i);
-    }
-
-    return new Blob([uint8Array], { type: mimeString });
-}
 
 // Handle window resize
 window.addEventListener('resize', () => {
