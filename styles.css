@@ -228,6 +228,22 @@
         color: #276cda;
     }
 
+    strong {
+        font-weight: bold !important;
+      }
+      
+      .hidden-answer {
+        filter: blur(8px);
+        cursor: pointer;
+        transition: filter 0.3s ease;
+        color: #888; /* Faded color to hint it's hidden */
+    }
+    
+    .hidden-answer.revealed {
+        filter: blur(0);
+        color: #fff; /* Reset color after reveal */
+    }
+    
     /* ========================== */
     /*      RESPONSIVE DESIGN     */
     /* ========================== */
