@@ -85,6 +85,12 @@ function createThinkingBubble() {
     const thinkingBubble = document.createElement("div");
     thinkingBubble.classList.add("message", "bot-message", "thinking");
     thinkingBubble.innerHTML = `<span class="dots">Mist.AI is thinking<span>.</span><span>.</span><span>.</span></span>`;
+    
+    // Change the message after 9 seconds
+    setTimeout(() => {
+        thinkingBubble.innerHTML = "⏳ You're the first request, sorry for the wait!";
+    }, 9000); // 9 seconds
+
     return thinkingBubble;
 }
 
