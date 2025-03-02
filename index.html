@@ -31,28 +31,37 @@
         <section class="container chat-container">
             <h1 class="title has-text-white">Mist.AI</h1>
             <div id="chat-box" class="box chat-box"></div>
-
+        
             <div class="chat-input-container">
                 <button id="slash-button" class="slash-button">/</button>
-
-                <input class="input is-dark" type="text" id="user-input" placeholder="Type a message..."
-                    autocomplete="off">
-
+        
+                <input class="input is-dark" type="text" id="user-input" placeholder="Type a message..." autocomplete="off">
+        
                 <div class="embedded-actions">
-                    <input type="file" id="imageInput" accept="image/*" style="display: none;">
-                    <label for="imageInput" class="icon-button">
+                    <!-- Hidden file input -->
+                    <input type="file" id="file-upload" accept=".pdf,.txt,.json,.docx" style="display: none;">
+                    
+                    <!-- File upload button (paperclip icon) -->
+                    <label for="file-upload" class="icon-button">
+                        <i class="fa-solid fa-paperclip"></i>
                     </label>
+        
+                    <!-- Send button -->
                     <button class="icon-button" onclick="sendMessage()">
                         <i class="fa-solid fa-paper-plane"></i>
                     </button>
                 </div>
             </div>
-
+        
+            <!-- Display selected file name -->
+            <p id="file-name-display" class="has-text-white is-size-7"></p>
+        
             <button class="swap-button" onclick="swapContent('CommandR', '🔄')">
                 <span id="current-option">Gemini</span>
                 <i class="icon" id="current-icon">🔄</i>
             </button>
         </section>
+        
 
         <div class="theme-container">
             <label for="theme-select">Theme:</label>

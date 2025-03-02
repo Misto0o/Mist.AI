@@ -272,7 +272,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-
     // Function to check for the Konami Code (text input)
     function checkTextKonamiCode(e) {
         if (e.key === 'Backspace') {
@@ -352,14 +351,84 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 });
 
-// Handle window resize
-window.addEventListener('resize', () => {
-    const modelContainer = document.getElementById("model-container");
-    if (!modelContainer) return;
+document.addEventListener("DOMContentLoaded", function () {
+    // ✅ Function to add messages to the chatbox
+    function showMessage(message, sender = "user") {
+        let chatBox = document.getElementById("chat-box");
+        if (!chatBox) {
+            console.error("Error: Chat box not found!");
+            return;
+        }
 
-    const width = modelContainer.clientWidth;
-    const height = modelContainer.clientHeight;
-    camera.aspect = width / height;
-    camera.updateProjectionMatrix();
-    renderer.setSize(width, height);
+        let messageElement = document.createElement("div");
+        messageElement.classList.add("message", sender === "bot" ? "bot-message" : "user-message");
+        messageElement.innerHTML = message;
+
+        chatBox.appendChild(messageElement);
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    async function uploadFile(file) {
+        let formData = new FormData();
+        formData.append("file", file);
+
+        try {
+            let response = await fetch(getBackendUrl(), {
+                method: "POST",
+                body: formData,
+                headers: {
+                    "Accept": "application/json"
+                }
+            });
+
+            let result = await response.json();
+            console.log("API Response:", result.response); // Debugging
+
+            if (result.error) {
+                console.error("Upload failed:", result.error);
+                showMessage(`❌ Upload failed: ${result.error}`, "bot");
+                return;
+            }
+
+            // ✅ Extract text and store it in memory
+            let extractedText = result.response?.trim() || "⚠️ No readable text found.";
+
+            // ✅ Store extracted text in Mist.AI memory without showing it
+            chatMemory.push({ role: "user", content: `User uploaded a file and it contained: ${extractedText}` });
+
+            // ✅ Show a simple response to the user
+            showMessage("🧐 Mist.AI has read the file. How can I assist you with it?", "bot");
+
+        } catch (error) {
+            console.error("Error:", error);
+            showMessage("❌ Error uploading file", "bot");
+        }
+    }
+
+    // ✅ Run code after DOM is fully loaded
+    let fileInput = document.getElementById("file-upload");
+
+    if (fileInput) {
+        fileInput.addEventListener("change", function (event) {
+            let file = event.target.files[0];
+            if (file) {
+                showMessage(`📤 Uploading file: ${file.name}...`, "bot");
+                uploadFile(file);
+            }
+        });
+    } else {
+        console.error("Error: File input not found!");
+    }
+
+    // ✅ Handle window resize for model container
+    window.addEventListener('resize', () => {
+        const modelContainer = document.getElementById("model-container");
+        if (!modelContainer) return;
+
+        const width = modelContainer.clientWidth;
+        const height = modelContainer.clientHeight;
+        camera.aspect = width / height;
+        camera.updateProjectionMatrix();
+        renderer.setSize(width, height);
+    })
 });

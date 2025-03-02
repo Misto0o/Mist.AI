@@ -1,52 +1,45 @@
-# ☁️ Mist.AI – V2.9.0 Smarter AI, New UI & Logging  
+# ☁️ Mist.AI – V2.9.5 Smarter AI, File Uploads & News Integration  
 
-Mist.AI is a powerful AI assistant built on **Gemini AI** and **Command R AI**, designed for intelligence, depth, and interactivity. In this update, Mist.AI has **gotten smarter, introduced a revamped UI, improved themes, and added logging for special commands!**  
+Mist.AI is a powerful AI assistant built on **Gemini AI** and **Command R AI**, designed for intelligence, depth, and interactivity. In this update, Mist.AI has **gained file upload capabilities, fixed major AI bugs, added real-time news, and now knows the current date and time!**  
 
-🚀 **Current Version:** `V2.9.0`  
-🎨 **Revamped Themes & Layout**  
-📜 **New Logging System for Render**  
-🧠 **Smarter AI Responses**  
-🔘 **New Send Button for Chat Input**  
+🚀 **Current Version:** `V2.9.5`  
+📂 **File Upload Support**  
+📰 **News & Headlines Integration**  
+🧠 **AI Stability Fixes**  
+⏳ **Real-Time Date & Time Awareness**  
 🔧 **Bug Fixes & UI Enhancements**  
 
 ---
 
 ## ✨ What's New?  
 
-### 🎨 **Theme & UI Updates**  
-- **Major improvements to the theme system** with **better color accuracy** and smoother transitions.  
-- Updated themes:  
-  - 🌑 **Default Mode** – Your normal everyday Mist.AI theme.  
-  - ☀️ **Light Mode (Redesigned)** – Now with a **cleaner, whiter** aesthetic.  
-  - 🔵 **Aquatic Mode (Previously Blue Mode)** – Now with **better blues** for a **deeper ocean feel**.  
-  - 🌌 **Midnight Mode** – Deep dark blues for night browsing.  
-  - ⚡ **Cyberpunk Mode** – Neon-inspired futuristic styling.  
-  - ❄️ **Arctic Mode** – A frosty, ice-cold interface.  
-  - 🖥 **Terminal Mode** – Classic hacker-style green-on-black.  
-  - 🌅 **Sunset Mode** – Warm, golden hour aesthetic.  
-  - 🎭 **??? (Secret Theme)** – Unlockable via a hidden command.  
+### 📂 **File Upload Support**  
+- Mist.AI **now supports file uploads!** You can upload PDFs, TXT .JSON .DOXC/DOC and Mist.AI will extract text from them for analysis.  
+- **How It Works:**  
+  - Upload a file via the chatbox.  
+  - Mist.AI extracts and displays key text from the document.  
+  - You can then interact with the extracted content.  
 
-### 📜 **Enhanced Logging System**  
-- Mist.AI **now tracks key interactions**, allowing me to **monitor user engagement** more effectively.  
-- Logged interactions include:  
-  - **Slash (`/`) commands** usage  
-  - **"random prompt"** requests  
-  - **"fun fact"** queries  
-- This system helps maintain insights into how Mist.AI is used while keeping logs minimal and uncluttered.  
+### 📰 **Live News & Headlines**  
+- Mist.AI **can now fetch real-time news and headlines!** Stay updated with the latest events instantly.  
+- **Chat Usage:** `Any News Headlines`  
+- **Example Usage:** `Give me some Tech news` → Fetches the latest tech news.  
 
-### 🧠 **Mist.AI is Smarter!**  
-- Somehow... Mist.AI has **become more intelligent!** 🤖  
-- **Improved AI responses** for better depth and understanding.  
+### ⏳ **Time & Date Awareness**  
+- Mist.AI now **knows the current date and time**, making responses more context-aware.  
+- Useful for scheduling, time-based responses, and more natural interactions.  
 
-### 🔘 **New Send Button!**  
-- A **new chat send button** has been added using **Font Awesome** for a sleeker look.  
-- **More intuitive input design** for a better user experience.  
+### 🤔 **More Riddles and Jokes!**
+- Mist.AI now has an expanded collection of **riddles and jokes** to keep conversations fun! 🎭  
+- Use the `/riddle` command to get a **random riddle** and test your brain. 🧠  
+- Use the `/joke` command to hear a **random joke** for a quick laugh! 😂  
+- Perfect for when you need a break or just want some entertainment.  
 
-### 🔄 **Bug Fixes & Improvements**  
-- **Fixed chat rendering issues** on smaller screens.  
-- **Improved theme transitions** for a smoother experience.  
-- **Enhanced UI animations** for better responsiveness.  
-- **More stable command processing**, preventing errors in `/` shortcuts.  
+### 🛠 **Bug Fixes & AI Improvements**  
+- **Fixed AI model swapping issue** – Mist.AI no longer randomly switches between Gemini AI and Command R AI.  
+- **Resolved AI identity bug** – Mist.AI no longer keeps repeating that it is Mist.AI and the model it is using.  
+- **Enhanced AI responses** – More fluid and intelligent conversation handling. 
+- **/riddle now has a blurred text to not show the answer!** - Makes it more fair so you cant just guess the answer. 
 
 ---
 
@@ -58,24 +51,24 @@ Mist.AI is a powerful AI assistant built on **Gemini AI** and **Command R AI**, 
 ✔ **Mobile Optimized** – Smooth experience across all devices  
 ✔ **Session-Based Memory** – Mist.AI remembers chats while you're on the page  
 ✔ **Chat Cooldown** – Prevents spam while Mist.AI is typing  
+✔ **File Upload Support** – Upload PDFs for text extraction  
+✔ **Real-Time News Fetching** – Get instant headlines with `/news`  
 ✔ **Slash Commands (`/`) Support** – Type `/` to get command suggestions  
    - `/flipcoin` – Flips a coin  
    - `/rps` – Play Rock, Paper, Scissors  
    - `/joke` – Get a random joke  
-   - `/riddle` – Get a random riddle 
-   - `/weather` – Get a weather from a place u choose (like /weather New York)   
-✔ **Improved UI & CSS** – New animations, layout enhancements, and better theme support  
+   - `/riddle` – Get a random riddle  
+   - `/weather` – Get weather for a chosen location (e.g., `/weather New York`)  
+   - `News` – Ask and get the latest news (e.g., `Any News Headlines?`)  
 
 ---
 
 ## 🌐 Live Preview  
 🔗 **[Mist.AI Website](https://mistai.netlify.app)**  
 
----
-
 ## 🛠️ Future Plans  
 - 🔹 **Expanded Theme Collection** – More color themes and animations  
-- 🔹 **ChatGPT/Meta Integration** – Easter egg hunters will be rewarded!  
+- 🔹 **ChatGPT/Meta Integration** – Adding GPT / Meta AI for better chat interactions 
 - 🔹 **AI Personality Tweaks** – Custom AI responses based on user interaction  
 - 🔹 **Expanded `/` Commands** – More interactive features  
 - 🔹 **More Secret Features** – Hidden surprises for users to find  
@@ -83,5 +76,4 @@ Mist.AI is a powerful AI assistant built on **Gemini AI** and **Command R AI**, 
 - 🔹 **Enhanced UI/UX** – More intuitive design and animations  
 
 ---
-
 💡 Built by [Kristian](https://builtbykristian.netlify.app)  
