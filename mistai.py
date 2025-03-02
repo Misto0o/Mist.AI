@@ -13,12 +13,12 @@ import re
 from datetime import datetime
 import pytz
 import requests
-import fitz
 import io
 import asyncio
 import json
 from docx import Document
 import time
+import fitz
 
 # Load environment variables
 load_dotenv()
