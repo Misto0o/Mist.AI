@@ -6,6 +6,8 @@ let currentModel = 'gemini';
 let canSendMessage = true; // Prevent spamming
 let isSwapping = false; // Prevent multiple swaps
 let chatMemory = []; // Memory resets on refresh
+let uploadedFile = null; // ✅ Store the uploaded file globally
+let uploadedImageCount = 0;
 
 // Function to send messages
 async function sendMessage(userMessage = null) {
@@ -85,7 +87,7 @@ function createThinkingBubble() {
     const thinkingBubble = document.createElement("div");
     thinkingBubble.classList.add("message", "bot-message", "thinking");
     thinkingBubble.innerHTML = `<span class="dots">Mist.AI is thinking<span>.</span><span>.</span><span>.</span></span>`;
-    
+
     // Change the message after 9 seconds
     setTimeout(() => {
         thinkingBubble.innerHTML = "⏳ You're the first request, sorry for the wait!";
@@ -349,16 +351,29 @@ function showFunFact() {
     sendMessage("fun fact");
 }
 
-// Attach event listeners
 document.addEventListener("DOMContentLoaded", function () {
-    document.querySelector(".swap-button").onclick = swapContent;
-    document.getElementById("user-input").addEventListener("keypress", function (event) {
-        if (event.key === "Enter") sendMessage();
-    });
-});
+    // Add event listener for Enter key to send the message and Shift + Enter for line breaks
+    document.getElementById("user-input").addEventListener("keydown", function (event) {
+        const textarea = document.getElementById('user-input');
 
-document.addEventListener("DOMContentLoaded", function () {
-    // ✅ Function to add messages to the chatbox
+        if (event.key === 'Enter') {
+            if (event.shiftKey) {
+                // Insert a line break at the cursor position
+                const cursorPosition = textarea.selectionStart;
+                const textBefore = textarea.value.substring(0, cursorPosition);
+                const textAfter = textarea.value.substring(cursorPosition);
+                textarea.value = textBefore + '\n' + textAfter;
+                textarea.selectionStart = textarea.selectionEnd = cursorPosition + 1;
+            } else {
+                // Prevent the default Enter key behavior (new line) and use existing message submission
+                event.preventDefault(); // Prevent Enter from adding a new line
+                // Call your existing message submission function here
+                sendMessage(); // Replace this with your actual submit message function if different
+            }
+        }
+    });
+
+    // ✅ Make showMessage GLOBAL
     function showMessage(message, sender = "user") {
         let chatBox = document.getElementById("chat-box");
         if (!chatBox) {
@@ -374,6 +389,101 @@ document.addEventListener("DOMContentLoaded", function () {
         chatBox.scrollTop = chatBox.scrollHeight;
     }
 
+    // ✅ Make analyzeUploadedImage GLOBAL
+    async function analyzeUploadedImage() {
+        if (!uploadedFile) {
+            showMessage("⚠️ No image to analyze!", "bot");
+            return;
+        }
+
+        const reader = new FileReader();
+
+        reader.onloadend = async function () {
+            const base64String = reader.result; // ✅ Convert to Base64
+
+            console.log("📤 Sending Image:", base64String.substring(0, 50) + "..."); // ✅ Debugging
+
+            const url = getBackendUrl("analyze");
+            const options = {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ img_url: base64String }) // ✅ Send Base64
+            };
+
+            try {
+                showMessage("🔄 Analyzing image...", "bot");
+
+                const response = await fetch(url, options);
+                const result = await response.json();
+
+                console.log("📥 API Response:", result); // ✅ Debugging
+
+                if (result.error) {
+                    showMessage(`❌ Error: ${result.error}`, "bot");
+                    return;
+                }
+
+                showMessage(`🧐 Analysis: ${result.result}`, "bot");
+                chatMemory.push({ role: "bot", content: `Image Analysis: ${result.result}` });
+
+                // ✅ Update the session memory
+                sessionStorage.setItem("chatMemory", JSON.stringify(chatMemory));
+
+
+            } catch (error) {
+                console.error("❌ Fetch Error:", error);
+                showMessage("❌ Error analyzing image", "bot");
+            }
+        };
+
+        reader.readAsDataURL(uploadedFile); // ✅ Read file as Base64
+    }
+    // ✅ Make showMessage GLOBAL
+    function showMessage(message, sender = "user") {
+        let chatBox = document.getElementById("chat-box");
+        if (!chatBox) {
+            console.error("Error: Chat box not found!");
+            return;
+        }
+
+        let messageElement = document.createElement("div");
+        messageElement.classList.add("message", sender === "bot" ? "bot-message" : "user-message");
+        messageElement.innerHTML = message;
+
+        chatBox.appendChild(messageElement);
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    // ✅ Preview image before analyzing
+    function previewImageBeforeAnalyze(file) {
+        if (uploadedImageCount >= 3) {
+            showMessage("❌ You can only upload 3 images.", "bot");
+            return; // Prevent further uploads
+        }
+
+        uploadedFile = file; // ✅ Store the file globally
+        const imageUrl = URL.createObjectURL(file);
+
+        // Increment the image count
+        uploadedImageCount++;
+
+        // When displaying the uploaded image and button, improve the styling and layout
+        showMessage(`
+    <div class="image-container">
+        <div class="image-wrapper">
+            <img src="${imageUrl}" alt="Uploaded Image" class="uploaded-image">
+        </div>
+        <div class="button-wrapper">
+            <button class="analyze-button" id="analyze-button">🔍 Analyze Image</button>
+        </div>
+    </div>
+`, "user");
+
+        // Attach the event listener to the button programmatically
+        const analyzeButton = document.getElementById("analyze-button");
+        analyzeButton.addEventListener("click", analyzeUploadedImage);
+    }
+
     async function uploadFile(file) {
         let formData = new FormData();
         formData.append("file", file);
@@ -382,9 +492,7 @@ document.addEventListener("DOMContentLoaded", function () {
             let response = await fetch(getBackendUrl(), {
                 method: "POST",
                 body: formData,
-                headers: {
-                    "Accept": "application/json"
-                }
+                headers: { "Accept": "application/json" }
             });
 
             let result = await response.json();
@@ -411,20 +519,53 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     }
 
-    // ✅ Run code after DOM is fully loaded
-    let fileInput = document.getElementById("file-upload");
+    // ✅ File upload popup handling
+    const uploadTrigger = document.getElementById("upload-trigger");
+    const uploadPopup = document.getElementById("upload-popup");
+    const fileInputImage = document.getElementById("file-upload-image");
+    const fileInputDocument = document.getElementById("file-upload-document");
+    const uploadImageBtn = document.getElementById("upload-image-btn");
+    const uploadDocumentBtn = document.getElementById("upload-document-btn");
 
-    if (fileInput) {
-        fileInput.addEventListener("change", function (event) {
-            let file = event.target.files[0];
-            if (file) {
-                showMessage(`📤 Uploading file: ${file.name}...`, "bot");
-                uploadFile(file);
-            }
-        });
-    } else {
-        console.error("Error: File input not found!");
-    }
+    // Toggle popup when clicking paperclip
+    uploadTrigger.addEventListener("click", function () {
+        uploadPopup.style.display = uploadPopup.style.display === "block" ? "none" : "block";
+    });
+
+    // Close popup when clicking outside
+    document.addEventListener("click", function (event) {
+        if (!uploadTrigger.contains(event.target) && !uploadPopup.contains(event.target)) {
+            uploadPopup.style.display = "none";
+        }
+    });
+
+    // Open image file selector
+    uploadImageBtn.addEventListener("click", function () {
+        fileInputImage.click();
+        uploadPopup.style.display = "none"; // Close popup
+    });
+
+    // Open document file selector
+    uploadDocumentBtn.addEventListener("click", function () {
+        fileInputDocument.click();
+        uploadPopup.style.display = "none"; // Close popup
+    });
+
+    // Handle file selection
+    fileInputImage.addEventListener("change", function (event) {
+        let file = event.target.files[0];
+        if (file) {
+            previewImageBeforeAnalyze(file);
+        }
+    });
+
+    fileInputDocument.addEventListener("change", function (event) {
+        let file = event.target.files[0];
+        if (file) {
+            showMessage(`📤 Uploading document: ${file.name}...`, "bot");
+            uploadFile(file); // Send document immediately
+        }
+    });
 
     // ✅ Handle window resize for model container
     window.addEventListener('resize', () => {

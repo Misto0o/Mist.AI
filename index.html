@@ -31,37 +31,47 @@
         <section class="container chat-container">
             <h1 class="title has-text-white">Mist.AI</h1>
             <div id="chat-box" class="box chat-box"></div>
-        
+
             <div class="chat-input-container">
                 <button id="slash-button" class="slash-button">/</button>
-        
-                <input class="input is-dark" type="text" id="user-input" placeholder="Type a message..." autocomplete="off">
-        
+
+                <textarea class="input is-dark" id="user-input" placeholder="Type a message..."
+                    autocomplete="off"></textarea>
+
+
                 <div class="embedded-actions">
-                    <!-- Hidden file input -->
-                    <input type="file" id="file-upload" accept=".pdf,.txt,.json,.docx" style="display: none;">
-                    
-                    <!-- File upload button (paperclip icon) -->
-                    <label for="file-upload" class="icon-button">
+                    <!-- Hidden file inputs (separate for images & documents) -->
+                    <input type="file" id="file-upload-image" class="upload-input" accept="image/*"
+                        style="display: none;">
+                    <input type="file" id="file-upload-document" class="upload-input" accept=".pdf,.doc,.docx,.txt"
+                        style="display: none;">
+
+                    <!-- File upload button (paperclip) triggers popup -->
+                    <button class="icon-button" id="upload-trigger">
                         <i class="fa-solid fa-paperclip"></i>
-                    </label>
-        
+                    </button>
+
+                    <!-- Popup for file selection -->
+                    <div id="upload-popup" class="popup">
+                        <button class="upload-option" id="upload-image-btn">🖼️ Upload Image</button>
+                        <button class="upload-option" id="upload-document-btn">📄 Upload Document</button>
+                    </div>
+
                     <!-- Send button -->
                     <button class="icon-button" onclick="sendMessage()">
                         <i class="fa-solid fa-paper-plane"></i>
                     </button>
                 </div>
             </div>
-        
+
             <!-- Display selected file name -->
             <p id="file-name-display" class="has-text-white is-size-7"></p>
-        
+
             <button class="swap-button" onclick="swapContent('CommandR', '🔄')">
                 <span id="current-option">Gemini</span>
                 <i class="icon" id="current-icon">🔄</i>
             </button>
         </section>
-        
 
         <div class="theme-container">
             <label for="theme-select">Theme:</label>
@@ -78,7 +88,7 @@
             </select>
         </div>
 
-        <script src="script.js"></script>
+        <script src="script.js" defer></script>
 </body>
 
 </html>

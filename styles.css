@@ -122,6 +122,8 @@
         color: white;
         align-self: flex-end;
         border-radius: 18px 18px 0 18px;
+        white-space: pre-wrap;
+        /* Ensures spaces and newlines are preserved */
     }
 
     .bot-message {
@@ -148,6 +150,12 @@
         /* Rounded edges */
         font-size: 16px;
         /* Slightly bigger text */
+        resize: none;
+        /* Disable resizing the textarea (optional) */
+        min-height: 50px;
+        /* Adjust based on your preference */
+        width: 100%;
+        /* Make it take full width of the container */
     }
 
     /* Change placeholder text color */
@@ -230,18 +238,134 @@
 
     strong {
         font-weight: bold !important;
-      }
-      
-      .hidden-answer {
+    }
+
+    .hidden-answer {
         filter: blur(8px);
         cursor: pointer;
         transition: filter 0.3s ease;
-        color: #888; /* Faded color to hint it's hidden */
+        color: #888;
+        /* Faded color to hint it's hidden */
     }
-    
+
     .hidden-answer.revealed {
         filter: blur(0);
-        color: #fff; /* Reset color after reveal */
+        color: #fff;
+        /* Reset color after reveal */
+    }
+
+    .image-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin: 10px 0;
+    }
+
+    .uploaded-image {
+        max-width: 100%;
+        height: auto;
+        border-radius: 10px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    .analyze-button {
+        margin-top: 8px;
+        padding: 5px 10px;
+        background-color: #007bff;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: 0.2s;
+    }
+
+    .analyze-button:hover {
+        background-color: #0056b3;
+    }
+
+    .popup {
+        display: none;
+        position: absolute;
+        top: 50px;
+        left: 0;
+        background-color: rgba(0, 0, 0, 0.8);
+        padding: 10px;
+        border-radius: 8px;
+        z-index: 1000;
+        /* Make sure it's on top */
+    }
+
+
+    .upload-option {
+        display: block;
+        width: 100%;
+        padding: 8px;
+        border: none;
+        background: #f5f5f5;
+        cursor: pointer;
+        transition: 0.2s;
+        border-radius: 5px;
+        margin-bottom: 5px;
+    }
+
+    .upload-option:hover {
+        background: #ddd;
+    }
+
+    /* Image Container - Now More Like a Chat Bubble */
+    .image-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin: -12px 15px !important;
+        background-color: transparent !important;
+    }
+
+
+    /* Image Wrapper - Forces Squarer Shape */
+    .image-wrapper {
+        width: 100%;
+        height: 90px;
+        /* Forces a more square shape */
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        overflow: hidden;
+        /* Keeps it clean */
+        border-radius: 8px;
+    }
+
+    /* Image Styling - Square & Neat */
+    .uploaded-image {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        /* Makes sure the image fills the box */
+        border-radius: 8px;
+        /* Slight rounding for smoothness */
+    }
+
+    /* Analyze Button - Fits Inside the Bubble */
+    .analyze-button {
+        background: #3B82F6;
+        /* Sleek blue */
+        color: white;
+        padding: 8px 14px;
+        font-size: 14px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: background 0.2s ease;
+        width: 100%;
+        text-align: center;
+        margin-top: 6px;
+        /* More natural spacing */
+    }
+
+    /* Hover Effect */
+    .analyze-button:hover {
+        background: #2563EB;
+        /* Darker blue */
     }
     
     /* ========================== */
