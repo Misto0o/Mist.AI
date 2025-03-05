@@ -1,45 +1,40 @@
-# ☁️ Mist.AI – V2.9.5 Smarter AI, File Uploads & News Integration  
+# ☁️ Mist.AI – V3.0 Smarter AI, Full File Support & More!
 
-Mist.AI is a powerful AI assistant built on **Gemini AI** and **Command R AI**, designed for intelligence, depth, and interactivity. In this update, Mist.AI has **gained file upload capabilities, fixed major AI bugs, added real-time news, and now knows the current date and time!**  
+Mist.AI is an advanced AI assistant powered by **Gemini AI** and **Command R AI** and **NEW** **ChatGPT-VISON**, built for intelligence, efficiency, and fun! In this latest update, Mist.AI has **gained full file upload support (including images!), improved AI stability, enhanced UI, and expanded interactive features.**
 
-🚀 **Current Version:** `V2.9.5`  
-📂 **File Upload Support**  
-📰 **News & Headlines Integration**  
-🧠 **AI Stability Fixes**  
-⏳ **Real-Time Date & Time Awareness**  
+🚀 **Current Version:** `V3.0`
+📂 **Full File Upload Support (Images, Documents, and More!)**  
+🧠 **AI Stability & Response Improvements**  
 🔧 **Bug Fixes & UI Enhancements**  
+🤖 **New Interactive Features & Commands** 
+🙌 **GPT-Vision image support**  
 
 ---
 
 ## ✨ What's New?  
 
-### 📂 **File Upload Support**  
-- Mist.AI **now supports file uploads!** You can upload PDFs, TXT .JSON .DOXC/DOC and Mist.AI will extract text from them for analysis.  
+### 📂 **Full File Upload Support**  
+- Mist.AI **now supports all major file types**, including:
+  - **Documents**: PDF, TXT, JSON, DOCX/DOC
+  - **Images by GPTVISON!**: PNG, JPG, JPEG, Welcome Chatgpt Intergration!
 - **How It Works:**  
-  - Upload a file via the chatbox.  
-  - Mist.AI extracts and displays key text from the document.  
-  - You can then interact with the extracted content.  
+  - Upload a file via the chatbox.
+  - Mist.AI extracts and displays key text or analyzes images.
+  - You can interact with the extracted content.  
 
-### 📰 **Live News & Headlines**  
-- Mist.AI **can now fetch real-time news and headlines!** Stay updated with the latest events instantly.  
-- **Chat Usage:** `Any News Headlines`  
-- **Example Usage:** `Give me some Tech news` → Fetches the latest tech news.  
-
-### ⏳ **Time & Date Awareness**  
-- Mist.AI now **knows the current date and time**, making responses more context-aware.  
-- Useful for scheduling, time-based responses, and more natural interactions.  
-
-### 🤔 **More Riddles and Jokes!**
-- Mist.AI now has an expanded collection of **riddles and jokes** to keep conversations fun! 🎭  
-- Use the `/riddle` command to get a **random riddle** and test your brain. 🧠  
-- Use the `/joke` command to hear a **random joke** for a quick laugh! 😂  
-- Perfect for when you need a break or just want some entertainment.  
+### 🖼️ **Image Upload & Analysis**  
+- You can now upload images directly to Mist.AI! 🖼️
+- Future updates will include AI-powered **image recognition and captioning**.
 
 ### 🛠 **Bug Fixes & AI Improvements**  
-- **Fixed AI model swapping issue** – Mist.AI no longer randomly switches between Gemini AI and Command R AI.  
-- **Resolved AI identity bug** – Mist.AI no longer keeps repeating that it is Mist.AI and the model it is using.  
-- **Enhanced AI responses** – More fluid and intelligent conversation handling. 
-- **/riddle now has a blurred text to not show the answer!** - Makes it more fair so you cant just guess the answer. 
+- **Better AI response handling** – More natural and intelligent replies.
+- **Better Paperclip Icon** - Clicking the PaperClip allows u to upload either images or files.
+- **Fixed random AI model switching** – Ensures stable interaction with Gemini AI & Command R AI.
+- **Improved `/riddle` command** – Now blurs the answer for a fair challenge!
+
+### 🎭 **More Fun Features!**
+- `/riddle` and `/joke` have been expanded with **new content**.
+- AI personality improvements for **more engaging conversations**.
 
 ---
 
@@ -51,7 +46,7 @@ Mist.AI is a powerful AI assistant built on **Gemini AI** and **Command R AI**, 
 ✔ **Mobile Optimized** – Smooth experience across all devices  
 ✔ **Session-Based Memory** – Mist.AI remembers chats while you're on the page  
 ✔ **Chat Cooldown** – Prevents spam while Mist.AI is typing  
-✔ **File Upload Support** – Upload PDFs for text extraction  
+✔ **File Upload Support** – Upload PDFs, DOCX, TXT, JSON, and images  
 ✔ **Real-Time News Fetching** – Get instant headlines with `/news`  
 ✔ **Slash Commands (`/`) Support** – Type `/` to get command suggestions  
    - `/flipcoin` – Flips a coin  
@@ -67,12 +62,10 @@ Mist.AI is a powerful AI assistant built on **Gemini AI** and **Command R AI**, 
 🔗 **[Mist.AI Website](https://mistai.netlify.app)**  
 
 ## 🛠️ Future Plans  
-- 🔹 **Expanded Theme Collection** – More color themes and animations  
-- 🔹 **ChatGPT/Meta Integration** – Adding GPT / Meta AI for better chat interactions 
+- 🔹 **Expanded Theme Collection** – More color themes and animations    
 - 🔹 **AI Personality Tweaks** – Custom AI responses based on user interaction  
 - 🔹 **Expanded `/` Commands** – More interactive features  
-- 🔹 **More Secret Features** – Hidden surprises for users to find  
-- 🔹 **Image Generation** – Limit users to 3 images per day  
+- 🔹 **More Secret Features** – Hidden surprises for users to find   
 - 🔹 **Enhanced UI/UX** – More intuitive design and animations  
 
 ---

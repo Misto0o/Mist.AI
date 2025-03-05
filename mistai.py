@@ -75,17 +75,53 @@ def check_easter_eggs(user_message):
     return EASTER_EGGS.get(normalized_message, None)
 
 # Configure APIs
+RAPIDAPI_KEY = os.getenv("RAPIDAPI_KEY")
+RAPIDAPI_HOST = os.getenv("RAPIDAPI_HOST")
+
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 cohere_client = cohere.Client(os.getenv("COHERE_API_KEY"))
+
 the_news_api_key = os.getenv("THE_NEWS_API_KEY")
 goflie_api_key = os.getenv("GOFLIE_API_KEY")
 API_KEY = os.getenv("OPENWEATHER_API_KEY")
+
 API_BASE_URL = "https://api.openweathermap.org/data/2.5"
 temperatureUnit = "imperial"
 news_url = (
     os.getenv("https://mist-ai-64pc.onrender.com/chat", "http://127.0.0.1:5000")
     + "/time-news"
 )
+
+@app.route('/analyze', methods=['POST'])
+def analyze_image():
+    data = request.json
+    img_url = data.get('img_url')
+
+    if not img_url:
+        return jsonify({"error": "Image URL is required"}), 400
+
+    url = "https://chatgpt-42.p.rapidapi.com/matagvision"
+    headers = {
+        "x-rapidapi-key": RAPIDAPI_KEY,
+        "x-rapidapi-host": "chatgpt-42.p.rapidapi.com",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "messages": [
+            {
+                "role": "user",
+                "content": "What's in the image?",
+                "img_url": img_url
+            }
+        ]
+    }
+
+    response = requests.post(url, json=payload, headers=headers)  # ✅ Use requests (not httpx)
+    
+    try:
+        return jsonify(response.json())  # ✅ Properly return JSON response
+    except ValueError:
+        return jsonify({"error": "Invalid response from API"}), 500
 
 # ✅ Get the best available GoFile server
 async def get_best_server():
@@ -263,6 +299,10 @@ async def chat():
         user_message = data.get("message", "").strip().lower()
         model_choice = data.get("model", "gemini")
         chat_context = data.get("context", [])
+        
+        if "img_url" in data:
+            logging.info("📷 Image received in /chat, redirecting to image analysis.")
+            return analyze_image()  # ❌ No 'await' here since analyze_image() is now synchronous
 
         if not user_message:
             return jsonify({"error": "Invalid input: 'message' cannot be empty."}), 400
@@ -285,7 +325,7 @@ async def chat():
         
         normalized_message = re.sub(r"[^\w\s]", "", user_message.lower()).strip()
 
-        if "news" in user_message or "headlines" in user_message:
+        if "what is todays news" in user_message or "what are todays headlines" in user_message:
             async with httpx.AsyncClient() as client:
                 news_response = await client.get(news_url)
             news_data = news_response.json()
@@ -305,7 +345,7 @@ async def chat():
             current_date = time_data.get("time", {}).get("date", "Unknown Date")
 
             return jsonify({"response": f"📅 Today's date is {current_date}, and the time is {current_time}."})
-
+        
         # ✅ Process Chatbot AI Response
         context_text = "\n".join(f"{msg['role']}: {msg['content']}" for msg in chat_context)
         full_prompt = f"{context_text}\nUser: {user_message}\nMist.AI:"
