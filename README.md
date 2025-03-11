@@ -1,39 +1,43 @@
-# ☁️ Mist.AI – V3.0 Smarter AI, Full File Support & More!
+# ☁️ Mist.AI – V3.5 Smarter AI, PWA, Mobile Support & More!
 
-Mist.AI is an advanced AI assistant powered by **Gemini AI** and **Command R AI** and **NEW** **ChatGPT-VISON**, built for intelligence, efficiency, and fun! In this latest update, Mist.AI has **gained full file upload support (including images!), improved AI stability, enhanced UI, and expanded interactive features.**
+Mist.AI is an advanced AI assistant powered by **Gemini AI**, **Command R AI**, and **ChatGPT-Vision**. In this latest update, Mist.AI introduces **Progressive Web App (PWA) support**, making it fully accessible and installable on mobile devices! I also added mobile optimizations and new commands, taking your Mist.AI experience to the next level.
 
-🚀 **Current Version:** `V3.0`
+🚀 **Current Version:** `V3.5`  
+📱 **Mobile APP / Progressive Web App (PWA)**  
 📂 **Full File Upload Support (Images, Documents, and More!)**  
-🧠 **AI Stability & Response Improvements**  
-🔧 **Bug Fixes & UI Enhancements**  
-🤖 **New Interactive Features & Commands** 
-🙌 **GPT-Vision image support**  
+🔧 **Command Improvements**  
+🧠 **AI Stability & Response Enhancements**  
+🆕 **New `/help` Command**  
 
 ---
 
-## ✨ What's New?  
+## ✨ What's New?
 
-### 📂 **Full File Upload Support**  
-- Mist.AI **now supports all major file types**, including:
-  - **Documents**: PDF, TXT, JSON, DOCX/DOC
-  - **Images by GPTVISON!**: PNG, JPG, JPEG, Welcome Chatgpt Intergration!
-- **How It Works:**  
-  - Upload a file via the chatbox.
-  - Mist.AI extracts and displays key text or analyzes images.
-  - You can interact with the extracted content.  
+### 📱 **Mobile APP! / Progressive Web App (PWA)**  
+- Mist.AI is now a **PWA**!  
+  - **Installable on mobile devices**: Access Mist.AI from your phone and install it as a standalone app.  
+  - **Offline Support**: Thanks to PWA, you can interact with Mist.AI even when you’re offline!  
+  - **How to Install**: Visit the site on your mobile browser, and you’ll see an install prompt to add it to your home screen.
 
-### 🖼️ **Image Upload & Analysis**  
-- You can now upload images directly to Mist.AI! 🖼️
-- Future updates will include AI-powered **image recognition and captioning**.
+### 🔧 **Improved Commands and Code Input**  
+- **Code Input:** You can now input and execute **code snippets** directly within the chat. Mist.AI will return the results based on the code provided.  
+- **Fixed Command Handling:**  
+  - The `/help` command has been added, providing users with a detailed list of available commands and their descriptions.  
+  - Enhanced stability of slash commands for smoother interactions.  
+
+### 🆕 **New `/help` Command**  
+- **Functionality:**  
+  - Type `/help` to receive a list of all available commands.  
+  - Provides a quick reference for both common and advanced features available within Mist.AI.  
 
 ### 🛠 **Bug Fixes & AI Improvements**  
-- **Better AI response handling** – More natural and intelligent replies.
-- **Better Paperclip Icon** - Clicking the PaperClip allows u to upload either images or files.
-- **Fixed random AI model switching** – Ensures stable interaction with Gemini AI & Command R AI.
+- **Better AI response handling** – More natural and intelligent replies.  
+- **Paperclip Icon** – Now clearly indicates that users can upload either images or files.  
+- **Fixed random AI model switching** – Ensures stable interaction with Gemini AI & Command R AI.  
 - **Improved `/riddle` command** – Now blurs the answer for a fair challenge!
 
-### 🎭 **More Fun Features!**
-- `/riddle` and `/joke` have been expanded with **new content**.
+### 🎭 **More Fun Features!**  
+- `/riddle` and `/joke` have been expanded with **new content**.  
 - AI personality improvements for **more engaging conversations**.
 
 ---
@@ -62,11 +66,12 @@ Mist.AI is an advanced AI assistant powered by **Gemini AI** and **Command R AI*
 🔗 **[Mist.AI Website](https://mistai.netlify.app)**  
 
 ## 🛠️ Future Plans  
-- 🔹 **Expanded Theme Collection** – More color themes and animations    
+- 🔹 **Expanded Theme Collection** – More color themes and animations  
 - 🔹 **AI Personality Tweaks** – Custom AI responses based on user interaction  
 - 🔹 **Expanded `/` Commands** – More interactive features  
-- 🔹 **More Secret Features** – Hidden surprises for users to find   
+- 🔹 **More Secret Features** – Hidden surprises for users to find  
 - 🔹 **Enhanced UI/UX** – More intuitive design and animations  
 
 ---
-💡 Built by [Kristian](https://builtbykristian.netlify.app)  
+
+💡 Built by [Kristian](https://builtbykristian.netlify.app)
