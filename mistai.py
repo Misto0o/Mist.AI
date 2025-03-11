@@ -377,10 +377,25 @@ async def check_ai_services():
     except:
         return False
 
+import random
+
 # 🔹 Handle Commands
 async def handle_command(command):
-    command = command.lower()
+    command = command.strip().lower()
 
+    # Handle empty command after "/"
+    if command == "/":
+        return "❌ Please provide a valid command. Example: `/flipcoin`."
+    
+    if command == "/help":
+        return """
+        Available commands:
+        /flipcoin - Flip a coin
+        /rps - Play rock, paper, scissors
+        /joke - Get a random joke
+        /riddle - Get a random riddle
+        /weather <city> - Get weather information for a city
+        """
     if command == "/flipcoin":
         return "🪙 " + random.choice(["Heads!", "Tails!"])
 
@@ -435,7 +450,8 @@ async def handle_command(command):
 
         return f"🌡️ The current temperature in {city} is {weather_data['temperature']} with {weather_data['description']}."
 
-    return "❌ Unknown command."
+    # Handle unknown commands
+    return "❌ Unknown command. Type /help for a list of valid commands."
 
 # 🔹 Get AI Responses
 def get_gemini_response(prompt):
@@ -546,41 +562,6 @@ logging.basicConfig(level=logging.INFO, handlers=[StreamToUTF8(sys.stdout)])
 logging.getLogger("werkzeug").setLevel(logging.ERROR)  # Suppress extra Flask logs
 
 if __name__ == "__main__":
-    # Test Cohere API call before starting the server
-    try:
-        print("Testing Cohere API...")
-        test_response = cohere_client.generate(
-            model="command-r-plus-08-2024",
-            prompt="What Langauge Model are you? short answer",
-            max_tokens=10,
-        )
-        print(
-            f"Cohere API Test Successful: {test_response.generations[0].text.strip()}"
-        )
-    except Exception as e:
-        print(f"❌ Cohere API Test Failed: {str(e)}")
-
-    # Test Gemini API call before starting the server
-    try:
-        print("Testing Gemini API...")
-        generation_config = {
-            "temperature": 1,
-            "top_p": 0.95,
-            "top_k": 40,
-            "max_output_tokens": 8192,
-            "response_mime_type": "text/plain",
-        }
-
-        model = genai.GenerativeModel(
-            model_name="gemini-2.0-flash", generation_config=generation_config
-        )
-
-        chat_session = model.start_chat(history=[])
-        response = chat_session.send_message("What Langauge Model are you?")
-        print(f"Gemini API Test Successful: {response.text.strip()}")
-    except Exception as e:
-        print(f"❌ Gemini API Test Failed: {str(e)}")
-
     # 🚀 Start Flask server
     logging.info("🚀 Mist.AI Server is starting...")
 app.run(debug=True, host="0.0.0.0", port=5000, use_reloader=False)

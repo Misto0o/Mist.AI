@@ -179,7 +179,7 @@ suggestionsBox.style.cursor = "pointer";
 document.body.appendChild(suggestionsBox);
 
 // Command list
-const commands = ["/flipcoin", "/rps", "/joke", "/riddle", "/weather"];
+const commands = ["/flipcoin", "/rps", "/joke", "/riddle", "/weather", "/help"];
 
 // Show suggestions when typing "/"
 inputField.addEventListener("input", (e) => {
@@ -566,6 +566,20 @@ document.addEventListener("DOMContentLoaded", function () {
             uploadFile(file); // Send document immediately
         }
     });
+
+    // Check if service workers are supported
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker
+                .register('/service-worker.js')  // Path to your service worker file
+                .then((registration) => {
+                    console.log('Service Worker registered with scope:', registration.scope);
+                })
+                .catch((error) => {
+                    console.error('Service Worker registration failed:', error);
+                });
+        });
+    }
 
     // ✅ Handle window resize for model container
     window.addEventListener('resize', () => {
