@@ -38,7 +38,7 @@ CORS(
     app,
     origins=[
         "http://127.0.0.1:5500",  # Local development
-        "https://mist-ai-64pc.onrender.com",  # Render deployment
+        #"https://mist-ai-64pc.onrender.com",  # Render deployment
         "https://mistai.netlify.app",  # Netlify frontend
         "file:///D:/Mist.AI",  # Local file path (Windows)
         "file:///media/removable/SanDisk/Mist.AI",  # Removable drive (Linux/Mac)
