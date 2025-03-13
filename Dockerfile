@@ -20,4 +20,4 @@ EXPOSE 8080
 ENV PORT=8080 FLASK_APP=app.py FLASK_ENV=production
 
 # Use Gunicorn for a production-ready server
-CMD ["python wsgi.py"]
+CMD ["python", "wsgi.py"]
