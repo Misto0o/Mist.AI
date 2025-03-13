@@ -42,6 +42,7 @@ CORS(
         "https://mistai.netlify.app",  # Netlify frontend
         "file:///D:/Mist.AI",  # Local file path (Windows)
         "file:///media/removable/SanDisk/Mist.AI",  # Removable drive (Linux/Mac)
+        "https://mist-ai.fly.dev",
     ],
 )
 

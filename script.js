@@ -106,10 +106,14 @@ function updateMemory(role, content) {
 // Function to get backend URL
 function getBackendUrl() {
     const hostname = window.location.hostname;
+    const isLocal = hostname === 'localhost' || hostname === '127.0.0.1';
     const isFileUrl = window.location.protocol === 'file:';
-    return isFileUrl || hostname === 'localhost' || hostname === '127.0.0.1'
-        ? 'http://127.0.0.1:5000/chat'
-        : 'https://mist-ai-64pc.onrender.com/chat';
+
+    // Return local, Fly.io, or Render URLs based on the environment
+    return isFileUrl || isLocal 
+        ? 'http://127.0.0.1:5000/chat'  // Local development URL
+        : 'https://mist-ai.fly.dev/chat';  // Primary Production URL on Fly.io
+        // : 'https://mist-ai-64pc.onrender.com/chat';  // Fallback Production URL on Render
 }
 
 // Function to swap models

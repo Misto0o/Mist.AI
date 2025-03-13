@@ -1,0 +1,26 @@
+name: Fly Deploy
+
+on:
+  push:
+    branches:
+      - master  # Ensures deployment happens when changes are pushed to the 'master' branch
+
+jobs:
+  deploy:
+    name: Deploy app
+    runs-on: ubuntu-latest
+    concurrency: deploy-group  # Optional: Ensures only one deployment runs at a time
+
+    steps:
+      - uses: actions/checkout@v4  # Check out the repository
+      - uses: superfly/flyctl-actions/setup-flyctl@master  # Set up the Fly.io CLI
+      - run: flyctl deploy --remote-only  # Deploy the app to Fly.io
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          COHERE_API_KEY: ${{ secrets.COHERE_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GOFLIE_API_KEY: ${{ secrets.GOFLIE_API_KEY }}
+          OPENWEATHER_API_KEY: ${{ secrets.OPENWEATHER_API_KEY }}
+          RAPIDAPI_KEY: ${{ secrets.RAPIDAPI_KEY }}
+          RAPIDAPI_HOST: ${{ secrets.RAPIDAPI_HOST }}
+          THE_NEWS_API_KEY: ${{ secrets.THE_NEWS_API_KEY }}
