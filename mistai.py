@@ -90,7 +90,7 @@ API_KEY = os.getenv("OPENWEATHER_API_KEY")
 API_BASE_URL = "https://api.openweathermap.org/data/2.5"
 temperatureUnit = "imperial"
 news_url = (
-    os.getenv("https://mist-ai.fly.dev/chat", "http://127.0.0.1:5000")
+    os.getenv("https://mist-ai.fly.dev/", "http://127.0.0.1:5000")
     + "/time-news"
 )
 
