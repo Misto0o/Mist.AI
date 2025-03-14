@@ -19,6 +19,7 @@ import json
 from docx import Document
 import time
 import fitz
+import difflib
 
 # Load environment variables
 load_dotenv()
@@ -324,29 +325,92 @@ async def chat():
             logging.info("💡 User requested a fun fact.")
             return jsonify({"response": get_random_fun_fact()})
         
-        normalized_message = re.sub(r"[^\w\s]", "", user_message.lower()).strip()
+    except Exception as e:
+        logging.error(f"Server Error: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+    
+import re
+import httpx
+import difflib
+import asyncio
+import time
+import logging
+import os
+from flask import Flask, request, jsonify
 
-        if "what is todays news" in user_message or "what are todays headlines" in user_message:
-            async with httpx.AsyncClient() as client:
-                news_response = await client.get(news_url)
-            news_data = news_response.json()
+app = Flask(__name__)
 
-            if "news" in news_data:
-                news_text = "\n".join(
-                    [f"📰 {article['title']} [🔗 Read more]({article['url']})" for article in news_data["news"]]
-                )
-                return jsonify({"response": f"Here are the latest news headlines:\n{news_text}"})
+news_url = "https://your-news-api.com/news"
 
-        if normalized_message in ["what time is it", "whats todays date"]:
-            async with httpx.AsyncClient() as client:
-                time_response = await client.get(news_url)
-            time_data = time_response.json()
+@app.route("/chat", methods=["POST", "GET"])
+async def chat():
+    try:
+        start_time = time.time()  # ✅ Track request start time
 
-            current_time = time_data.get("time", {}).get("time", "Unknown Time")
-            current_date = time_data.get("time", {}).get("date", "Unknown Date")
+        if request.method == "GET":
+            try:
+                ai_status = await asyncio.wait_for(check_ai_services(), timeout=3)
+            except asyncio.TimeoutError:
+                ai_status = False  
+            return jsonify(
+                {"status": "🟢 Mist.AI is awake!" if ai_status else "🔴 Mist.AI is OFFLINE"},
+                (200 if ai_status else 503),
+            )
 
-            return jsonify({"response": f"📅 Today's date is {current_date}, and the time is {current_time}."})
+        if "file" in request.files:
+            file = request.files["file"]
+            if file.filename == "":
+                return jsonify({"error": "No file selected."}), 400
+
+            file_content = file.stream.read()
+            ext = os.path.splitext(file.filename.lower())[1]
+            extracted_text = file_processors.get(ext, lambda _: "⚠️ Unsupported file type.")(file_content)
+
+            result = await upload_to_gofile(file.filename, file_content, file.mimetype)
+
+            if "link" in result:
+                logging.info(f"📁 New file uploaded: {file.filename} | Link: {result['link']}")
+                return jsonify({"response": f"📁 Uploading file: {file.filename}...\n🤔 Mist.AI reading the file...\n\nHow can I assist you with this file?"})
+            else:
+                logging.error(f"❌ Failed to upload file: {file.filename}")
+                return jsonify({"error": "Failed to upload to GoFile"}), 500
+
+        if not request.is_json:
+            return jsonify({"error": "Invalid request: No valid JSON data provided."}), 400
+
+        data = request.get_json()
+        user_message = data.get("message", "").strip().lower()
+        model_choice = data.get("model", "gemini")
+        chat_context = data.get("context", [])
         
+        if "img_url" in data:
+            logging.info("📷 Image received in /chat, redirecting to image analysis.")
+            return analyze_image()  # ❌ No 'await' here since analyze_image() is now synchronous
+
+        if not user_message:
+            return jsonify({"error": "Invalid input: 'message' cannot be empty."}), 400
+
+        if response := check_easter_eggs(user_message):
+            return jsonify({"response": response})
+
+        if user_message.startswith("/"):
+            logging.info(f"📢 User ran command: {user_message}")
+            command_response = await handle_command(user_message)
+            return jsonify({"response": command_response})
+
+        if user_message == "random prompt":
+            logging.info("🎠 User requested a random prompt.")
+            return jsonify({"response": get_random_prompt()})
+
+        if user_message == "fun fact":
+            logging.info("💡 User requested a fun fact.")
+            return jsonify({"response": get_random_fun_fact()})
+
+        # ✅ Check for news queries
+        news_response = await process_message(user_message)
+        if news_response:
+            return news_response
+
         # ✅ Process Chatbot AI Response
         context_text = "\n".join(f"{msg['role']}: {msg['content']}" for msg in chat_context)
         full_prompt = f"{context_text}\nUser: {user_message}\nMist.AI:"
@@ -362,14 +426,50 @@ async def chat():
         if elapsed_time > 9:
             response_content = "⏳ You're the first request, sorry for the wait!\n\n" + response_content
 
-        logging.info(f"\n🕒 [{datetime.now().strftime('%Y-%m-%d %I:%M:%S %p')}]\n📩 User: {user_message}\n🤖 AI ({model_choice}): {response_content}\n")
+        logging.info(f"\n🕒 [{time.strftime('%Y-%m-%d %I:%M:%S %p')}]\n📩 User: {user_message}\n🤖 AI ({model_choice}): {response_content}\n")
         
         return jsonify({"response": response_content})
 
     except Exception as e:
         logging.error(f"Server Error: {str(e)}")
         return jsonify({"error": str(e)}), 500
-    
+
+# ✅ Moved process_message outside of chat() ✅
+async def process_message(user_message):
+    normalized_message = re.sub(r"[^\w\s]", "", user_message.lower()).strip()
+
+    # Common ways users might ask for news
+    news_queries = [
+        "what is today's news", "what are today's headlines", "give me the news", 
+        "latest news", "tell me today's headlines", "any updates in the news"
+    ]
+
+    # Fuzzy match: See if the user's message is close to any of the queries
+    closest_match = difflib.get_close_matches(normalized_message, news_queries, n=1, cutoff=0.8)
+
+    if closest_match:
+        async with httpx.AsyncClient() as client:
+            news_response = await client.get(news_url)
+        news_data = news_response.json()
+
+        if "news" in news_data and isinstance(news_data["news"], list):
+            news_text = "\n".join(
+                [f"📰 {article['title']} [🔗 Read more]({article['url']})" for article in news_data["news"][:5]]
+            )  # Limits to 5 headlines
+            return jsonify({"response": f"Here are the latest news headlines:\n{news_text}"})
+
+    if normalized_message in ["what time is it", "whats todays date"]:
+        async with httpx.AsyncClient() as client:
+            time_response = await client.get(news_url)
+        time_data = time_response.json()
+
+        current_time = time_data.get("time", {}).get("time", "Unknown Time")
+        current_date = time_data.get("time", {}).get("date", "Unknown Date")
+
+        return jsonify({"response": f"📅 Today's date is {current_date}, and the time is {current_time}."})
+
+    return None  # ✅ If no match, return None
+
 # 🔹 Check AI Services
 async def check_ai_services():
     try:
