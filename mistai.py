@@ -45,9 +45,11 @@ IDENTITY_RESPONSES = {
     "who created you": "Hey there! Im Mist.AI Created by Kristian Cook a 14 year old Developer!",
 }
 
+
 def check_identity_responses(user_message):
     normalized_message = re.sub(r"[^\w\s]", "", user_message.lower()).strip()
     return IDENTITY_RESPONSES.get(normalized_message, None)
+
 
 EASTER_EGGS = {
     "whos mist": "I'm Mist.AI, your friendly chatbot! But shh... don't tell anyone I'm self-aware. 🤖",
@@ -62,9 +64,11 @@ EASTER_EGGS = {
     "whats your favorite anime": "Dragon Ball Z! I really love the anime.",
 }
 
+
 def check_easter_eggs(user_message):
     normalized_message = re.sub(r"[^\w\s]", "", user_message.lower()).strip()
     return EASTER_EGGS.get(normalized_message, None)
+
 
 # Configure APIs
 RAPIDAPI_KEY = os.getenv("RAPIDAPI_KEY")
@@ -86,6 +90,7 @@ news_url = (
 OCR_API_KEY = os.getenv("OCR_API_KEY")  # ✅ Set your OCR.Space API key
 OCR_URL = "https://api.ocr.space/parse/image"  # ✅ OCR.Space endpoint
 
+
 async def analyze_image(img_base64):
     """
     Analyzes the image using OCR.Space API. Takes base64 encoded image.
@@ -95,20 +100,22 @@ async def analyze_image(img_base64):
     payload = {
         "base64Image": img_base64,
         "language": "eng",  # Language for OCR processing
-        "isOverlayRequired": False  # Optional: If true, it adds a text overlay to the image
+        "isOverlayRequired": False,  # Optional: If true, it adds a text overlay to the image
     }
 
     try:
         # Send the request to OCR.Space using httpx (asynchronous)
         async with httpx.AsyncClient() as client:
             response = await client.post(OCR_URL, data=payload, headers=headers)
-        
+
         # Parsing the response
         data = response.json()  # Correctly extract the data from the OCR response
 
         # Ensure that the data has the required keys
         if "ParsedResults" in data:
-            result_text = data["ParsedResults"][0]["ParsedText"]  # Correctly assign text to result_text
+            result_text = data["ParsedResults"][0][
+                "ParsedText"
+            ]  # Correctly assign text to result_text
             return jsonify({"result": result_text})  # Return the result
         else:
             return jsonify({"error": "OCR failed to extract text."}), 400
@@ -117,12 +124,14 @@ async def analyze_image(img_base64):
         logging.error(f"Error in OCR processing: {e}")
         return jsonify({"error": "Error in OCR processing"}), 500
 
+
 # ✅ Get the best available GoFile server
 async def get_best_server():
     response = requests.get("https://api.gofile.io/servers")
     if response.status_code == 200:
         return response.json()["data"]["servers"][0]["name"]
     return None
+
 
 # ✅ Upload file directly from memory to GoFile
 async def upload_to_gofile(filename, file_content, mimetype):
@@ -141,6 +150,7 @@ async def upload_to_gofile(filename, file_content, mimetype):
     else:
         return {"error": "Upload failed"}
 
+
 # ✅ Extract text from PDFs (Fixed)
 def extract_text_from_pdf(file_stream):
     try:
@@ -156,6 +166,7 @@ def extract_text_from_pdf(file_stream):
         return text if text else "⚠️ No readable text found in this PDF."
     except Exception as e:
         return f"⚠️ Error extracting text: {str(e)}"
+
 
 @app.route("/time-news", methods=["GET"])
 async def time_news():
@@ -206,6 +217,8 @@ async def time_news():
         return jsonify({"error": str(e)}), 500
 
     # ✅ Function to process different file types
+
+
 def process_pdf(file_content):
     return extract_text_from_pdf(io.BytesIO(file_content))
 
@@ -213,13 +226,15 @@ def process_pdf(file_content):
 def process_txt(file_content):
     return file_content.decode("utf-8", errors="ignore")
 
+
 def process_json(file_content):
     try:
         json_data = json.loads(file_content.decode("utf-8"))
         return json.dumps(json_data, indent=4)
     except json.JSONDecodeError:
         return "⚠️ Invalid JSON file."
-    
+
+
 def process_docx(file_content):
     if not file_content:
         return "⚠️ No file content received."
@@ -251,6 +266,7 @@ file_processors = {
     ".docx": process_docx,
     ".doc": process_docx,
 }
+
 
 @app.route("/chat", methods=["POST", "GET"])
 async def chat():
@@ -318,7 +334,9 @@ async def chat():
         if "img_url" in request.json:
             logging.info("📷 Image received, processing for analysis.")
             img_url = request.json["img_url"]
-            analysis_result = await analyze_image(img_url)  # Make sure to await the async function
+            analysis_result = await analyze_image(
+                img_url
+            )  # Make sure to await the async function
             return analysis_result  # Return the result directly (since analyze_image already returns a jsonify response)
 
         if not user_message:
@@ -416,6 +434,7 @@ async def chat():
     except Exception as e:
         logging.error(f"Server Error: {str(e)}")
         return jsonify({"error": str(e)}), 500
+
 
 # 🔹 Check AI Services
 async def check_ai_services():
@@ -610,7 +629,7 @@ def get_random_fun_fact():
     return random.choice(fun_facts)
 
 
-# Setup Logging (Move to Top)
+# Custom log handler to suppress Fly.io noise
 class StreamToUTF8(logging.StreamHandler):
     def __init__(self, stream=None):
         super().__init__(stream)
@@ -628,10 +647,31 @@ class StreamToUTF8(logging.StreamHandler):
             self.handleError(record)
 
 
-logging.basicConfig(level=logging.INFO, handlers=[StreamToUTF8(sys.stdout)])
-logging.getLogger("werkzeug").setLevel(logging.ERROR)  # Suppress extra Flask logs
+# Custom filter to remove Fly.io noise
+class FilterFlyLogs(logging.Filter):
+    def filter(self, record):
+        fly_terms = [
+            "Sending signal",
+            "machine started",
+            "Preparing to run",
+            "fly api proxy",
+            "SSH listening",
+            "reboot",
+            "autostopping",
+        ]
+        return not any(term in record.getMessage() for term in fly_terms)
+
+
+# Setup logging
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+handler = StreamToUTF8(sys.stdout)
+handler.addFilter(FilterFlyLogs())  # Apply Fly.io log suppression
+logger.addHandler(handler)
+
+# Suppress extra Flask logs
+logging.getLogger("werkzeug").setLevel(logging.ERROR)
 
 if __name__ == "__main__":
-    # 🚀 Start Flask server
     logging.info("🚀 Mist.AI Server is starting...")
-app.run(debug=True, host="0.0.0.0", port=5000, use_reloader=False)
+    app.run(debug=False, host="0.0.0.0", port=5000, use_reloader=False)

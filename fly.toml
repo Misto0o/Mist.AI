@@ -1,17 +1,21 @@
-app = 'mist-ai'
-primary_region = 'iad'
+app = "mist-ai"
+primary_region = "iad"
 
 [build]
 
 [http_service]
-  internal_port = 5000  # Change this to match your Flask app’s port
+  internal_port = 5000  # Ensure this matches Flask's port
   force_https = true
-  auto_stop_machines = 'stop'
+  auto_stop_machines = false  # Prevents Fly from auto-stopping the app
   auto_start_machines = true
-  min_machines_running = 0
-  processes = ['app']
+  min_machines_running = 1  # Keeps at least one instance running
+  processes = ["app"]
 
 [[vm]]
-  memory = '512mb'
-  cpu_kind = 'shared'
+  memory = "1gb"  # Increased from 512MB to prevent crashes
+  cpu_kind = "shared"
   cpus = 1
+
+[metrics]
+  port = 5000
+  path = "/metrics"  # Optional, for monitoring performance
