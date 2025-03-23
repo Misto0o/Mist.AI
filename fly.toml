@@ -18,3 +18,4 @@ primary_region = "iad"
 
 [metrics]
   port = 5000
+  path = "/metrics"  # Optional, for monitoring performance
