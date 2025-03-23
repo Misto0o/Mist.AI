@@ -8,11 +8,19 @@
         font-family: 'Arial', sans-serif;
         height: 100vh;
         transition: background-color 0.8s ease-in-out, color 0.8s ease-in-out;
+        scroll-behavior: smooth;
+    }
+
+    body {
+        display: flex;
+        margin: 0;
+        padding: 0;
     }
 
     /* ========================== */
     /*          SIDEBAR           */
     /* ========================== */
+    /* Desktop Sidebar Styles */
     .sidebar {
         width: 260px;
         height: 100vh;
@@ -27,8 +35,38 @@
         justify-content: flex-start;
         box-shadow: 4px 0 10px rgba(0, 0, 0, 0.2);
         border-right: 2px solid rgba(255, 255, 255, 0.1);
-        transition: all 0.3s ease-in-out;
+        transition: transform 0.4s ease-in-out, opacity 0.4s ease-in-out;
         overflow-y: auto;
+        z-index: 1000;
+    }
+
+    /* Hidden State */
+    .sidebar.hidden {
+        transform: translateX(-100%);
+        opacity: 0;
+    }
+
+    /* Sidebar Toggle Button */
+    .toggle-btn {
+        position: fixed;
+        top: 15px;
+        left: 15px;
+        font-size: 24px;
+        background: none;
+        border: none;
+        color: white;
+        cursor: pointer;
+        z-index: 1100;
+    }
+
+    /* Close Button */
+    .close-btn {
+        background: none;
+        border: none;
+        color: white;
+        font-size: 24px;
+        cursor: pointer;
+        align-self: flex-end;
     }
 
     .menu-label {
@@ -81,6 +119,7 @@
         display: flex;
         flex-direction: column;
         align-items: center;
+        justify-content: center;
     }
 
     .chat-box {
@@ -94,6 +133,7 @@
         flex-direction: column;
         gap: 12px;
         box-shadow: 0px 6px 15px rgba(0, 0, 0, 0.2);
+        border: 1px solid rgba(255, 255, 255, 0.1);
     }
 
     .chat-input-container {
@@ -104,7 +144,10 @@
         background: #444;
         border-radius: 25px;
         padding: 5px 10px;
+        margin-top: 20px;
+        box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2);
     }
+
 
     /* ========================== */
     /*       CHAT BUBBLES         */
@@ -115,16 +158,10 @@
         border-radius: 18px;
         margin-bottom: 10px;
         word-wrap: break-word;
+        position: relative;
+        animation: fadeIn 0.5s ease-in-out;
     }
 
-    .user-message {
-        background-color: #4CAF50;
-        color: white;
-        align-self: flex-end;
-        border-radius: 18px 18px 0 18px;
-        white-space: pre-wrap;
-        /* Ensures spaces and newlines are preserved */
-    }
 
     .bot-message {
         background-color: #444;
@@ -133,37 +170,76 @@
         border-radius: 18px 18px 18px 0;
     }
 
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
     /* ========================== */
     /*        CHAT INPUT          */
     /* ========================== */
-    /* Style the input field */
-    #user-input {
-        background-color: #222;
-        /* Dark background */
-        color: #fff;
-        /* Light text for contrast */
-        border: 1px solid #555;
-        /* Subtle border */
-        padding: 10px;
-        /* Better spacing */
-        border-radius: 8px;
-        /* Rounded edges */
-        font-size: 16px;
-        /* Slightly bigger text */
-        resize: none;
-        /* Disable resizing the textarea (optional) */
-        min-height: 50px;
-        /* Adjust based on your preference */
-        width: 100%;
-        /* Make it take full width of the container */
+    /* User message container */
+    .user-message {
+        position: relative;
+        max-width: 80%;
+        padding: 15px;
+        border-radius: 18px 18px 0 18px;
+        background-color: #4CAF50;
+        color: white;
+        align-self: flex-end;
+        margin-bottom: 10px;
+        word-wrap: break-word;
+        white-space: pre-wrap;
+        transition: background-color 0.3s ease;
     }
 
-    /* Change placeholder text color */
+    #user-input {
+        width: 100%;
+        padding: 10px;
+        border-radius: 8px;
+        background-color: #222;
+        color: #fff;
+        border: 1px solid #555;
+        font-size: 16px;
+        resize: none;
+        /* Prevent resizing */
+        min-height: 50px;
+        /* Set a minimum height */
+        outline: none;
+        /* Remove default outline */
+        transition: border-color 0.3s ease;
+    }
+
+    #user-input:focus {
+        border-color: #4CAF50;
+        /* Highlight border on focus */
+    }
+
     #user-input::placeholder {
         color: rgba(255, 255, 255, 0.6);
-        /* Light gray for better visibility */
+        /* Light gray placeholder */
         font-style: italic;
-        /* Optional: italic for style */
+        /* Optional: italic placeholder */
+    }
+
+    .icon-button {
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-size: 1.2rem;
+        color: #3273dc;
+        transition: color 0.3s;
+    }
+
+    .icon-button:hover {
+        color: #276cda;
     }
 
     .slash-button {
@@ -178,19 +254,6 @@
 
     .slash-button:hover {
         color: #fff;
-    }
-
-    .icon-button {
-        background: none;
-        border: none;
-        cursor: pointer;
-        font-size: 1.2rem;
-        color: #3273dc;
-        transition: color 0.3s;
-    }
-
-    .icon-button:hover {
-        color: #276cda;
     }
 
     /* ========================== */
@@ -216,28 +279,12 @@
         cursor: pointer;
         font-size: 16px;
         border-radius: 5px;
+        transition: background-color 0.3s, transform 0.2s;
     }
 
     .swap-button:hover {
         background-color: #45a049;
-    }
-
-    .camera-button {
-        border: none;
-        background: none;
-        cursor: pointer;
-        font-size: 1.5rem;
-        color: #3273dc;
-        padding: 0.5rem;
-        transition: color 0.3s;
-    }
-
-    .camera-button:hover {
-        color: #276cda;
-    }
-
-    strong {
-        font-weight: bold !important;
+        transform: scale(1.05);
     }
 
     .hidden-answer {
@@ -294,7 +341,6 @@
         z-index: 1000;
         /* Make sure it's on top */
     }
-
 
     .upload-option {
         display: block;
@@ -367,7 +413,90 @@
         background: #2563EB;
         /* Darker blue */
     }
-    
+
+    @keyframes typing {
+        0% {
+            opacity: 0;
+        }
+
+        50% {
+            opacity: 1;
+        }
+
+        100% {
+            opacity: 0;
+        }
+    }
+
+    .typing-indicator {
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        padding: 10px;
+    }
+
+    .typing-indicator span {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        margin: 0 2px;
+        background-color: #4CAF50;
+        border-radius: 50%;
+        animation: typing 1.4s infinite ease-in-out;
+    }
+
+    .typing-indicator span:nth-child(2) {
+        animation-delay: 0.2s;
+    }
+
+    .typing-indicator span:nth-child(3) {
+        animation-delay: 0.4s;
+    }
+
+    /* Style for code message bubbles */
+    .code-message {
+        background-color: #282c34;
+        color: white;
+    }
+
+    /* Style for the CodeMirror container */
+    .codemirror-container {
+        height: 200px;
+        width: 100%;
+    }
+
+    .edit-button {
+        position: absolute;
+        top: 5px;
+        right: 5px;
+        opacity: 0;
+        transition: opacity 0.2s;
+        cursor: pointer;
+    }
+
+    .message:hover .edit-button {
+        opacity: 1;
+    }
+
+    .edit-textarea {
+        width: 100%;
+        height: 100px;
+        padding: 10px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        resize: vertical;
+    }
+
+    .save-button {
+        margin-top: 10px;
+        padding: 5px 10px;
+        background-color: #4CAF50;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+    }
+
     /* ========================== */
     /*      RESPONSIVE DESIGN     */
     /* ========================== */
@@ -395,6 +524,7 @@
             box-shadow: 0px 6px 15px rgba(0, 0, 0, 0.2);
         }
 
+        /* Adjust the sidebar to account for the toggle button */
         .sidebar {
             width: 100%;
             height: 110px;
@@ -413,6 +543,9 @@
             z-index: 1000;
             background-color: var(--sidebar-bg, #222);
             color: var(--sidebar-text, white);
+            transform: translateX(0);
+            opacity: 1;
+            transition: transform 0.4s ease-in-out, opacity 0.4s ease-in-out;
         }
 
         .menu-label {
@@ -450,5 +583,34 @@
         .menu-list a:hover {
             background: rgba(77, 191, 0, 0.15);
             color: #4dbf00;
+        }
+
+        .toggle-btn {
+            position: absolute; /* Use absolute positioning */
+            top: 50px;
+            /* Adjust this value to move it further down */
+            left: 0px;
+            /* Adjust this value to move it further left */
+            right: unset;
+            /* Remove the right positioning */
+            transform: unset;
+            /* Remove the centering transform */
+            font-size: 30px;
+            background: none;
+            border: none;
+            color: white;
+            cursor: pointer;
+            z-index: 1100;
+        }
+
+        /* Responsive: Auto-hide on mobile */
+        .sidebar {
+            transform: translateX(-100%);
+            opacity: 0;
+        }
+
+        .sidebar.show {
+            transform: translateX(0);
+            opacity: 1;
         }
     }

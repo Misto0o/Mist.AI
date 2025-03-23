@@ -1,5 +1,99 @@
 // Initialize Showdown converter for markdown
-const converter = new showdown.Converter({ simpleLineBreaks: true });
+const converter = new showdown.Converter({
+    simpleLineBreaks: true,
+    omitExtraWLInCodeBlocks: true // Prevents Showdown from modifying code blocks
+});
+
+// Function to initialize CodeMirror in the passed container
+function initializeCodeMirror(container, code) {
+    if (!container) {
+        console.error("CodeMirror container is invalid or not found.");
+        return;
+    }
+
+    console.log("Initializing CodeMirror in container:", container);
+
+    const editor = CodeMirror(container, {
+        value: code,
+        mode: "javascript",
+        theme: "dracula",
+        lineNumbers: true,
+        readOnly: true
+    });
+
+    // Optionally, adjust editor settings, e.g., set an initial cursor position:
+    editor.setCursor(0, 0); // Place the cursor at the start
+
+    console.log("CodeMirror initialized successfully.");
+}
+
+// Function to check if the message contains code
+function containsCode(message) {
+    const codePattern = /(?:```[\s\S]*?```|<code>[\s\S]*?<\/code>)/; // Detects code blocks or <code> tags
+    return codePattern.test(message);
+}
+
+// Function to extract code blocks from a message
+function extractCodeBlocks(message) {
+    const codePattern = /(?:```[\s\S]*?```|<code>[\s\S]*?<\/code>)/g;
+    return message.match(codePattern) || [];
+}
+
+// Function to render a message with Showdown and CodeMirror
+function renderMessage(message, className) {
+    const messagesDiv = document.getElementById("chat-box");
+    const messageElement = document.createElement("div");
+    messageElement.classList.add("message", className);
+
+    // Extract code blocks from the message
+    const codeBlocks = extractCodeBlocks(message);
+    let processedMessage = message;
+
+    // Replace code blocks with placeholders
+    codeBlocks.forEach((codeBlock, index) => {
+        processedMessage = processedMessage.replace(codeBlock, `<div id="code-block-${index}"></div>`);
+    });
+
+    // Process non-code parts with Showdown
+    processedMessage = converter.makeHtml(processedMessage);
+
+    // Set the processed message as HTML
+    messageElement.innerHTML = processedMessage;
+
+    // Add edit button for user messages
+    if (className === "user-message") {
+        const editButton = document.createElement("i");
+        editButton.classList.add("fas", "fa-pen", "edit-button");
+        editButton.title = "Edit";
+        editButton.onclick = () => enableEditMode(messageElement, message);
+        messageElement.appendChild(editButton);
+    }
+
+    // Append the message to the chat box
+    messagesDiv.appendChild(messageElement);
+
+    // Replace placeholders with CodeMirror instances
+    codeBlocks.forEach((codeBlock, index) => {
+        const placeholder = document.getElementById(`code-block-${index}`);
+        if (placeholder) {
+            // Create a container for CodeMirror
+            const codeContainer = document.createElement("div");
+            codeContainer.classList.add("codemirror-container");
+
+            // Remove the triple backticks or <code> tags from the code block
+            const cleanCode = codeBlock.replace(/```/g, "").replace(/<code>/g, "").replace(/<\/code>/g, "");
+
+            // Initialize CodeMirror in the created container
+            initializeCodeMirror(codeContainer, cleanCode);
+
+            // Replace the placeholder with the CodeMirror container
+            placeholder.replaceWith(codeContainer);
+        }
+    });
+
+    // Scroll to the bottom of the chat box
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+}
 
 // Default settings
 let currentModel = 'gemini';
@@ -14,13 +108,17 @@ async function sendMessage(userMessage = null) {
     const userInput = document.getElementById("user-input");
     const messagesDiv = document.getElementById("chat-box");
 
-    if (!userInput || !messagesDiv || !canSendMessage) return; // Ensure elements exist and prevent spam
+    if (!userInput || !messagesDiv || !canSendMessage) return;
 
-    // Handle user input
     if (!userMessage) {
         userMessage = userInput.value.trim();
         if (!userMessage) return;
         userInput.value = ''; // Clear input field
+    }
+
+    // If message contains code
+    if (containsCode(userMessage)) {
+        console.log("Code detected in message:", userMessage);
     }
 
     // Disable input while bot is responding
@@ -28,7 +126,7 @@ async function sendMessage(userMessage = null) {
     canSendMessage = false;
 
     // Append user message to UI
-    appendMessage(userMessage, "user-message");
+    renderMessage(userMessage, "user-message");
 
     // Show "thinking" indicator
     const thinkingBubble = createThinkingBubble();
@@ -53,7 +151,7 @@ async function sendMessage(userMessage = null) {
         if (!data.response) throw new Error("No response from API");
 
         thinkingBubble.remove(); // Remove thinking indicator
-        appendMessage(`Mist.AI: ${converter.makeHtml(data.response)}`, "bot-message");
+        renderMessage(`Mist.AI: ${data.response}`, "bot-message"); // Render bot response with Showdown and CodeMirror
 
         // Store bot response in memory
         updateMemory("bot", data.response);
@@ -71,15 +169,62 @@ async function sendMessage(userMessage = null) {
     }, 1800);
 }
 
-// Function to append a message to the chat UI
 function appendMessage(content, className) {
     const messagesDiv = document.getElementById("chat-box");
     const messageElement = document.createElement("div");
     messageElement.classList.add("message", className);
+
+    // Add the message content
     messageElement.innerHTML = content;
+
+    // Add edit button for user messages
+    if (className === "user-message") {
+        const editButton = document.createElement("i");
+        editButton.classList.add("fas", "fa-pen", "edit-button");
+        editButton.title = "Edit";
+        editButton.onclick = () => enableEditMode(messageElement, content);
+        messageElement.appendChild(editButton);
+    }
+
+    // Append the message to the chat box
     messagesDiv.appendChild(messageElement);
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+    // Add animation
     gsap.fromTo(messageElement, { opacity: 0, y: className === "user-message" ? -10 : 10 }, { opacity: 1, y: 0, duration: 0.3 });
+}
+
+// Function to enable edit mode
+function enableEditMode(messageElement, originalContent) {
+    // Create a textarea for editing
+    const textarea = document.createElement("textarea");
+    textarea.classList.add("edit-textarea");
+    textarea.value = originalContent;
+
+    // Create a save button
+    const saveButton = document.createElement("button");
+    saveButton.classList.add("save-button");
+    saveButton.textContent = "Save";
+    saveButton.onclick = () => saveEditedMessage(messageElement, textarea.value);
+
+    // Replace the message content with the textarea and save button
+    messageElement.innerHTML = "";
+    messageElement.appendChild(textarea);
+    messageElement.appendChild(saveButton);
+}
+
+// Function to save the edited message
+function saveEditedMessage(messageElement, newContent) {
+    const messagesDiv = document.getElementById("chat-box");
+
+    // Remove the edited message from the chat UI
+    messagesDiv.removeChild(messageElement);
+
+    // Resend the new message to the backend
+    sendMessage(newContent);
+
+    // Optionally, update the message in the chat memory
+    updateMemory("user", newContent);
 }
 
 // Function to create the "thinking" indicator
@@ -99,7 +244,7 @@ function createThinkingBubble() {
 // Function to update chat memory
 function updateMemory(role, content) {
     chatMemory.push({ role, content });
-    if (chatMemory.length > 10) chatMemory.shift(); // Keep last 10 messages for performance
+    if (chatMemory.length > 25) chatMemory.shift(); // Keep last 25 messages for performance
     sessionStorage.setItem("chatMemory", JSON.stringify(chatMemory));
 }
 
@@ -110,12 +255,11 @@ function getBackendUrl() {
     const isFileUrl = window.location.protocol === 'file:';
 
     // Return local, Fly.io, or Render URLs based on the environment
-    return isFileUrl || isLocal 
+    return isFileUrl || isLocal
         ? 'http://127.0.0.1:5000/chat'  // Local development URL
         : 'https://mist-ai.fly.dev/chat';  // Primary Production URL on Fly.io
-        // : 'https://mist-ai-64pc.onrender.com/chat';  // Fallback Production URL on Render
+    // : 'https://mist-ai-64pc.onrender.com/chat';  // Fallback Production URL on Render
 }
-
 // Function to swap models
 function swapContent() {
     const swapButton = document.querySelector(".swap-button");
@@ -393,7 +537,7 @@ document.addEventListener("DOMContentLoaded", function () {
         chatBox.scrollTop = chatBox.scrollHeight;
     }
 
-    // ✅ Make analyzeUploadedImage GLOBAL
+    // Function to analyze the uploaded image
     async function analyzeUploadedImage() {
         if (!uploadedFile) {
             showMessage("⚠️ No image to analyze!", "bot");
@@ -403,15 +547,12 @@ document.addEventListener("DOMContentLoaded", function () {
         const reader = new FileReader();
 
         reader.onloadend = async function () {
-            const base64String = reader.result; // ✅ Convert to Base64
-
-            console.log("📤 Sending Image:", base64String.substring(0, 50) + "..."); // ✅ Debugging
-
+            const base64String = reader.result; // Convert to Base64
             const url = getBackendUrl("analyze");
             const options = {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ img_url: base64String }) // ✅ Send Base64
+                body: JSON.stringify({ img_url: base64String }) // Send Base64
             };
 
             try {
@@ -420,7 +561,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 const response = await fetch(url, options);
                 const result = await response.json();
 
-                console.log("📥 API Response:", result); // ✅ Debugging
+                console.log("📥 API Response:", result); // Debugging
 
                 if (result.error) {
                     showMessage(`❌ Error: ${result.error}`, "bot");
@@ -428,11 +569,9 @@ document.addEventListener("DOMContentLoaded", function () {
                 }
 
                 showMessage(`🧐 Analysis: ${result.result}`, "bot");
-                chatMemory.push({ role: "bot", content: `Image Analysis: ${result.result}` });
 
-                // ✅ Update the session memory
-                sessionStorage.setItem("chatMemory", JSON.stringify(chatMemory));
-
+                // Add the analysis result to chatMemory
+                updateMemory("bot", `Image Analysis: ${result.result}`);
 
             } catch (error) {
                 console.error("❌ Fetch Error:", error);
@@ -440,7 +579,7 @@ document.addEventListener("DOMContentLoaded", function () {
             }
         };
 
-        reader.readAsDataURL(uploadedFile); // ✅ Read file as Base64
+        reader.readAsDataURL(uploadedFile); // Read file as Base64
     }
     // ✅ Make showMessage GLOBAL
     function showMessage(message, sender = "user") {
@@ -584,6 +723,27 @@ document.addEventListener("DOMContentLoaded", function () {
                 });
         });
     }
+
+    document.getElementById("sidebarToggle").addEventListener("click", function () {
+        document.querySelector(".sidebar").classList.toggle("hidden");
+    });
+
+    document.getElementById("closeSidebar").addEventListener("click", function () {
+        document.querySelector(".sidebar").classList.add("hidden");
+    });
+
+
+    document.getElementById("sidebarToggle").addEventListener("click", function () {
+        // Toggle the 'show' class to control the sidebar visibility on mobile
+        document.querySelector(".sidebar").classList.toggle("show");
+    });
+
+    document.getElementById("closeSidebar").addEventListener("click", function () {
+        // Remove the 'show' class to hide the sidebar
+        document.querySelector(".sidebar").classList.remove("show");
+    });
+
+
 
     // ✅ Handle window resize for model container
     window.addEventListener('resize', () => {

@@ -1,9 +1,9 @@
-# ☁️ Mist.AI – V3.5 Smarter AI, PWA, Mobile Support & More!
+# ☁️ Mist.AI – V4 Smarter AI, PWA, Mobile Support & More!
 
-Mist.AI is an advanced AI assistant powered by **Gemini AI**, **Command R AI**, and **ChatGPT-Vision**. In this latest update, Mist.AI introduces **Progressive Web App (PWA) support**, making it fully accessible and installable on mobile devices! I also added mobile optimizations and new commands, taking your Mist.AI experience to the next level.
+Mist.AI is an advanced AI assistant powered by **Gemini AI**, **Command R AI**, and **OCR Vision**. In this latest update, Mist.AI introduces even more features, including **session-based memory**, **OCR.space image uploading**, a revamped sidebar, and the ability to ask Mist.AI for code in **VS Code (CodeMirror) format**.
 
-🚀 **Current Version:** `V3.5`  
-📱 **Mobile APP / Progressive Web App (PWA)**  
+🚀 **Current Version:** `V4`  
+📱 **Mobile App / Progressive Web App (PWA)**  
 📂 **Full File Upload Support (Images, Documents, and More!)**  
 🔧 **Command Improvements**  
 🧠 **AI Stability & Response Enhancements**  
@@ -19,20 +19,29 @@ Mist.AI is an advanced AI assistant powered by **Gemini AI**, **Command R AI**, 
   - **Offline Support**: Thanks to PWA, you can interact with Mist.AI even when you’re offline!  
   - **How to Install**: Visit the site on your mobile browser, and you’ll see an install prompt to add it to your home screen.
 
-### 🔧 **Improved Commands and Code Input**  
-- **Code Input:** You can now input and execute **code snippets** directly within the chat. Mist.AI will return the results based on the code provided.  
-- **Fixed Command Handling:**  
-  - The `/help` command has been added, providing users with a detailed list of available commands and their descriptions.  
-  - Enhanced stability of slash commands for smoother interactions.  
+### 🧠 **Session-Based Memory Improvements**  
+- **Session-based memory** is now more powerful! Mist.AI remembers your previous interactions while you're on the page, allowing for more personalized and continuous conversations instead of 10 chats in memory its now 25!
+- **Memory Improvements**: The AI will better recall past exchanges and adjust responses accordingly, enhancing your user experience.
+
+### 🔧 **OCR.space Image Uploading**  
+- **OCR Integration**: Mist.AI now uses **OCR.space** for image uploads, allowing users to upload images and documents for text extraction and analysis. 
+
+### 💻 **VS Code Format for Code Snippets**  
+- **Ask Mist.AI for code**: You can now ask Mist.AI for code examples, and they will be returned in **VS Code (CodeMirror)** format for better readability and easier use in your own projects.  
+- **Code Formatting**: Mist.AI handles code formatting beautifully with syntax highlighting and clear structure, just like you would see in your IDE.
+
+### 🔧 **Improved Sidebar & UI Enhancements**  
+- **Revamped Sidebar**: The sidebar has been completely redesigned for better usability and aesthetics.  
+  - **New Edit Button**: Added an **Edit** button for customizing some of the sidebar’s contents.  
+  - The sidebar now adapts better to smaller screens and offers a smoother experience across devices.
 
 ### 🆕 **New `/help` Command**  
-- **Functionality:**  
+- **Functionality**:  
   - Type `/help` to receive a list of all available commands.  
-  - Provides a quick reference for both common and advanced features available within Mist.AI.  
+  - Provides a quick reference for both common and advanced features available within Mist.AI.
 
 ### 🛠 **Bug Fixes & AI Improvements**  
 - **Better AI response handling** – More natural and intelligent replies.  
-- **Paperclip Icon** – Now clearly indicates that users can upload either images or files.  
 - **Fixed random AI model switching** – Ensures stable interaction with Gemini AI & Command R AI.  
 - **Improved `/riddle` command** – Now blurs the answer for a fair challenge!
 

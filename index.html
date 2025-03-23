@@ -5,92 +5,126 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mist.AI Chat</title>
-    <!-- Bulma CSS -->
+
+    <!-- Bulma CSS for responsive design and layout -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.9.4/css/bulma.min.css">
-    <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="themes.css">
+
+    <!-- Custom stylesheets for project-specific design -->
+    <link rel="stylesheet" href="styles.css"> <!-- Main custom CSS -->
+    <link rel="stylesheet" href="themes.css"> <!-- Theme-specific styles -->
+
+    <!-- GSAP for smooth animations (optional) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+    <!-- Showdown for Markdown to HTML conversion -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/showdown/2.1.0/showdown.min.js"></script>
+
+    <!-- AOS (Animate On Scroll) for scroll animations -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.css">
-    <link rel="icon" href="mistaifaviocn/favicon.ico" type="image/x-icon">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+
+    <!-- Favicon to display in browser tab -->
+    <link rel="icon" href="mistaifaviocn/favicon.ico" type="image/x-icon">
+
+    <!-- Web app manifest for mobile and desktop installations -->
     <link rel="manifest" href="/manifest.json">
+    <!-- Add these to your <head> section to load CodeMirror -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/theme/dracula.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/mode/javascript/javascript.min.js"></script>
+
+    <!-- Custom metadata for better SEO and social media sharing -->
+    <meta name="description" content="Mist.AI Chat - A powerful chatbot for all your needs">
+    <meta name="keywords" content="Mist.AI, chatbot, AI, web app, technology, frontend, web development">
+    <meta name="author" content="Kristian Cook">
+    <meta property="og:title" content="Mist.AI Chat">
+    <meta property="og:description" content="Mist.AI Chat - A powerful chatbot for all your needs">
+    <meta property="og:image" content="path_to_image.jpg">
+    <meta property="og:url" content="https://mistai.netlify.app">
+
+    <!-- Add viewport styling for better scaling on mobile devices -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
 </head>
 
 <body>
     <div class="main-container">
-        <aside class="menu sidebar">
-            <p class="menu-label has-text-centered has-text-success is-size-4">My Creators Contact</p>
+        <button id="sidebarToggle" class="toggle-btn">☰</button>
+        <aside class="menu sidebar hidden">
+            <!-- Sidebar Close Button -->
+            <button id="closeSidebar" class="close-btn">×</button>
+            <p class="menu-label has-text-centered has-text-success is-size-4">My Creator's Contact</p>
             <ul class="menu-list">
                 <li><a href="https://builtbykristian.netlify.app" target="_blank">About Me</a></li>
-                <li><a href="https://github.com/Misto0o/Mist.AI" target="_blank">My Github Code!</a></li>
+                <li><a href="https://github.com/Misto0o/Mist.AI" target="_blank">My GitHub Code!</a></li>
                 <li><a onclick="showRandomPrompt()">Random Prompt</a></li>
                 <li><a onclick="showFunFact()">Fun Fact</a></li>
             </ul>
         </aside>
+    </div>
 
-        <section class="container chat-container">
-            <h1 class="title has-text-white">Mist.AI</h1>
-            <div id="chat-box" class="box chat-box"></div>
+    <section class="container chat-container">
+        <h1 class="title has-text-white">Mist.AI</h1>
+        <div id="chat-box" class="box chat-box"></div>
 
-            <div class="chat-input-container">
-                <button id="slash-button" class="slash-button">/</button>
+        <div class="chat-input-container">
+            <button id="slash-button" class="slash-button">/</button>
 
-                <textarea class="input is-dark" id="user-input" placeholder="Type a message..."
-                    autocomplete="off"></textarea>
+            <textarea class="input is-dark" id="user-input" placeholder="Type a message..."
+                autocomplete="off"></textarea>
 
 
-                <div class="embedded-actions">
-                    <!-- Hidden file inputs (separate for images & documents) -->
-                    <input type="file" id="file-upload-image" class="upload-input" accept="image/*"
-                        style="display: none;">
-                    <input type="file" id="file-upload-document" class="upload-input" accept=".pdf,.doc,.docx,.txt"
-                        style="display: none;">
+            <div class="embedded-actions">
+                <!-- Hidden file inputs (separate for images & documents) -->
+                <input type="file" id="file-upload-image" class="upload-input" accept="image/*" style="display: none;">
+                <input type="file" id="file-upload-document" class="upload-input" accept=".pdf,.doc,.docx,.txt"
+                    style="display: none;">
 
-                    <!-- File upload button (paperclip) triggers popup -->
-                    <button class="icon-button" id="upload-trigger">
-                        <i class="fa-solid fa-paperclip"></i>
-                    </button>
+                <!-- File upload button (paperclip) triggers popup -->
+                <button class="icon-button" id="upload-trigger">
+                    <i class="fa-solid fa-paperclip"></i>
+                </button>
 
-                    <!-- Popup for file selection -->
-                    <div id="upload-popup" class="popup">
-                        <button class="upload-option" id="upload-image-btn">🖼️ Upload Image</button>
-                        <button class="upload-option" id="upload-document-btn">📄 Upload Document</button>
-                    </div>
-
-                    <!-- Send button -->
-                    <button class="icon-button" onclick="sendMessage()">
-                        <i class="fa-solid fa-paper-plane"></i>
-                    </button>
+                <!-- Popup for file selection -->
+                <div id="upload-popup" class="popup">
+                    <button class="upload-option" id="upload-image-btn">🖼️ Upload Image</button>
+                    <button class="upload-option" id="upload-document-btn">📄 Upload Document</button>
                 </div>
+
+                <!-- Send button -->
+                <button class="icon-button" onclick="sendMessage()">
+                    <i class="fa-solid fa-paper-plane"></i>
+                </button>
             </div>
-
-            <!-- Display selected file name -->
-            <p id="file-name-display" class="has-text-white is-size-7"></p>
-
-            <button class="swap-button" onclick="swapContent('CommandR', '🔄')">
-                <span id="current-option">Gemini</span>
-                <i class="icon" id="current-icon">🔄</i>
-            </button>
-        </section>
-
-        <div class="theme-container">
-            <label for="theme-select">Theme:</label>
-            <select id="theme-select">
-                <option value="dark">Default</option>
-                <option value="light">Light</option>
-                <option value="blue">Aqautic</option>
-                <option value="midnight">Midnight</option>
-                <option value="cyberpunk">Cyberpunk</option>
-                <option value="arctic">Arctic</option>
-                <option value="terminal">Terminal</option>
-                <option value="sunset">Sunset</option>
-                <option value="konami" id="konami-option" style="display: none;">Konami Theme</option>
-            </select>
         </div>
 
-        <script src="script.js" defer></script>
-        <script src="service-worker.js" defer></script>
+        <!-- Display selected file name -->
+        <p id="file-name-display" class="has-text-white is-size-7"></p>
+
+        <button class="swap-button" onclick="swapContent('CommandR', '🔄')">
+            <span id="current-option">Gemini</span>
+            <i class="icon" id="current-icon">🔄</i>
+        </button>
+    </section>
+
+    <div class="theme-container">
+        <label for="theme-select">Theme:</label>
+        <select id="theme-select">
+            <option value="dark">Default</option>
+            <option value="light">Light</option>
+            <option value="blue">Aqautic</option>
+            <option value="midnight">Midnight</option>
+            <option value="cyberpunk">Cyberpunk</option>
+            <option value="arctic">Arctic</option>
+            <option value="terminal">Terminal</option>
+            <option value="sunset">Sunset</option>
+            <option value="konami" id="konami-option" style="display: none;">Konami Theme</option>
+        </select>
+    </div>
+
+    <script src="script.js" defer></script>
+    <script src="service-worker.js" defer></script>
 </body>
 
 </html>

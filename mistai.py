@@ -28,23 +28,14 @@ if (
     not os.getenv("GEMINI_API_KEY")
     or not os.getenv("COHERE_API_KEY")
     or not os.getenv("OPENWEATHER_API_KEY")
-    or not os.getenv("THE_NEWS_API_KEY")  
-    or not os.getenv("GOFLIE_API_KEY")  
+    or not os.getenv("THE_NEWS_API_KEY")
+    or not os.getenv("GOFLIE_API_KEY")
+    or not os.getenv("OCR_API_KEY")
 ):
     raise ValueError("Missing required API keys in environment variables.")
 
 app = Flask(__name__)
-CORS(
-    app,
-    origins=[
-        "http://127.0.0.1:5500",  # Local development
-        #"https://mist-ai-64pc.onrender.com",  # Render deployment
-        "https://mistai.netlify.app",  # Netlify frontend
-        "file:///D:/Mist.AI",  # Local file path (Windows)
-        "file:///media/removable/SanDisk/Mist.AI",  # Removable drive (Linux/Mac)
-        "https://mist-ai.fly.dev",
-    ],
-)
+CORS(app)
 
 # 🔹 Identity Responses
 IDENTITY_RESPONSES = {
@@ -89,40 +80,42 @@ API_KEY = os.getenv("OPENWEATHER_API_KEY")
 API_BASE_URL = "https://api.openweathermap.org/data/2.5"
 temperatureUnit = "imperial"
 news_url = (
-    os.getenv("https://mist-ai.fly.dev/chat", "http://127.0.0.1:5000")
-    + "/time-news"
+    os.getenv("https://mist-ai.fly.dev/chat", "http://127.0.0.1:5000") + "/time-news"
 )
+# Get your OCR.Space API key
+OCR_API_KEY = os.getenv("OCR_API_KEY")  # ✅ Set your OCR.Space API key
+OCR_URL = "https://api.ocr.space/parse/image"  # ✅ OCR.Space endpoint
 
-@app.route('/analyze', methods=['POST'])
-def analyze_image():
-    data = request.json
-    img_url = data.get('img_url')
-
-    if not img_url:
-        return jsonify({"error": "Image URL is required"}), 400
-
-    url = "https://chatgpt-42.p.rapidapi.com/matagvision"
-    headers = {
-        "x-rapidapi-key": RAPIDAPI_KEY,
-        "x-rapidapi-host": "chatgpt-42.p.rapidapi.com",
-        "Content-Type": "application/json"
-    }
+async def analyze_image(img_base64):
+    """
+    Analyzes the image using OCR.Space API. Takes base64 encoded image.
+    Returns the text extracted from the image.
+    """
+    headers = {"apikey": OCR_API_KEY}
     payload = {
-        "messages": [
-            {
-                "role": "user",
-                "content": "What's in the image?",
-                "img_url": img_url
-            }
-        ]
+        "base64Image": img_base64,
+        "language": "eng",  # Language for OCR processing
+        "isOverlayRequired": False  # Optional: If true, it adds a text overlay to the image
     }
 
-    response = requests.post(url, json=payload, headers=headers)  # ✅ Use requests (not httpx)
-    
     try:
-        return jsonify(response.json())  # ✅ Properly return JSON response
-    except ValueError:
-        return jsonify({"error": "Invalid response from API"}), 500
+        # Send the request to OCR.Space using httpx (asynchronous)
+        async with httpx.AsyncClient() as client:
+            response = await client.post(OCR_URL, data=payload, headers=headers)
+        
+        # Parsing the response
+        data = response.json()  # Correctly extract the data from the OCR response
+
+        # Ensure that the data has the required keys
+        if "ParsedResults" in data:
+            result_text = data["ParsedResults"][0]["ParsedText"]  # Correctly assign text to result_text
+            return jsonify({"result": result_text})  # Return the result
+        else:
+            return jsonify({"error": "OCR failed to extract text."}), 400
+
+    except Exception as e:
+        logging.error(f"Error in OCR processing: {e}")
+        return jsonify({"error": "Error in OCR processing"}), 500
 
 # ✅ Get the best available GoFile server
 async def get_best_server():
@@ -147,7 +140,7 @@ async def upload_to_gofile(filename, file_content, mimetype):
         return {"link": response["data"]["downloadPage"]}
     else:
         return {"error": "Upload failed"}
-    
+
 # ✅ Extract text from PDFs (Fixed)
 def extract_text_from_pdf(file_stream):
     try:
@@ -163,7 +156,7 @@ def extract_text_from_pdf(file_stream):
         return text if text else "⚠️ No readable text found in this PDF."
     except Exception as e:
         return f"⚠️ Error extracting text: {str(e)}"
-    
+
 @app.route("/time-news", methods=["GET"])
 async def time_news():
     try:
@@ -211,10 +204,11 @@ async def time_news():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-    
+
     # ✅ Function to process different file types
 def process_pdf(file_content):
     return extract_text_from_pdf(io.BytesIO(file_content))
+
 
 def process_txt(file_content):
     return file_content.decode("utf-8", errors="ignore")
@@ -225,7 +219,7 @@ def process_json(file_content):
         return json.dumps(json_data, indent=4)
     except json.JSONDecodeError:
         return "⚠️ Invalid JSON file."
-
+    
 def process_docx(file_content):
     if not file_content:
         return "⚠️ No file content received."
@@ -237,10 +231,14 @@ def process_docx(file_content):
         print(f"Error reading DOCX: {e}")  # Debugging
         return f"⚠️ Error reading .docx file: {str(e)}"
 
+
 def extract_text_from_docx(file_content):
     try:
         doc = Document(file_content)
-        return "\n".join([paragraph.text for paragraph in doc.paragraphs]) or "⚠️ No readable text found."
+        return (
+            "\n".join([paragraph.text for paragraph in doc.paragraphs])
+            or "⚠️ No readable text found."
+        )
     except Exception as e:
         return f"⚠️ Error reading .docx file: {str(e)}"
 
@@ -253,7 +251,7 @@ file_processors = {
     ".docx": process_docx,
     ".doc": process_docx,
 }
-    
+
 @app.route("/chat", methods=["POST", "GET"])
 async def chat():
     """
@@ -269,9 +267,13 @@ async def chat():
             try:
                 ai_status = await asyncio.wait_for(check_ai_services(), timeout=3)
             except asyncio.TimeoutError:
-                ai_status = False  
+                ai_status = False
             return jsonify(
-                {"status": "🟢 Mist.AI is awake!" if ai_status else "🔴 Mist.AI is OFFLINE"},
+                {
+                    "status": (
+                        "🟢 Mist.AI is awake!" if ai_status else "🔴 Mist.AI is OFFLINE"
+                    )
+                },
                 (200 if ai_status else 503),
             )
 
@@ -282,28 +284,42 @@ async def chat():
 
             file_content = file.stream.read()
             ext = os.path.splitext(file.filename.lower())[1]
-            extracted_text = file_processors.get(ext, lambda _: "⚠️ Unsupported file type.")(file_content)
+            extracted_text = file_processors.get(
+                ext, lambda _: "⚠️ Unsupported file type."
+            )(file_content)
 
             result = await upload_to_gofile(file.filename, file_content, file.mimetype)
 
             if "link" in result:
-                logging.info(f"📁 New file uploaded: {file.filename} | Link: {result['link']}")
-                return jsonify({"response": f"📁 Uploading file: {file.filename}...\n🤔 Mist.AI reading the file...\n\nHow can I assist you with this file?"})
+                logging.info(
+                    f"📁 New file uploaded: {file.filename} | Link: {result['link']}"
+                )
+                return jsonify(
+                    {
+                        "response": f"📁 Uploading file: {file.filename}...\n🤔 Mist.AI reading the file...\n\nHow can I assist you with this file?"
+                    }
+                )
             else:
                 logging.error(f"❌ Failed to upload file: {file.filename}")
                 return jsonify({"error": "Failed to upload to GoFile"}), 500
 
         if not request.is_json:
-            return jsonify({"error": "Invalid request: No valid JSON data provided."}), 400
+            return (
+                jsonify({"error": "Invalid request: No valid JSON data provided."}),
+                400,
+            )
 
         data = request.get_json()
         user_message = data.get("message", "").strip().lower()
         model_choice = data.get("model", "gemini")
         chat_context = data.get("context", [])
 
-        if "img_url" in data:
-            logging.info("📷 Image received in /chat, redirecting to image analysis.")
-            return analyze_image()  # ❌ No 'await' here since analyze_image() is now synchronous
+        # Handle image processing (img_url is expected)
+        if "img_url" in request.json:
+            logging.info("📷 Image received, processing for analysis.")
+            img_url = request.json["img_url"]
+            analysis_result = await analyze_image(img_url)  # Make sure to await the async function
+            return analysis_result  # Return the result directly (since analyze_image already returns a jsonify response)
 
         if not user_message:
             return jsonify({"error": "Invalid input: 'message' cannot be empty."}), 400
@@ -327,20 +343,34 @@ async def chat():
         normalized_message = re.sub(r"[^\w\s]", "", user_message.lower()).strip()
 
         # Check if the user message asks for today's news
-        if any(query in user_message for query in ["what is today's news", "what are today's headlines", "give me the news", 
-                                                   "latest news", "tell me today's headlines", "any updates in the news"]):
+        if any(
+            query in user_message
+            for query in [
+                "what is today's news",
+                "what are today's headlines",
+                "give me the news",
+                "latest news",
+                "tell me today's headlines",
+                "any updates in the news",
+            ]
+        ):
             async with httpx.AsyncClient() as client:
                 response = await client.get(news_url)  # Using dynamic news_url
             news_data = response.json()
 
             if "news" in news_data:
                 news_text = "\n".join(
-                    [f"📰 {article['title']} [🔗 Read more]({article['url']})" for article in news_data["news"]]
+                    [
+                        f"📰 {article['title']} [🔗 Read more]({article['url']})"
+                        for article in news_data["news"]
+                    ]
                 )
                 current_time = news_data["time"]
-                return jsonify({
-                    "response": f"Here are the latest news headlines:\n{news_text}\n\n📅 Today's date is {current_time['date']}, and the time is {current_time['time']}."
-                })
+                return jsonify(
+                    {
+                        "response": f"Here are the latest news headlines:\n{news_text}\n\n📅 Today's date is {current_time['date']}, and the time is {current_time['time']}."
+                    }
+                )
 
         # Check if the user message asks for the time or today's date
         if normalized_message in ["what time is it", "whats todays date"]:
@@ -351,12 +381,16 @@ async def chat():
             current_time = time_data.get("time", {}).get("time", "Unknown Time")
             current_date = time_data.get("time", {}).get("date", "Unknown Date")
 
-            return jsonify({
-                "response": f"📅 Today's date is {current_date}, and the time is {current_time}."
-            })
+            return jsonify(
+                {
+                    "response": f"📅 Today's date is {current_date}, and the time is {current_time}."
+                }
+            )
 
         # ✅ Process Chatbot AI Response
-        context_text = "\n".join(f"{msg['role']}: {msg['content']}" for msg in chat_context)
+        context_text = "\n".join(
+            f"{msg['role']}: {msg['content']}" for msg in chat_context
+        )
         full_prompt = f"{context_text}\nUser: {user_message}\nMist.AI:"
 
         response_content = (
@@ -368,10 +402,15 @@ async def chat():
         elapsed_time = time.time() - start_time  # ✅ Measure time taken
 
         if elapsed_time > 9:
-            response_content = "⏳ You're the first request, sorry for the wait!\n\n" + response_content
+            response_content = (
+                "⏳ You're the first request, sorry for the wait!\n\n"
+                + response_content
+            )
 
-        logging.info(f"\n🕒 [{datetime.now().strftime('%Y-%m-%d %I:%M:%S %p')}]\n📩 User: {user_message}\n🤖 AI ({model_choice}): {response_content}\n")
-        
+        logging.info(
+            f"\n🕒 [{datetime.now().strftime('%Y-%m-%d %I:%M:%S %p')}]\n📩 User: {user_message}\n🤖 AI ({model_choice}): {response_content}\n"
+        )
+
         return jsonify({"response": response_content})
 
     except Exception as e:
@@ -386,6 +425,7 @@ async def check_ai_services():
     except:
         return False
 
+
 # 🔹 Handle Commands
 async def handle_command(command):
     command = command.strip().lower()
@@ -393,7 +433,7 @@ async def handle_command(command):
     # Handle empty command after "/"
     if command == "/":
         return "❌ Please provide a valid command. Example: `/flipcoin`."
-    
+
     if command == "/help":
         return """
         Available commands:
@@ -410,7 +450,7 @@ async def handle_command(command):
         return "✊ ✋ ✌️ I choose: " + random.choice(
             ["Rock 🪨", "Paper 📄", "Scissors ✂️"]
         )
-        
+
     if command == "/joke":
         jokes = [
             "Why don’t programmers like nature? It has too many bugs.",
@@ -422,7 +462,7 @@ async def handle_command(command):
             "Why do Python programmers prefer dark mode? Because light attracts bugs!",
             "Why did the CSS developer go to therapy? Because they had too many margins!",
             "What do you call a computer that sings? A Dell.",
-            "Why do programmers prefer iOS development? Because Android has too many fragments!"
+            "Why do programmers prefer iOS development? Because Android has too many fragments!",
         ]
         return random.choice(jokes)
 
@@ -431,13 +471,28 @@ async def handle_command(command):
             ("I speak without a mouth and hear without ears. What am I?", "An echo."),
             ("The more you take, the more you leave behind. What am I?", "Footsteps."),
             ("What has to be broken before you can use it?", "An egg."),
-            ("I'm tall when I'm young, and I'm short when I'm old. What am I?", "A candle."),
+            (
+                "I'm tall when I'm young, and I'm short when I'm old. What am I?",
+                "A candle.",
+            ),
             ("What is full of holes but still holds water?", "A sponge."),
-            ("The person who makes it, sells it. The person who buys it, never uses it. The person who uses it, never knows they are using it.", "A coffin."),
-            ("What can travel around the world while staying in the same spot?", "A stamp."),
-            ("What comes once in a minute, twice in a moment, but never in a thousand years?", "The letter M."),
+            (
+                "The person who makes it, sells it. The person who buys it, never uses it. The person who uses it, never knows they are using it.",
+                "A coffin.",
+            ),
+            (
+                "What can travel around the world while staying in the same spot?",
+                "A stamp.",
+            ),
+            (
+                "What comes once in a minute, twice in a moment, but never in a thousand years?",
+                "The letter M.",
+            ),
             ("What has many keys but can't open a single lock?", "A piano."),
-            ("The more of me you take, the more you leave behind. What am I?", "Footsteps."),
+            (
+                "The more of me you take, the more you leave behind. What am I?",
+                "Footsteps.",
+            ),
             ("I have hands, but I cannot clap. What am I?", "A clock."),
             ("What has words, but never speaks?", "A book."),
             ("What is so fragile that saying its name breaks it?", "Silence."),
@@ -459,6 +514,7 @@ async def handle_command(command):
 
     # Handle unknown commands
     return "❌ Unknown command. Type /help for a list of valid commands."
+
 
 # 🔹 Get AI Responses
 def get_gemini_response(prompt):
@@ -482,6 +538,7 @@ def get_gemini_response(prompt):
         return response.text.strip()
     except Exception as e:
         return f"❌ Error fetching from Gemini: {str(e)}"
+
 
 def get_cohere_response(prompt):
     try:
@@ -508,6 +565,7 @@ def get_cohere_response(prompt):
     except Exception as e:
         return f"❌ Error fetching from Cohere: {str(e)}"
 
+
 # 🔹 Get Weather Data
 async def get_weather_data(city):
     try:
@@ -527,6 +585,8 @@ async def get_weather_data(city):
         return {"error": str(e)}
 
     # 🔹 Function to return a random writing prompt
+
+
 def get_random_prompt():
     prompts = [
         "Write about a futuristic world where AI controls everything.",
@@ -536,6 +596,7 @@ def get_random_prompt():
         "Invent a new superhero and describe their powers.",
     ]
     return random.choice(prompts)
+
 
 # 🔹 Function to return a random fun fact
 def get_random_fun_fact():
@@ -547,6 +608,7 @@ def get_random_fun_fact():
         "There's a species of jellyfish that is biologically immortal!",
     ]
     return random.choice(fun_facts)
+
 
 # Setup Logging (Move to Top)
 class StreamToUTF8(logging.StreamHandler):
@@ -564,7 +626,8 @@ class StreamToUTF8(logging.StreamHandler):
             stream.flush()
         except Exception:
             self.handleError(record)
-            
+
+
 logging.basicConfig(level=logging.INFO, handlers=[StreamToUTF8(sys.stdout)])
 logging.getLogger("werkzeug").setLevel(logging.ERROR)  # Suppress extra Flask logs
 
