@@ -674,4 +674,4 @@ logging.getLogger("werkzeug").setLevel(logging.ERROR)
 
 if __name__ == "__main__":
     logging.info("🚀 Mist.AI Server is starting...")
-    app.run(debug=False, host="0.0.0.0", port=5000, use_reloader=False)
+
