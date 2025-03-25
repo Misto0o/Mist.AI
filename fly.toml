@@ -12,7 +12,7 @@ primary_region = "iad"
   processes = ["app"]
 
 [[vm]]
-  memory = "1gb"  # Increased from 512MB to prevent crashes
+  memory = "512MB"  # Reduced from 1GB to 512MB for the free tier
   cpu_kind = "shared"
   cpus = 1
 
