@@ -7,7 +7,7 @@ primary_region = "iad"
   internal_port = 5000  # Ensure this matches Flask's port
   force_https = true
   auto_stop_machines = true  # Automatically stop machines when not in use to save cost
-  auto_start_machines = false  # Prevent automatic start unless manually triggered
+  auto_start_machines = true  # Prevent automatic start unless manually triggered
   min_machines_running = 0  # Minimize machines to zero when not in use
 
 [[vm]]
