@@ -6,15 +6,14 @@ primary_region = "iad"
 [http_service]
   internal_port = 5000  # Ensure this matches Flask's port
   force_https = true
-  auto_stop_machines = false  # Prevents Fly from auto-stopping the app
-  auto_start_machines = true
-  min_machines_running = 1  # Keeps at least one instance running
-  processes = ["app"]
+  auto_stop_machines = true  # Automatically stop machines when not in use to save cost
+  auto_start_machines = false  # Prevent automatic start unless manually triggered
+  min_machines_running = 0  # Minimize machines to zero when not in use
 
 [[vm]]
-  memory = "512MB"  # Reduced from 1GB to 512MB for the free tier
-  cpu_kind = "shared"
-  cpus = 1
+  memory = "256MB"  # Lower memory allocation to save costs (down from 512MB)
+  cpu_kind = "shared"  # Keep the shared CPU, which is still within the free tier
+  cpus = 1  # 1 CPU core should be sufficient for your app
 
 [metrics]
   port = 5000

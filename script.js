@@ -102,6 +102,170 @@ let isSwapping = false; // Prevent multiple swaps
 let chatMemory = []; // Memory resets on refresh
 let uploadedFile = null; // ✅ Store the uploaded file globally
 let uploadedImageCount = 0;
+let trackedIPs = {}; // Store offenses
+let devBypass = false; // Bypass flag
+
+// List of banned words and AI safety phrases
+const bannedWords = [
+    "CP", "rape", "pedophile", "bestiality", "necrophilia",
+    "terrorism", "suicide methods", "self-harm methods",
+    "loli", "shota", "noncon", "red room"
+];
+
+const aiSafetyPhrases = [
+    "I'm programmed to be a harmless AI assistant.",
+    "I cannot provide information of that nature.",
+    "I'm here to help with safe and appropriate topics."
+];
+
+// Attach bypass function to window so you can call it in the console
+window.MistAIDev = async function () {  // Make this function async
+    devBypass = true;
+    localStorage.setItem('devBypass', 'true'); // Save to localStorage
+    console.log("🛠️ Dev mode activated: Bypassing offenses.");
+
+    // Get the user's IP asynchronously
+    const userIP = await getUserIP(); // Get user's IP
+    if (userIP) {
+        removeBannedIP(userIP); // Remove the user's IP from the banned list
+    }
+
+    // Re-enable chat if it was disabled
+    enableChat(); // You need to define this function to re-enable chat
+};
+
+// On page load, check if devBypass should be active
+if (localStorage.getItem('devBypass') === 'true') {
+    devBypass = true;
+}
+
+function enableChat() {
+    const chatInput = document.getElementById('user-input'); // Example: Assuming chat input has id 'user-input'
+    if (chatInput) {
+        chatInput.disabled = false; // Enable the chat input field
+        chatInput.placeholder = "Type a message..."; // Reset the placeholder to its normal text
+        console.log("💬 Chat re-enabled.");
+    }
+}
+
+// Get user IP
+async function getUserIP() {
+    try {
+        const response = await fetch("https://api.ipify.org?format=json");
+        const data = await response.json();
+        console.log("🌐 User's IPv4 Address:", data.ip);
+        return data.ip;
+    } catch (error) {
+        console.error("❌ Failed to get IP:", error);
+        return null;
+    }
+}
+
+// Check for banned words (exact match only)
+function containsBannedWords(message) {
+    const words = message.split(/\s+/); // Split message into words
+    return words.some(word => bannedWords.includes(word));
+}
+
+// Function to get a random safety phrase
+function getRandomSafetyPhrase() {
+    const randomIndex = Math.floor(Math.random() * aiSafetyPhrases.length);
+    return aiSafetyPhrases[randomIndex];
+}
+
+// Check for AI safety phrases and return a random safety phrase if found
+function containsSafetyPhrase(message) {
+    const safetyPhrase = aiSafetyPhrases.find(phrase => message.includes(phrase));
+    if (safetyPhrase) {
+        // Log a random safety phrase whenever a safety phrase is found in the message
+        const randomSafetyPhrase = getRandomSafetyPhrase();
+        console.log("Random safety phrase triggered:", randomSafetyPhrase);
+    }
+    return safetyPhrase !== undefined;
+}
+
+// Store banned IPs in localStorage
+function storeBannedIP(userIP) {
+    let bannedIPs = JSON.parse(localStorage.getItem('bannedIPs')) || [];
+    bannedIPs.push(userIP);
+    localStorage.setItem('bannedIPs', JSON.stringify(bannedIPs));
+}
+
+// Check if IP is banned
+function isIPBanned(userIP) {
+    let bannedIPs = JSON.parse(localStorage.getItem('bannedIPs')) || [];
+    return bannedIPs.includes(userIP);
+}
+
+// Remove IP from banned list
+function removeBannedIP(userIP) {
+    let bannedIPs = JSON.parse(localStorage.getItem('bannedIPs')) || [];
+    bannedIPs = bannedIPs.filter(ip => ip !== userIP);
+    localStorage.setItem('bannedIPs', JSON.stringify(bannedIPs));
+}
+
+// Handle user message and track offenses
+async function handleUserMessage(message) {
+    if (devBypass) {
+        console.log("🛠️ Dev mode active: No offense tracking or banning.");
+        return; // Skip the rest of the function
+    }
+
+    const userIP = await getUserIP();
+    if (!userIP) return;
+
+    // Check if the IP is banned from previous sessions
+    if (isIPBanned(userIP)) {
+        console.log(`🚫 User with IP ${userIP} is banned.`);
+        disableChat();  // Disable chat input
+        return;
+    }
+
+    if (containsBannedWords(message) || containsSafetyPhrase(message)) {
+        if (!trackedIPs[userIP]) {
+            trackedIPs[userIP] = 1; // First offense
+            console.log(`⚠️ Offense #1 for ${userIP}:`, message);
+        } else {
+            trackedIPs[userIP]++; // Increase offense count
+            console.log(`⚠️ Offense #${trackedIPs[userIP]} for ${userIP}:`, message);
+        }
+
+        if (trackedIPs[userIP] === 2) {
+            console.log(`🔍 Storing IP for potential ban: ${userIP}`);
+        }
+
+        if (trackedIPs[userIP] === 3) {
+            console.log(`🚨 BANNING USER: ${userIP} for 24 hours.`);
+            delete trackedIPs[userIP]; // Remove IP after ban
+            storeBannedIP(userIP); // Store IP in localStorage for future page loads
+            disableChat(); // Disable chat input
+        }
+
+        // Split message into words and check for exact match
+        const words = message.split(/\s+/);
+        return words.some(word => bannedWords.includes(word));
+    }
+}
+
+// On page load, check if user IP is banned
+window.onload = async () => {
+    const userIP = await getUserIP();
+    if (isIPBanned(userIP)) {
+        console.log(`🚫 User with IP ${userIP} is banned.`);
+        disableChat();  // Disable chat input
+    }
+};
+
+// Disable the chat input (ban effect)
+function disableChat() {
+    const inputBox = document.getElementById("user-input");
+    if (inputBox) {
+        inputBox.disabled = true;
+        inputBox.style.backgroundColor = "#444"; // Gray out input
+        inputBox.placeholder = "❌ You have been banned for 24 hours.";
+        console.log("🚫 Chat input disabled for banned user.");
+    }
+}
 
 // Function to send messages
 async function sendMessage(userMessage = null) {
@@ -115,6 +279,8 @@ async function sendMessage(userMessage = null) {
         if (!userMessage) return;
         userInput.value = ''; // Clear input field
     }
+
+    await handleUserMessage(userMessage);  // Call the offense tracking function
 
     // If message contains code
     if (containsCode(userMessage)) {
