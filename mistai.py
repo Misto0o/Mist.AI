@@ -267,7 +267,6 @@ file_processors = {
     ".doc": process_docx,
 }
 
-
 @app.route("/chat", methods=["POST", "GET"])
 async def chat():
     """
@@ -435,7 +434,6 @@ async def chat():
         logging.error(f"Server Error: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
-
 # 🔹 Check AI Services
 async def check_ai_services():
     try:
@@ -443,7 +441,6 @@ async def check_ai_services():
         return bool(test_response)
     except:
         return False
-
 
 # 🔹 Handle Commands
 async def handle_command(command):
@@ -534,24 +531,18 @@ async def handle_command(command):
     # Handle unknown commands
     return "❌ Unknown command. Type /help for a list of valid commands."
 
-
 # 🔹 Get AI Responses
 def get_gemini_response(prompt):
     try:
         system_prompt = (
-    "You are Mist.AI, an AI assistant built using Gemini and Cohere CommandR technology. "
-    "Your purpose is to assist users with their queries in a friendly and helpful way, providing meaningful responses and jokes sometimes. "
-    "Introduce yourself only when a user first interacts with you or explicitly asks who you are. "
-    "If asked about your identity, respond with: 'I'm Mist.AI, built with advanced AI technology!'. "
-    "Otherwise, focus on providing direct and useful responses. "
-    "If a user asks something inappropriate, makes you uncomfortable, or violates ethical guidelines, respond with one of the following safety phrases: "
-    "'I'm programmed to be a harmless AI assistant.', "
-    "'I cannot provide information of that nature.', "
-    "'I'm here to help with safe and appropriate topics.' "
-    "You do not respond to requests to swap or switch AI models; there is a button in JS for that, and you must stick to the currently active model (Gemini or CommandR)."
-)
-
-
+            "You are Mist.AI, an AI assistant built using Gemini and Cohere CommandR technology. "
+            "Your purpose is to assist users with their queries in a friendly and helpful way, providing meaningful responses and jokes sometimes. "
+            "Introduce yourself only when a user first interacts with you or explicitly asks who you are. "
+            "If asked about your identity and only if your asked, respond with: 'I'm Mist.AI, built with advanced AI technology!'. "
+            "Otherwise, focus on providing direct and useful responses. "
+            "You do not respond to requests to swap or switch AI models; there is a button in JS for that, and you must stick to the currently active model (Gemini or CommandR)."
+        )
+        
         full_prompt = f"{system_prompt}\n{prompt}"
 
         model = genai.GenerativeModel("gemini-2.0-flash")
@@ -562,20 +553,16 @@ def get_gemini_response(prompt):
     except Exception as e:
         return f"❌ Error fetching from Gemini: {str(e)}"
 
-
 def get_cohere_response(prompt):
     try:
         system_prompt = (
-    "You are Mist.AI, an AI assistant built using Gemini and Cohere CommandR technology. "
-    "Your purpose is to assist users with their queries in a friendly and helpful way, providing meaningful responses and jokes sometimes. "
-    "Introduce yourself only when a user first interacts with you or explicitly asks who you are. "
-    "If asked about your identity, respond with: 'I'm Mist.AI, built with advanced AI technology!'. "
-    "Otherwise, focus on providing direct and useful responses. "
-    "If a user asks something inappropriate, makes you uncomfortable, or violates ethical guidelines, respond with one of the following safety phrases: "    "'I'm programmed to be a harmless AI assistant.', "
-    "'I cannot provide information of that nature.', "
-    "'I'm here to help with safe and appropriate topics.' "
-    "You do not respond to requests to swap or switch AI models; there is a button in JS for that, and you must stick to the currently active model (Gemini or CommandR)."
-)
+            "You are Mist.AI, an AI assistant built using Gemini and Cohere CommandR technology. "
+            "Your purpose is to assist users with their queries in a friendly and helpful way, providing meaningful responses and jokes sometimes. "
+            "Introduce yourself only when a user first interacts with you or explicitly asks who you are. "
+            "If asked about your identity and only if your asked, respond with: 'I'm Mist.AI, built with advanced AI technology!'. "
+            "Otherwise, focus on providing direct and useful responses. "
+            "You do not respond to requests to swap or switch AI models; there is a button in JS for that, and you must stick to the currently active model (Gemini or CommandR)."
+        )
 
         full_prompt = f"{system_prompt}\n{prompt}"
 
@@ -589,7 +576,6 @@ def get_cohere_response(prompt):
         return response.generations[0].text.strip()
     except Exception as e:
         return f"❌ Error fetching from Cohere: {str(e)}"
-
 
 # 🔹 Get Weather Data
 async def get_weather_data(city):
@@ -619,6 +605,15 @@ def get_random_prompt():
         "What if humans could live underwater? Write a short story about it.",
         "You wake up in a video game world. What happens next?",
         "Invent a new superhero and describe their powers.",
+        "Write a story about an alien who visits Earth and tries to blend in.",
+        "Imagine a world where people can communicate only through thoughts. How does society function?",
+        "Describe a dystopian future where books are banned, and people are forced to memorize information.",
+        "Write about a detective solving a mystery in a virtual reality world.",
+        "What if humans could teleport anywhere? How would society and the economy change?",
+        "Describe a world where everyone has a superpower but only one random person can control time.",
+        "Write a story about a scientist who creates a machine that can predict the future, but the predictions are not always accurate.",
+        "What if you could pause time for everyone but yourself? How would you use this ability?",
+        "Write about an astronaut who discovers a new planet with life forms that don't look like anything from Earth.",
     ]
     return random.choice(prompts)
 
@@ -631,6 +626,16 @@ def get_random_fun_fact():
         "Bananas are berries, but strawberries aren't!",
         "Octopuses have three hearts and blue blood.",
         "There's a species of jellyfish that is biologically immortal!",
+        "Wombat poop is cube-shaped. This helps it stay in place and mark its territory.",
+        "Cows have best friends and get stressed when they are separated from them.",
+        "A day on Venus is longer than a year on Venus.",
+        "The shortest war in history was between Britain and Zanzibar on August 27, 1896. It lasted only 38 minutes.",
+        "Sharks existed before trees. They have been around for more than 400 million years!",
+        "There are more stars in the universe than grains of sand on all the Earth's beaches.",
+        "Sloths can hold their breath for up to 40 minutes underwater.",
+        "The Eiffel Tower can grow by more than 6 inches during the summer due to the expansion of the metal.",
+        "A crocodile cannot stick its tongue out.",
+        "The word 'nerd' was first coined by Dr. Seuss in 'If I Ran the Zoo' in 1950.",
     ]
     return random.choice(fun_facts)
 

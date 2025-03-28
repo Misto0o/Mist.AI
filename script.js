@@ -17,7 +17,6 @@ function initializeCodeMirror(container, code) {
         value: code,
         mode: "javascript",
         theme: "dracula",
-        lineNumbers: true,
         readOnly: true
     });
 
@@ -71,6 +70,29 @@ function renderMessage(message, className) {
 
     // Append the message to the chat box
     messagesDiv.appendChild(messageElement);
+
+    // ✅ Add copy button for bot messages
+    if (className === "bot-message") {
+        const copyButton = document.createElement("i");
+        copyButton.classList.add("fa-solid", "fa-copy", "copy-button");
+        copyButton.title = "Copy Message";
+
+        // Set up the click handler
+        copyButton.onclick = () => {
+            navigator.clipboard.writeText(message.replace("Mist.AI: ", ""))
+                .then(() => {
+                    copyButton.classList.remove("fa-copy"); // Remove original copy icon
+                    copyButton.classList.add("fa-check");  // Add checkmark icon
+                    setTimeout(() => {
+                        copyButton.classList.remove("fa-check");
+                        copyButton.classList.add("fa-copy");  // Reset to copy icon
+                    }, 1500);
+                })
+                .catch(err => console.error("Copy failed", err));
+        };
+
+        messageElement.appendChild(copyButton);
+    }
 
     // Replace placeholders with CodeMirror instances
     codeBlocks.forEach((codeBlock, index) => {
@@ -379,17 +401,30 @@ function enableEditMode(messageElement, originalContent) {
     messageElement.appendChild(saveButton);
 }
 
-// Function to save the edited message
 function saveEditedMessage(messageElement, newContent) {
     const messagesDiv = document.getElementById("chat-box");
 
-    // Remove the edited message from the chat UI
+    // Get all messages
+    const allMessages = Array.from(messagesDiv.getElementsByClassName("message"));
+
+    // Find the index of the user's message
+    const userMessageIndex = allMessages.indexOf(messageElement);
+
+    // Remove user's message
     messagesDiv.removeChild(messageElement);
+
+    // If the AI's response is directly after, remove it too
+    if (userMessageIndex !== -1 && userMessageIndex < allMessages.length - 1) {
+        const aiMessage = allMessages[userMessageIndex + 1];
+        if (aiMessage.classList.contains("bot-message")) {
+            messagesDiv.removeChild(aiMessage);
+        }
+    }
 
     // Resend the new message to the backend
     sendMessage(newContent);
 
-    // Optionally, update the message in the chat memory
+    // Optionally, update the message in memory
     updateMemory("user", newContent);
 }
 
@@ -445,34 +480,12 @@ function swapContent() {
                 gsap.to(currentOption, { opacity: 1, duration: 0.2 });
             }
         });
-
-        showNotification(`Model switched to: ${currentModel === 'commandR' ? 'CommandR' : 'Gemini'}`);
-        sendMessage(`Model switched to: ${currentModel}`);
     }
 
     setTimeout(() => {
         isSwapping = false;
         swapButton.classList.remove("disabled");
     }, 1300); // 1.3s cooldown
-}
-
-function showNotification(message) {
-    const notification = document.createElement("div");
-    notification.classList.add("notification");
-    notification.textContent = message;
-    document.body.appendChild(notification);
-
-    gsap.fromTo(notification, { opacity: 0, y: -20 }, {
-        opacity: 1, y: 0, duration: 0.5, ease: "power2.out", onComplete: () => {
-            setTimeout(() => {
-                gsap.to(notification, {
-                    opacity: 0, y: 20, duration: 0.3, ease: "power2.in", onComplete: () => {
-                        notification.remove();
-                    }
-                });
-            }, 2000);
-        }
-    });
 }
 
 const inputField = document.getElementById("user-input");
@@ -520,12 +533,12 @@ slashButton.addEventListener("click", (e) => {
 
 // Function to show the suggestions box
 function showSuggestions() {
-    suggestionsBox.innerHTML = commands.map(cmd => `<div class="suggestion-item">${cmd}</div>`).join("");
+    suggestionsBox.innerHTML = commands.map(cmd => `< div class="suggestion-item" > ${cmd}</div > `).join("");
 
     // Position suggestion box under the input field
     const rect = inputField.getBoundingClientRect();
-    suggestionsBox.style.left = `${rect.left}px`;
-    suggestionsBox.style.top = `${rect.bottom + window.scrollY + 5}px`; // Added slight offset for spacing
+    suggestionsBox.style.left = `${rect.left} px`;
+    suggestionsBox.style.top = `${rect.bottom + window.scrollY + 5} px`; // Added slight offset for spacing
 
     suggestionsBox.style.display = "block";
 }
@@ -562,7 +575,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 document.body.classList.remove("light-theme", "blue-theme", "midnight-theme", "cyberpunk-theme", "arctic-theme", "terminal-theme", "sunset-theme", "konami-theme");
                 // Apply the new theme
                 if (selectedTheme !== "dark") {
-                    document.body.classList.add(`${selectedTheme}-theme`);
+                    document.body.classList.add(`${selectedTheme} -theme`);
                 }
 
                 // Animate back in
@@ -730,14 +743,14 @@ document.addEventListener("DOMContentLoaded", function () {
                 console.log("📥 API Response:", result); // Debugging
 
                 if (result.error) {
-                    showMessage(`❌ Error: ${result.error}`, "bot");
+                    showMessage(`❌ Error: ${result.error} `, "bot");
                     return;
                 }
 
-                showMessage(`🧐 Analysis: ${result.result}`, "bot");
+                showMessage(`🧐 Analysis: ${result.result} `, "bot");
 
                 // Add the analysis result to chatMemory
-                updateMemory("bot", `Image Analysis: ${result.result}`);
+                updateMemory("bot", `Image Analysis: ${result.result} `);
 
             } catch (error) {
                 console.error("❌ Fetch Error:", error);
@@ -778,15 +791,15 @@ document.addEventListener("DOMContentLoaded", function () {
 
         // When displaying the uploaded image and button, improve the styling and layout
         showMessage(`
-    <div class="image-container">
+        < div class="image-container" >
         <div class="image-wrapper">
             <img src="${imageUrl}" alt="Uploaded Image" class="uploaded-image">
         </div>
         <div class="button-wrapper">
             <button class="analyze-button" id="analyze-button">🔍 Analyze Image</button>
         </div>
-    </div>
-`, "user");
+    </div >
+        `, "user");
 
         // Attach the event listener to the button programmatically
         const analyzeButton = document.getElementById("analyze-button");
@@ -809,7 +822,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
             if (result.error) {
                 console.error("Upload failed:", result.error);
-                showMessage(`❌ Upload failed: ${result.error}`, "bot");
+                showMessage(`❌ Upload failed: ${result.error} `, "bot");
                 return;
             }
 
@@ -817,7 +830,7 @@ document.addEventListener("DOMContentLoaded", function () {
             let extractedText = result.response?.trim() || "⚠️ No readable text found.";
 
             // ✅ Store extracted text in Mist.AI memory without showing it
-            chatMemory.push({ role: "user", content: `User uploaded a file and it contained: ${extractedText}` });
+            chatMemory.push({ role: "user", content: `User uploaded a file and it contained: ${extractedText} ` });
 
             // ✅ Show a simple response to the user
             showMessage("🧐 Mist.AI has read the file. How can I assist you with it?", "bot");
@@ -908,8 +921,6 @@ document.addEventListener("DOMContentLoaded", function () {
         // Remove the 'show' class to hide the sidebar
         document.querySelector(".sidebar").classList.remove("show");
     });
-
-
 
     // ✅ Handle window resize for model container
     window.addEventListener('resize', () => {

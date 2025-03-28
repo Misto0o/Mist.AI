@@ -170,6 +170,26 @@
         border-radius: 18px 18px 18px 0;
     }
 
+    .copy-button {
+        position: absolute;
+        top: 5px;
+        right: 5px;
+        font-size: 14px;
+        color: white;
+        background: rgba(255, 255, 255, 0.2);
+        padding: 5px;
+        border-radius: 5px;
+        cursor: pointer;
+        opacity: 0;
+        /* ✅ Initially hidden */
+        transition: opacity 0.3s ease-in-out;
+    }
+
+    .bot-message:hover .copy-button {
+        opacity: 1;
+        /* ✅ Show on hover */
+    }
+    
     @keyframes fadeIn {
         from {
             opacity: 0;
@@ -453,17 +473,6 @@
         animation-delay: 0.4s;
     }
 
-    /* Style for code message bubbles */
-    .code-message {
-        background-color: #282c34;
-        color: white;
-    }
-
-    /* Style for the CodeMirror container */
-    .codemirror-container {
-        height: 200px;
-        width: 100%;
-    }
 
     .edit-button {
         position: absolute;
@@ -586,7 +595,8 @@
         }
 
         .toggle-btn {
-            position: absolute; /* Use absolute positioning */
+            position: absolute;
+            /* Use absolute positioning */
             top: 50px;
             /* Adjust this value to move it further down */
             left: 0px;
