@@ -1,4 +1,13 @@
-/*
+/index.html
   Cache-Control: no-cache, no-store, must-revalidate
   Pragma: no-cache
   Expires: 0
+
+/themes.css
+  Cache-Control: max-age=31536000, public
+
+/styles.css
+  Cache-Control: max-age=31536000, public
+
+/script.js
+  Cache-Control: max-age=31536000, public

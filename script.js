@@ -461,6 +461,7 @@ function getBackendUrl() {
         : 'https://mist-ai.fly.dev/chat';  // Primary Production URL on Fly.io
     // : 'https://mist-ai-64pc.onrender.com/chat';  // Fallback Production URL on Render
 }
+
 // Function to swap models
 function swapContent() {
     const swapButton = document.querySelector(".swap-button");
@@ -480,12 +481,34 @@ function swapContent() {
                 gsap.to(currentOption, { opacity: 1, duration: 0.2 });
             }
         });
+
+        showNotification(`Model switched to: ${currentModel === 'commandR' ? 'CommandR' : 'Gemini'}`);
+        sendMessage(`Model switched to: ${currentModel}`);
     }
 
     setTimeout(() => {
         isSwapping = false;
         swapButton.classList.remove("disabled");
     }, 1300); // 1.3s cooldown
+}
+
+function showNotification(message) {
+    const notification = document.createElement("div");
+    notification.classList.add("notification");
+    notification.textContent = message;
+    document.body.appendChild(notification);
+
+    gsap.fromTo(notification, { opacity: 0, y: -20 }, {
+        opacity: 1, y: 0, duration: 0.5, ease: "power2.out", onComplete: () => {
+            setTimeout(() => {
+                gsap.to(notification, {
+                    opacity: 0, y: 20, duration: 0.3, ease: "power2.in", onComplete: () => {
+                        notification.remove();
+                    }
+                });
+            }, 2000);
+        }
+    });
 }
 
 const inputField = document.getElementById("user-input");
@@ -533,12 +556,12 @@ slashButton.addEventListener("click", (e) => {
 
 // Function to show the suggestions box
 function showSuggestions() {
-    suggestionsBox.innerHTML = commands.map(cmd => `< div class="suggestion-item" > ${cmd}</div > `).join("");
+    suggestionsBox.innerHTML = commands.map(cmd => `<div class="suggestion-item">${cmd}</div>`).join("");
 
     // Position suggestion box under the input field
     const rect = inputField.getBoundingClientRect();
-    suggestionsBox.style.left = `${rect.left} px`;
-    suggestionsBox.style.top = `${rect.bottom + window.scrollY + 5} px`; // Added slight offset for spacing
+    suggestionsBox.style.left = `${rect.left}px`;
+    suggestionsBox.style.top = `${rect.bottom + window.scrollY + 5}px`; // Added slight offset for spacing
 
     suggestionsBox.style.display = "block";
 }
@@ -575,7 +598,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 document.body.classList.remove("light-theme", "blue-theme", "midnight-theme", "cyberpunk-theme", "arctic-theme", "terminal-theme", "sunset-theme", "konami-theme");
                 // Apply the new theme
                 if (selectedTheme !== "dark") {
-                    document.body.classList.add(`${selectedTheme} -theme`);
+                    document.body.classList.add(`${selectedTheme}-theme`);
                 }
 
                 // Animate back in
