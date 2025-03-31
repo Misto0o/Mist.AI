@@ -1,5 +1,13 @@
-# Use a lightweight Python image
+# Use a lightweight Python image for version 3.13
 FROM python:3.13-slim
+
+# Install system dependencies required for PyAudio
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    libportaudio2 \
+    libsndfile1 \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
 
 # Set the working directory inside the container
 WORKDIR /app
