@@ -1,62 +1,43 @@
-# ☁️ Mist.AI – V4.5 Smarter AI, PWA, Mobile Support & More!
+# ☁️ Mist.AI – V5.0 Mini
 
-Mist.AI is an advanced AI assistant powered by **Gemini AI**, **Command R AI**, and **OCR Vision**. In this latest update, Mist.AI introduces even more features, including **Better session-based memory**, **OCR.space image uploading**, a revamped sidebar, and the ability to ask Mist.AI for code in **VS Code (CodeMirror) format**.
+Mist.AI is an advanced AI assistant powered by **Gemini AI**, **Command R AI**, and **OCR Vision**. In this latest update (V5.0 Mini), Mist.AI introduces improvements to the wake word detection system, service worker enhancements for cache management, and various performance optimizations to ensure a smoother user experience.
 
-🚀 **Current Version:** `V4.5`  
+🚀 **Current Version:** `V5.0 Mini`  
 📱 **Mobile App / Progressive Web App (PWA)**  
-📂 **Full File Upload Support (Images, Documents, and More!)**  
-🔧 **Command Improvements**  
-🧠 **AI Stability & Response Enhancements**  
-🆕 **New `/help` Command & IP Ban System**  
+🔧 **Enhanced Wake Word Detection**  
+⚡ **Improved Cache Management**  
+🎨 **UI/UX Enhancements**  
+🧠 **Performance Optimizations**  
 
 ---
 
-## ✨ What's New in V4.5?
+## ✨ What's New in V5.0 Mini?
 
-### 📱 **Mobible And Desktop APP! / Progressive Web App (PWA)**  
-- Mist.AI is now a **PWA**!  
-  - **Installable on mobile / desktop devices**: Access Mist.AI from your phone and install it as a standalone app.  
-  - **Offline Support**: Thanks to PWA, you can interact with Mist.AI even when you’re offline!  
-  - **How to Install**: Visit the site on your mobile browser, and you’ll see an install prompt to add it to your home screen.
+### 🎤 **Improved Wake Word Detection**
+- Mist.AI now listens for the wake word **"Hey Mist"** more reliably using browser-based JavaScript.
+- Wake word detection now works more efficiently on both **mobile** and **desktop** devices, ensuring the AI is ready to interact whenever you need it.
+- Service worker integration ensures that the wake word detection is only active while the page is open, saving on resources.
 
-### 🧠 **Session-Based Memory Improvements**  
-- **Session-based memory** is now more powerful! Mist.AI remembers your previous interactions while you're on the page, allowing for more personalized and continuous conversations. 
-- **Memory Expansion**: Increased from **10** remembered interactions to **25** for deeper contextual understanding.
+### ⚡ **Cache Management with Service Worker**
+- **Cache Control Enhancements**: The service worker now manages asset caching more efficiently, ensuring that files like CSS, JS, and images are always up-to-date by clearing out old caches when necessary.
+- **Automatic Cache Deletion**: Unnecessary or outdated cache is cleared automatically on every page load, ensuring the freshest content.
 
-### 🔧 **OCR.space Image Uploading**  
-- **OCR Integration**: Mist.AI now uses **OCR.space** for image uploads, allowing users to upload images and documents for text extraction and analysis.  
+### 🎨 **UI/UX Enhancements**
+- **Message Bubbles**: More intuitive and Quality of life, with an **edit** button for messages and a **copy** button for responses.
+- **Improved Sidebar**: The UI now scales better across all screen sizes, ensuring smooth usage on both mobile and desktop devices.
 
-### 💻 **VS Code Format for Code Snippets (CodeMirror Integration)**  
-- **Ask Mist.AI for code**: You can now ask Mist.AI for code examples, and they will be returned in **VS Code (CodeMirror)** format for better readability and easier use in your own projects.  
-- **Improved Code Formatting**: Syntax highlighting and structured formatting for a more seamless development experience.
+### 🚨 **Enhanced IP Ban System**
+- **Inappropriate Message Detection**: Mist.AI now features an improved temporary IP ban system. If users send inappropriate messages (3 times), their IP will be temporarily banned for 24 hours.
+- **Improved Safety**: Ensures a safer and more respectful interaction environment.
 
-### 🚨 **New Temporary IP Ban System**  
-- **Inappropriate Message Detection**: If users send messages that Mist.AI finds inappropriate or makes it  (**3 Times**), they will receive an **automatic temporary IP ban for 24 hours**.  
-- **Ensures a safer and more respectful interaction** with Mist.AI.  
-
-### 🔧 **Improved Sidebar & UI Enhancements**  
-- **Revamped Sidebar**: The sidebar has been hidden first on page load and can be reponeded using the icon.  
-  - **New Edit Button**: Made a mistake in your message? The edit button solves that!.  
-  - **Copy Button**: Copy MistAI`s Responses!. 
-  - **Better Adaptability**: Works better on smaller screens and various devices.  
-
-### 🆕 **New `/help` Command**  
-- **Functionality**:  
-  - Type `/help` to receive a list of all available commands.  
-  - Provides a quick reference for both common and advanced features available within Mist.AI.
-
-### 🛠 **Bug Fixes & AI Improvements**  
-- **Better AI response handling** – More natural and intelligent replies.  
-- **Fixed random AI model switching** – Ensures stable interaction with Gemini AI & Command R AI.  
-- **Improved `/riddle` command** – Now blurs the answer for a fair challenge!
-
-### 🎭 **More Fun Features!**  
-- `/riddle` and `/joke` have been expanded with **new content**.  
-- AI personality improvements for **more engaging conversations**.
+### 🧠 **Performance Optimizations**
+- Mist.AI now runs smoother and faster with reduced memory usage, allowing for more efficient interactions and faster response times.
+- **Code Snippet Formatting**: Code examples provided by Mist.AI now come with improved syntax highlighting, making it easier for developers to copy and use the code.
 
 ---
 
-## 📌 Features  
+## 📌 Features
+
 ✔ **Powered by Gemini AI & Command R AI**  
 ✔ **Customizable Themes** – 8 themes + 1 unlockable secret mode!  
 ✔ **Live Weather Fetching** – Real-time weather updates  
