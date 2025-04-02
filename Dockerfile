@@ -25,7 +25,7 @@ COPY . .
 EXPOSE 8080
 
 # Set environment variables
-ENV PORT=8080 FLASK_APP=app.py FLASK_ENV=production
+ENV PORT=8080 FLASK_APP=mistai.py FLASK_ENV=production
 
 # Use Gunicorn for a production-ready server
 CMD ["python", "wsgi.py"]
