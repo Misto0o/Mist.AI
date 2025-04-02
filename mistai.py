@@ -24,7 +24,7 @@ import webbrowser
 import pygetwindow as gw
 from fuzzywuzzy import fuzz
 import threading
-import psutil  # Install with: pip install psutil
+import psutil
 
 # Load environment variables
 load_dotenv()
