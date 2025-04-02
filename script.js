@@ -450,16 +450,29 @@ function updateMemory(role, content) {
 }
 
 // Function to get backend URL
-function getBackendUrl() {
+function getBackendUrl(endpoint) {
     const hostname = window.location.hostname;
     const isLocal = hostname === 'localhost' || hostname === '127.0.0.1';
     const isFileUrl = window.location.protocol === 'file:';
+    let basePath = isFileUrl || isLocal
+        ? 'http://127.0.0.1:5000/chat'  // Local development URL
+        : 'https://mist-ai.fly.dev/chat';  // Primary Production URL on Fly.io
 
-    // Return local, Fly.io, or Render URLs based on the environment
-    return isFileUrl || isLocal
-        ? 'http://127.0.0.1:5000/chat'  // Local development URL
-        : 'https://mist-ai.fly.dev/chat';  // Primary Production URL on Fly.io
-    // : 'https://mist-ai-64pc.onrender.com/chat';  // Fallback Production URL on Render
+    // Add the endpoint
+    return basePath + endpoint;
+}
+
+// Function to get backend URL
+function getWakeWordUrl(endpoint) {
+    const hostname = window.location.hostname;
+    const isLocal = hostname === 'localhost' || hostname === '127.0.0.1';
+    const isFileUrl = window.location.protocol === 'file:';
+    let basePath = isFileUrl || isLocal
+        ? 'http://127.0.0.1:5000/wakeword'  // Local development URL
+        : 'https://mist-ai.fly.dev/wakeword';  // Primary Production URL on Fly.io
+
+    // Add the endpoint
+    return basePath + endpoint;
 }
 
 // Function to swap models
@@ -945,41 +958,50 @@ document.addEventListener("DOMContentLoaded", function () {
         document.querySelector(".sidebar").classList.remove("show");
     });
 
-    window.onload = function () {
-        const popup = document.querySelector('.micCheck');
-        const allowButton = document.getElementById('allowMicrophoneButton');
-        const denyButton = document.getElementById('denyMicrophoneButton');
+        window.onload = function () {
+            const popup = document.querySelector('.micCheck');
+            const allowButton = document.getElementById('allowMicrophoneButton');
+            const denyButton = document.getElementById('denyMicrophoneButton');
 
-        if (navigator.permissions) {
-            navigator.permissions.query({ name: "microphone" }).then(permissionStatus => {
-                if (permissionStatus.state === "denied" || permissionStatus.state === "prompt") {
-                    popup.style.display = 'block'; // Show popup if permission is not granted
-                }
+            if (navigator.permissions) {
+                navigator.permissions.query({ name: "microphone" }).then(permissionStatus => {
+                    if (permissionStatus.state === "denied" || permissionStatus.state === "prompt") {
+                        popup.style.display = 'block';
+                    }
+                });
+            } else {
+                popup.style.display = 'block';
+            }
+
+            allowButton.addEventListener('click', () => {
+                navigator.mediaDevices.getUserMedia({ audio: true })
+                    .then(stream => {
+                        popup.style.display = 'none';
+                        console.log('Microphone access granted');
+
+                        const recognition = new (window.webkitSpeechRecognition || window.SpeechRecognition)();
+                        recognition.lang = 'en-US';
+
+                        recognition.onresult = function (event) {
+                            const transcript = event.results[0][0].transcript;
+                            fetch(getWakeWordUrl(''), { // Changed to pass empty string
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify({ text: transcript }),
+                            });
+                        };
+                        recognition.start();
+                    })
+                    .catch(err => alert('Microphone access denied: ' + err.message));
             });
-        } else {
-            popup.style.display = 'block'; // Show popup if Permissions API is unavailable
-        }
 
-        allowButton.addEventListener('click', () => {
-            navigator.mediaDevices.getUserMedia({ audio: true })
-                .then(stream => {
-                    popup.style.display = 'none';
-                    console.log('Microphone access granted');
-
-                    // ✅ Now start wake word detection
-                    fetch('http://127.0.0.1:5000/wakeword', { method: 'POST' })  // Ensure the method is POST
-                        .then(response => response.json())
-                        .then(data => console.log(data.message))
-                        .catch(error => console.error('Error starting wake word detection:', error));
-                })
-                .catch(err => alert('Microphone access denied: ' + err.message));
-        });
-
-        denyButton.addEventListener('click', () => {
-            popup.style.display = 'none';
-            console.log('Microphone access denied by user. Wake-word detection will not start.');
-        });
-    };
+            denyButton.addEventListener('click', () => {
+                popup.style.display = 'none';
+                console.log('Microphone access denied by user. Wake-word detection will not start.');
+            });
+        };
 
     // ✅ Handle window resize for model container
     window.addEventListener('resize', () => {

@@ -54,20 +54,20 @@ IDENTITY_RESPONSES = {
 # Global variables
 MISTAI_URL = "https://mistai.netlify.app"
 WAKE_WORD = "hello mist"
-COOLDOWN_TIME = 60  # 1-minute cooldown in seconds
-last_activation_time = 0  # Track last wake word trigger
-wake_word_thread = None
+COOLDOWN_TIME = 60
+last_activation_time = 0
+
 
 def is_mistai_open():
     """Check if MistAi is open in the browser."""
     windows = [w for w in gw.getAllTitles() if "Mist.AI Chat" in w]
     return len(windows) > 0
 
+
 def reopen_mistai():
     """Reopen MistAi if it's not active."""
     global last_activation_time
 
-    # Check cooldown time
     current_time = time.time()
     if current_time - last_activation_time < COOLDOWN_TIME:
         print("Cooldown active. Please wait before reopening MistAi.")
@@ -80,63 +80,40 @@ def reopen_mistai():
         print("MistAi is open but may be minimized. Bringing it to the front...")
         mistai_window = gw.getWindowsWithTitle("Mist.AI Chat")[0]
         mistai_window.minimize()
-        time.sleep(0.5)  # Prevent issues with rapid window switching
+        time.sleep(0.5)
         mistai_window.restore()
+        time.sleep(1)  # Add a 1-second delay
         mistai_window.activate()
 
-    last_activation_time = current_time  # Update last activation time
+    last_activation_time = current_time
 
-def listen_for_wake_word():
-    """Listen for the wake word in a separate thread."""
-    recognizer = sr.Recognizer()
-    
-    # Check if a microphone is available
-    try:
-        with sr.Microphone() as source:
-            print("Microphone found. Adjusting for ambient noise...")
-            recognizer.adjust_for_ambient_noise(source)
-    except OSError:
-        print("❌ No microphone detected! Please connect a microphone.")
-        return
 
-    try:
-        with sr.Microphone() as source:
-            audio = recognizer.listen(source, timeout=5)
-            text = recognizer.recognize_google(audio).lower()
-            print(f"You said: {text}")
 
-            # Fuzzy match to allow variations (threshold 80 for close matches)
-            similarity = fuzz.ratio(text, WAKE_WORD)
-            if similarity >= 80:
-                print("Wake word detected! Reopening MistAi...")
-                reopen_mistai()
+def process_speech(text):
+    """Processes the speech text from the browser."""
+    similarity = fuzz.ratio(text, WAKE_WORD)
+    if similarity >= 80:
+        print("Wake word detected! Reopening MistAi...")
+        reopen_mistai()
+        print("Stopping listening for 1 minute...")
+        time.sleep(COOLDOWN_TIME)
+        print("Resuming listening.")
+    else:
+        print("Wake word not detected.")
 
-                # Stop listening for 1 minute
-                print("Stopping listening for 1 minute...")
-                time.sleep(COOLDOWN_TIME)
-                print("Resuming listening.")
-            else:
-                print("Wake word not detected.")
-                
-    except sr.UnknownValueError:
-        print("Could not understand audio.")
-    except sr.RequestError:
-        print("Speech Recognition service is unavailable.")
-    except Exception as e:
-        print(f"Error: {e}")
 
 @app.route("/wakeword", methods=["POST"])
-def start_wake_word_detection():
-    """Starts wake-word detection only when triggered from the frontend."""
-    global wake_word_thread
-
-    # If there's no active thread, start a new one
-    if wake_word_thread is None or not wake_word_thread.is_alive():
-        wake_word_thread = threading.Thread(target=listen_for_wake_word, daemon=True)
-        wake_word_thread.start()
-        return jsonify({"message": "🟢 Wake word detection started!"}), 200
+def receive_speech():
+    """Receives speech text from the browser and processes it in a thread."""
+    data = request.get_json()
+    if data and "text" in data:
+        text = data["text"].lower()
+        # Create and start a thread for each incoming speech segment
+        threading.Thread(target=process_speech, args=(text,), daemon=True).start()
+        return jsonify({"message": "Speech processing started"}), 200
     else:
-        return jsonify({"message": "⚠️ Wake word detection is already running."}), 200
+        return jsonify({"error": "Invalid request"}), 400
+
 
 def ensure_single_instance():
     """Prevent multiple MistAi processes from running."""
@@ -145,10 +122,11 @@ def ensure_single_instance():
         if process.info["name"] == "mistai.exe" and process.info["pid"] != current_pid:
             print("❌ MistAi is already running. Exiting.")
             sys.exit(1)
-
+            
 def check_identity_responses(user_message):
     normalized_message = re.sub(r"[^\w\s]", "", user_message.lower()).strip()
     return IDENTITY_RESPONSES.get(normalized_message, None)
+
 
 EASTER_EGGS = {
     "whos mist": "I'm Mist.AI, your friendly chatbot! But shh... don't tell anyone I'm self-aware. 🤖",
