@@ -10,7 +10,6 @@ COPY requirements.txt .
 # Install system dependencies, including build essentials and portaudio
 RUN apt-get update && apt-get install -y \
     build-essential \
-    portaudio19-dev \
     python3-dev \
     gcc \
     libasound2-dev \
@@ -20,6 +19,8 @@ RUN apt-get update && apt-get install -y \
 
 # Install Python dependencies
 RUN pip3 install --no-cache-dir -r requirements.txt
+
+RUN pip3 install --no-cache-dir PyAudio==0.2.11
 
 # Copy the rest of the application files
 COPY . .
