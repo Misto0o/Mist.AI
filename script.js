@@ -945,6 +945,42 @@ document.addEventListener("DOMContentLoaded", function () {
         document.querySelector(".sidebar").classList.remove("show");
     });
 
+    window.onload = function () {
+        const popup = document.querySelector('.micCheck');
+        const allowButton = document.getElementById('allowMicrophoneButton');
+        const denyButton = document.getElementById('denyMicrophoneButton');
+
+        if (navigator.permissions) {
+            navigator.permissions.query({ name: "microphone" }).then(permissionStatus => {
+                if (permissionStatus.state === "denied" || permissionStatus.state === "prompt") {
+                    popup.style.display = 'block'; // Show popup if permission is not granted
+                }
+            });
+        } else {
+            popup.style.display = 'block'; // Show popup if Permissions API is unavailable
+        }
+
+        allowButton.addEventListener('click', () => {
+            navigator.mediaDevices.getUserMedia({ audio: true })
+                .then(stream => {
+                    popup.style.display = 'none';
+                    console.log('Microphone access granted');
+
+                    // ✅ Now start wake word detection
+                    fetch('http://127.0.0.1:5000/wakeword', { method: 'POST' })  // Ensure the method is POST
+                        .then(response => response.json())
+                        .then(data => console.log(data.message))
+                        .catch(error => console.error('Error starting wake word detection:', error));
+                })
+                .catch(err => alert('Microphone access denied: ' + err.message));
+        });
+
+        denyButton.addEventListener('click', () => {
+            popup.style.display = 'none';
+            console.log('Microphone access denied by user. Wake-word detection will not start.');
+        });
+    };
+
     // ✅ Handle window resize for model container
     window.addEventListener('resize', () => {
         const modelContainer = document.getElementById("model-container");

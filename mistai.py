@@ -19,11 +19,12 @@ import json
 from docx import Document
 import time
 import fitz
-import struct
+import speech_recognition as sr
 import webbrowser
-import pyaudio
-import pvporcupine
+import pygetwindow as gw
+from fuzzywuzzy import fuzz
 import threading
+import psutil  # Install with: pip install psutil
 
 # Load environment variables
 load_dotenv()
@@ -50,6 +51,101 @@ IDENTITY_RESPONSES = {
     "who created you": "Hey there! Im Mist.AI Created by Kristian Cook a 14 year old Developer!",
 }
 
+# Global variables
+MISTAI_URL = "https://mistai.netlify.app"
+WAKE_WORD = "hello mist"
+COOLDOWN_TIME = 60  # 1-minute cooldown in seconds
+last_activation_time = 0  # Track last wake word trigger
+wake_word_thread = None
+
+def is_mistai_open():
+    """Check if MistAi is open in the browser."""
+    windows = [w for w in gw.getAllTitles() if "Mist.AI Chat" in w]
+    return len(windows) > 0
+
+def reopen_mistai():
+    """Reopen MistAi if it's not active."""
+    global last_activation_time
+
+    # Check cooldown time
+    current_time = time.time()
+    if current_time - last_activation_time < COOLDOWN_TIME:
+        print("Cooldown active. Please wait before reopening MistAi.")
+        return
+
+    if not is_mistai_open():
+        print("MistAi is not open. Opening it now...")
+        webbrowser.open(MISTAI_URL)
+    else:
+        print("MistAi is open but may be minimized. Bringing it to the front...")
+        mistai_window = gw.getWindowsWithTitle("Mist.AI Chat")[0]
+        mistai_window.minimize()
+        time.sleep(0.5)  # Prevent issues with rapid window switching
+        mistai_window.restore()
+        mistai_window.activate()
+
+    last_activation_time = current_time  # Update last activation time
+
+def listen_for_wake_word():
+    """Listen for the wake word in a separate thread."""
+    recognizer = sr.Recognizer()
+    
+    # Check if a microphone is available
+    try:
+        with sr.Microphone() as source:
+            print("Microphone found. Adjusting for ambient noise...")
+            recognizer.adjust_for_ambient_noise(source)
+    except OSError:
+        print("❌ No microphone detected! Please connect a microphone.")
+        return
+
+    try:
+        with sr.Microphone() as source:
+            audio = recognizer.listen(source, timeout=5)
+            text = recognizer.recognize_google(audio).lower()
+            print(f"You said: {text}")
+
+            # Fuzzy match to allow variations (threshold 80 for close matches)
+            similarity = fuzz.ratio(text, WAKE_WORD)
+            if similarity >= 80:
+                print("Wake word detected! Reopening MistAi...")
+                reopen_mistai()
+
+                # Stop listening for 1 minute
+                print("Stopping listening for 1 minute...")
+                time.sleep(COOLDOWN_TIME)
+                print("Resuming listening.")
+            else:
+                print("Wake word not detected.")
+                
+    except sr.UnknownValueError:
+        print("Could not understand audio.")
+    except sr.RequestError:
+        print("Speech Recognition service is unavailable.")
+    except Exception as e:
+        print(f"Error: {e}")
+
+@app.route("/wakeword", methods=["POST"])
+def start_wake_word_detection():
+    """Starts wake-word detection only when triggered from the frontend."""
+    global wake_word_thread
+
+    # If there's no active thread, start a new one
+    if wake_word_thread is None or not wake_word_thread.is_alive():
+        wake_word_thread = threading.Thread(target=listen_for_wake_word, daemon=True)
+        wake_word_thread.start()
+        return jsonify({"message": "🟢 Wake word detection started!"}), 200
+    else:
+        return jsonify({"message": "⚠️ Wake word detection is already running."}), 200
+
+def ensure_single_instance():
+    """Prevent multiple MistAi processes from running."""
+    current_pid = os.getpid()
+    for process in psutil.process_iter(["pid", "name"]):
+        if process.info["name"] == "mistai.exe" and process.info["pid"] != current_pid:
+            print("❌ MistAi is already running. Exiting.")
+            sys.exit(1)
+
 def check_identity_responses(user_message):
     normalized_message = re.sub(r"[^\w\s]", "", user_message.lower()).strip()
     return IDENTITY_RESPONSES.get(normalized_message, None)
@@ -67,112 +163,31 @@ EASTER_EGGS = {
     "whats your favorite anime": "Dragon Ball Z! I really love the anime.",
 }
 
+
 def check_easter_eggs(user_message):
     normalized_message = re.sub(r"[^\w\s]", "", user_message.lower()).strip()
     return EASTER_EGGS.get(normalized_message, None)
 
+
 # Configure APIs
-OCR_API_KEY = os.getenv("OCR_API_KEY")  # ✅ Set your OCR.Space API key
-OCR_URL = "https://api.ocr.space/parse/image"  # ✅ OCR.Space endpoint
-#LLM APIs
+RAPIDAPI_KEY = os.getenv("RAPIDAPI_KEY")
+RAPIDAPI_HOST = os.getenv("RAPIDAPI_HOST")
+
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 cohere_client = cohere.Client(os.getenv("COHERE_API_KEY"))
-#News and FileUpload
+
 the_news_api_key = os.getenv("THE_NEWS_API_KEY")
 goflie_api_key = os.getenv("GOFLIE_API_KEY")
 API_KEY = os.getenv("OPENWEATHER_API_KEY")
+
 API_BASE_URL = "https://api.openweathermap.org/data/2.5"
 temperatureUnit = "imperial"
 news_url = (
     os.getenv("https://mist-ai.fly.dev/chat", "http://127.0.0.1:5000") + "/time-news"
 )
-
-# Test microphone input to ensure it's working
-def test_microphone_input():
-    pa = pyaudio.PyAudio()
-    
-    try:
-        # Open a stream with default settings
-        stream = pa.open(format=pyaudio.paInt16,
-                         channels=1,
-                         rate=44100,
-                         input=True,
-                         frames_per_buffer=1024)
-        
-        logging.info("Recording...")
-        frames = []
-
-        # Record a short snippet (e.g., 5 seconds)
-        for i in range(0, int(44100 / 1024 * 5)):
-            data = stream.read(1024)
-            frames.append(data)
-
-        stream.stop_stream()
-        stream.close()
-
-        # Check if we have data
-        if frames:
-            logging.info("Mic input detected and recorded successfully.")
-        else:
-            logging.error("No mic input detected.")
-    
-    except Exception as e:
-        logging.error(f"Error while recording: {e}")
-
-# Function to listen for the wake word asynchronously
-async def listen_for_wake_word():
-    
-    # Check if the wake word model exists
-    custom_model_path = os.path.abspath("heyMistRec/Hey-Mist_en_windows_v3_0_0.ppn")
-
-    # Log whether the file exists
-    if os.path.exists(custom_model_path):
-        logging.info(f"Wake word model found at: {custom_model_path}")
-
-        # Initialize Porcupine with keyword path
-        access_key = os.getenv("ACCESS_KEY")
-        porcupine = pvporcupine.create(
-            keyword_paths=[custom_model_path],  # Correct way to pass the model
-            access_key=access_key
-        )
-
-        # Set up the audio stream
-        pa = pyaudio.PyAudio()
-        audio_stream = pa.open(
-            rate=porcupine.sample_rate,
-            channels=1,
-            format=pyaudio.paInt16,
-            input=True,
-            frames_per_buffer=porcupine.frame_length
-        )
-
-        logging.info("Listening for wake word...")
-
-        # Start the detection loop
-        while True:
-            pcm = audio_stream.read(porcupine.frame_length)
-            pcm = struct.unpack_from("h" * porcupine.frame_length, pcm)
-
-            keyword_index = porcupine.process(pcm)
-
-            if keyword_index >= 0:
-                logging.info("Wake word detected! Opening Mist.AI...")
-                print("Wake word detected! Opening Mist.AI...")
-                webbrowser.open("https://mistai.netlify.app")  # Open your PWA URL
-                break  # Exit loop after detection
-
-        audio_stream.close()
-        pa.terminate()
-        porcupine.delete()
-
-    else:
-        logging.error(f"Wake word model NOT found at: {custom_model_path}")
-        print(f"Wake word model NOT found at: {custom_model_path}")
-
-# Main function to start Flask server and wake word detection
-def start_wake_word_detection():
-    # Run the wake word detection asynchronously
-    asyncio.run(listen_for_wake_word())
+# Get your OCR.Space API key
+OCR_API_KEY = os.getenv("OCR_API_KEY")  # ✅ Set your OCR.Space API key
+OCR_URL = "https://api.ocr.space/parse/image"  # ✅ OCR.Space endpoint
 
 
 async def analyze_image(img_base64):
@@ -234,6 +249,7 @@ async def upload_to_gofile(filename, file_content, mimetype):
     else:
         return {"error": "Upload failed"}
 
+
 # ✅ Extract text from PDFs (Fixed)
 def extract_text_from_pdf(file_stream):
     try:
@@ -249,6 +265,7 @@ def extract_text_from_pdf(file_stream):
         return text if text else "⚠️ No readable text found in this PDF."
     except Exception as e:
         return f"⚠️ Error extracting text: {str(e)}"
+
 
 @app.route("/time-news", methods=["GET"])
 async def time_news():
@@ -299,11 +316,15 @@ async def time_news():
         return jsonify({"error": str(e)}), 500
 
     # ✅ Function to process different file types
+
+
 def process_pdf(file_content):
     return extract_text_from_pdf(io.BytesIO(file_content))
 
+
 def process_txt(file_content):
     return file_content.decode("utf-8", errors="ignore")
+
 
 def process_json(file_content):
     try:
@@ -311,6 +332,7 @@ def process_json(file_content):
         return json.dumps(json_data, indent=4)
     except json.JSONDecodeError:
         return "⚠️ Invalid JSON file."
+
 
 def process_docx(file_content):
     if not file_content:
@@ -323,6 +345,7 @@ def process_docx(file_content):
         print(f"Error reading DOCX: {e}")  # Debugging
         return f"⚠️ Error reading .docx file: {str(e)}"
 
+
 def extract_text_from_docx(file_content):
     try:
         doc = Document(file_content)
@@ -333,6 +356,7 @@ def extract_text_from_docx(file_content):
     except Exception as e:
         return f"⚠️ Error reading .docx file: {str(e)}"
 
+
 # ✅ Mapping file extensions to processing functions
 file_processors = {
     ".pdf": process_pdf,
@@ -341,6 +365,7 @@ file_processors = {
     ".docx": process_docx,
     ".doc": process_docx,
 }
+
 
 @app.route("/chat", methods=["POST", "GET"])
 async def chat():
@@ -509,6 +534,7 @@ async def chat():
         logging.error(f"Server Error: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
+
 # 🔹 Check AI Services
 async def check_ai_services():
     try:
@@ -516,6 +542,7 @@ async def check_ai_services():
         return bool(test_response)
     except:
         return False
+
 
 # 🔹 Handle Commands
 async def handle_command(command):
@@ -606,6 +633,7 @@ async def handle_command(command):
     # Handle unknown commands
     return "❌ Unknown command. Type /help for a list of valid commands."
 
+
 # 🔹 Get AI Responses
 def get_gemini_response(prompt):
     try:
@@ -627,6 +655,7 @@ def get_gemini_response(prompt):
         return response.text.strip()
     except Exception as e:
         return f"❌ Error fetching from Gemini: {str(e)}"
+
 
 def get_cohere_response(prompt):
     try:
@@ -652,6 +681,7 @@ def get_cohere_response(prompt):
     except Exception as e:
         return f"❌ Error fetching from Cohere: {str(e)}"
 
+
 # 🔹 Get Weather Data
 async def get_weather_data(city):
     try:
@@ -672,6 +702,7 @@ async def get_weather_data(city):
 
     # 🔹 Function to return a random writing prompt
 
+
 def get_random_prompt():
     prompts = [
         "Write about a futuristic world where AI controls everything.",
@@ -690,6 +721,7 @@ def get_random_prompt():
         "Write about an astronaut who discovers a new planet with life forms that don't look like anything from Earth.",
     ]
     return random.choice(prompts)
+
 
 # 🔹 Function to return a random fun fact
 def get_random_fun_fact():
@@ -712,6 +744,7 @@ def get_random_fun_fact():
     ]
     return random.choice(fun_facts)
 
+
 # Custom log handler to suppress Fly.io noise
 class StreamToUTF8(logging.StreamHandler):
     def __init__(self, stream=None):
@@ -729,6 +762,7 @@ class StreamToUTF8(logging.StreamHandler):
         except Exception:
             self.handleError(record)
 
+
 # Custom filter to remove Fly.io noise
 class FilterFlyLogs(logging.Filter):
     def filter(self, record):
@@ -743,6 +777,7 @@ class FilterFlyLogs(logging.Filter):
         ]
         return not any(term in record.getMessage() for term in fly_terms)
 
+
 # Setup logging
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -755,6 +790,7 @@ logging.getLogger("werkzeug").setLevel(logging.ERROR)
 
 if __name__ == "__main__":
     logging.info("🚀 Mist.AI Server is starting...")
-    threading.Thread(target=start_wake_word_detection, daemon=True).start()
 
-app.run(debug=False, host="0.0.0.0", port=5000, use_reloader=False)
+    # Do not start wake-word detection immediately
+    # Start the Flask server
+    app.run(debug=False, host="0.0.0.0", port=5000, use_reloader=False)

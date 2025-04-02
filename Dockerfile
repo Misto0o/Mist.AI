@@ -11,7 +11,9 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     portaudio19-dev \
     python3-dev \
-    gcc
+    gcc \
+    libasound2-dev \
+    libsndfile1
 
 # Install dependencies (using --no-cache-dir for efficiency)
 RUN pip3 install --no-cache-dir -r requirements.txt
