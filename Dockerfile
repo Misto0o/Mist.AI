@@ -7,15 +7,18 @@ WORKDIR /app
 # Copy only the requirements file first (improves caching)
 COPY requirements.txt .
 
+# Install system dependencies, including build essentials and portaudio
 RUN apt-get update && apt-get install -y \
     build-essential \
     portaudio19-dev \
     python3-dev \
     gcc \
     libasound2-dev \
-    libsndfile1
+    libsndfile1 \
+    libportaudio2 \
+    libportaudio-dev
 
-# Install dependencies (using --no-cache-dir for efficiency)
+# Install Python dependencies
 RUN pip3 install --no-cache-dir -r requirements.txt
 
 # Copy the rest of the application files
