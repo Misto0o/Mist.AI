@@ -21,7 +21,6 @@ import time
 import fitz
 import speech_recognition as sr
 import webbrowser
-import pygetwindow as gw
 from fuzzywuzzy import fuzz
 import threading
 import psutil
