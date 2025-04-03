@@ -450,7 +450,7 @@ function updateMemory(role, content) {
 }
 
 // Function to get backend URL
-function getBackendUrl(endpoint) {
+function getBackendUrl(endpoint = "") {
     const hostname = window.location.hostname;
     const isLocal = hostname === 'localhost' || hostname === '127.0.0.1';
     const isFileUrl = window.location.protocol === 'file:';
@@ -463,7 +463,7 @@ function getBackendUrl(endpoint) {
 }
 
 // Function to get backend URL
-function getWakeWordUrl(endpoint) {
+function getWakeWordUrl(endpoint = "") {  // Default to empty string
     const hostname = window.location.hostname;
     const isLocal = hostname === 'localhost' || hostname === '127.0.0.1';
     const isFileUrl = window.location.protocol === 'file:';
@@ -958,50 +958,71 @@ document.addEventListener("DOMContentLoaded", function () {
         document.querySelector(".sidebar").classList.remove("show");
     });
 
-        window.onload = function () {
-            const popup = document.querySelector('.micCheck');
-            const allowButton = document.getElementById('allowMicrophoneButton');
-            const denyButton = document.getElementById('denyMicrophoneButton');
+    window.onload = function () {
+        const popup = document.querySelector('.micCheck');
+        const allowButton = document.getElementById('allowMicrophoneButton');
+        const denyButton = document.getElementById('denyMicrophoneButton');
 
-            if (navigator.permissions) {
-                navigator.permissions.query({ name: "microphone" }).then(permissionStatus => {
-                    if (permissionStatus.state === "denied" || permissionStatus.state === "prompt") {
-                        popup.style.display = 'block';
-                    }
-                });
-            } else {
+        const isFirefox = navigator.userAgent.toLowerCase().includes("firefox");
+
+        if (isFirefox) {
+            alert("⚠️ Speech recognition is NOT supported in Firefox. Using a fallback method. Please hit DENY");
+        }
+
+        if (navigator.permissions && navigator.permissions.query) {
+            navigator.permissions.query({ name: "microphone" }).then(permissionStatus => {
+                if (permissionStatus.state === "denied" || permissionStatus.state === "prompt") {
+                    popup.style.display = 'block';
+                }
+            }).catch(() => {
                 popup.style.display = 'block';
-            }
-
-            allowButton.addEventListener('click', () => {
-                navigator.mediaDevices.getUserMedia({ audio: true })
-                    .then(stream => {
-                        popup.style.display = 'none';
-                        console.log('Microphone access granted');
-
-                        const recognition = new (window.webkitSpeechRecognition || window.SpeechRecognition)();
-                        recognition.lang = 'en-US';
-
-                        recognition.onresult = function (event) {
-                            const transcript = event.results[0][0].transcript;
-                            fetch(getWakeWordUrl(''), { // Changed to pass empty string
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                },
-                                body: JSON.stringify({ text: transcript }),
-                            });
-                        };
-                        recognition.start();
-                    })
-                    .catch(err => alert('Microphone access denied: ' + err.message));
             });
+        } else {
+            popup.style.display = 'block';
+        }
 
-            denyButton.addEventListener('click', () => {
-                popup.style.display = 'none';
-                console.log('Microphone access denied by user. Wake-word detection will not start.');
-            });
-        };
+        allowButton.addEventListener('click', () => {
+            navigator.mediaDevices.getUserMedia({ audio: true })
+                .then(stream => {
+                    popup.style.display = 'none';
+                    console.log('Microphone access granted');
+
+                    if (isFirefox) {
+                        alert("Firefox detected! Consider using Chrome for voice commands.");
+                        return; // Exit since SpeechRecognition won’t work
+                    }
+
+                    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                    if (!SpeechRecognition) {
+                        alert("Speech recognition is not supported in this browser.");
+                        return;
+                    }
+
+                    const recognition = new SpeechRecognition();
+                    recognition.lang = 'en-US';
+
+                    recognition.onresult = function (event) {
+                        const transcript = event.results[0][0].transcript;
+                        fetch(getWakeWordUrl(''), {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ text: transcript }),
+                        });
+                    };
+                    recognition.start();
+                })
+                .catch(err => {
+                    console.error("Microphone access error:", err);
+                    alert("Microphone access error: " + err.name + " - " + err.message);
+                });
+        });
+
+        denyButton.addEventListener('click', () => {
+            popup.style.display = 'none';
+            console.log('Microphone access denied by user. Wake-word detection will not start.');
+        });
+    };
+
 
     // ✅ Handle window resize for model container
     window.addEventListener('resize', () => {

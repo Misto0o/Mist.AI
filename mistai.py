@@ -58,14 +58,8 @@ COOLDOWN_TIME = 60
 last_activation_time = 0
 
 
-def is_mistai_open():
-    """Check if MistAi is open in the browser."""
-    windows = [w for w in gw.getAllTitles() if "Mist.AI Chat" in w]
-    return len(windows) > 0
-
-
 def reopen_mistai():
-    """Reopen MistAi if it's not active."""
+    """Open MistAi in the browser if not already open."""
     global last_activation_time
 
     current_time = time.time()
@@ -73,20 +67,10 @@ def reopen_mistai():
         print("Cooldown active. Please wait before reopening MistAi.")
         return
 
-    if not is_mistai_open():
-        print("MistAi is not open. Opening it now...")
-        webbrowser.open(MISTAI_URL)
-    else:
-        print("MistAi is open but may be minimized. Bringing it to the front...")
-        mistai_window = gw.getWindowsWithTitle("Mist.AI Chat")[0]
-        mistai_window.minimize()
-        time.sleep(0.5)
-        mistai_window.restore()
-        time.sleep(1)  # Add a 1-second delay
-        mistai_window.activate()
+    print("Opening MistAi...")
+    webbrowser.open(MISTAI_URL)
 
     last_activation_time = current_time
-
 
 
 def process_speech(text):
