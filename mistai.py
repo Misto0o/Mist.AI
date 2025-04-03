@@ -754,3 +754,4 @@ if __name__ == "__main__":
 
     # Do not start wake-word detection immediately
     # Start the Flask server
+app.run(debug=False, host="0.0.0.0", port=5000, use_reloader=False)
