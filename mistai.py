@@ -51,7 +51,7 @@ IDENTITY_RESPONSES = {
 }
 
 # Global variables
-MISTAI_URL = "https://mistai.netlify.app"
+MISTAI_URL = "https://mistai.org"
 WAKE_WORD = "hello mist"
 COOLDOWN_TIME = 60
 last_activation_time = 0

@@ -572,6 +572,10 @@
             flex-grow: 1;
         }
 
+            .micCheck {
+                display: none;
+            }
+        
         .chat-box {
             flex-grow: 1;
             height: auto;
