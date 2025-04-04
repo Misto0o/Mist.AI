@@ -2,61 +2,64 @@
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mist.AI Chat</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mist.AI Chat</title>
 
-    <!-- Bulma CSS for responsive design and layout -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.9.4/css/bulma.min.css">
+  <!-- Google Analytics -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-GLT3T5YYE9"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){ dataLayer.push(arguments); }
+    gtag('js', new Date());
+    gtag('config', 'G-GLT3T5YYE9');
+  </script>
 
-    <!-- Custom stylesheets for project-specific design -->
-    <link rel="stylesheet" href="styles.css"> <!-- Main custom CSS -->
-    <link rel="stylesheet" href="themes.css"> <!-- Theme-specific styles -->
+  <!-- Bulma CSS -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.9.4/css/bulma.min.css" />
 
-    <!-- GSAP for smooth animations (optional) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="themes.css" />
 
-    <!-- Showdown for Markdown to HTML conversion -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/showdown/2.1.0/showdown.min.js"></script>
+  <!-- GSAP Animations -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
 
-    <!-- AOS (Animate On Scroll) for scroll animations -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+  <!-- Showdown Markdown Converter -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/showdown/2.1.0/showdown.min.js"></script>
 
-    <!-- Favicon to display in browser tab -->
-    <link rel="icon" href="mistaifaviocn/favicon.ico" type="image/x-icon">
+  <!-- AOS Animation on Scroll -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.css" />
 
-    <!-- Web app manifest for mobile and desktop installations -->
-    <link rel="manifest" href="/manifest.json">
-    <!-- Add these to your <head> section to load CodeMirror -->
-    <!-- CodeMirror Core -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.js"></script>
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
 
-    <!-- Dracula Theme -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/theme/dracula.min.css">
+  <!-- Favicon -->
+  <link rel="icon" href="mistaifaviocn/favicon.ico" type="image/x-icon" />
 
-    <!-- JavaScript Mode (IMPORTANT!) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/mode/javascript/javascript.min.js"></script>
+  <!-- Web App Manifest -->
+  <link rel="manifest" href="/manifest.json" />
 
-    <!-- Custom metadata for better SEO and social media sharing -->
-    <meta name="description"
-        content="Mist.AI - Your smart, intuitive chatbot for instant answers, fun commands, and more. Powered by AI, built for you.">
-    <meta name="keywords"
-        content="Mist.AI, AI chatbot, smart assistant, web app, tech innovation, AI conversation, interactive Chatbot">
-    <meta name="author" content="Kristian Cook">
+  <!-- CodeMirror Editor -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/theme/dracula.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/mode/javascript/javascript.min.js"></script>
 
-    <!-- Open Graph metadata for social media sharing -->
-    <meta property="og:title" content="Mist.AI - Smart Chatbot at Your Fingertips">
-    <meta property="og:description"
-        content="Meet Mist.AI — the smart chatbot that answers, jokes, and helps, all in one sleek web app.">
-    <meta property="og:image" content="mistaifaviocn\favicon.ico">
-    <link rel="website" href="https://mistai.org">
-    <meta property="og:type" content="website">
+  <!-- SEO Meta Tags -->
+  <meta name="description" content="Mist.AI - Your smart, intuitive chatbot for instant answers, fun commands, and more. Powered by AI, built for you." />
+  <meta name="keywords" content="Mist.AI, AI chatbot, smart assistant, web app, tech innovation, AI conversation, interactive chatbot" />
+  <meta name="author" content="Kristian Cook" />
 
-    <!-- Viewport styling for better scaling on mobile devices -->
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Open Graph Tags for Social Sharing -->
+  <meta property="og:title" content="Mist.AI - Smart Chatbot at Your Fingertips" />
+  <meta property="og:description" content="Meet Mist.AI — the smart chatbot that answers, jokes, and helps, all in one sleek web app." />
+  <meta property="og:image" content="mistaifaviocn/favicon.ico" />
+  <meta property="og:url" content="https://mistai.org" />
+  <meta property="og:type" content="website" />
 
+  <!-- Canonical URL -->
+  <link rel="canonical" href="https://mistai.org" />
 </head>
 
 <body>
