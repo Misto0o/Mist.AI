@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mistai-cache-v5';  // Increment this version when you deploy a new version of your app
+const CACHE_NAME = 'mistai-cache-v8';  // Increment this version when you deploy a new version of your app
 
 // On install, cache the necessary files
 self.addEventListener('install', (event) => {
@@ -7,10 +7,10 @@ self.addEventListener('install', (event) => {
       return cache.addAll([
         '/',
         '/index.html',
-        '/styles.css', // Include all assets you want cached
-        '/themes.css', // Include all assets you want cached
-        '/script.js',   // Include JS files
-        '/mistaifaviocn/android-chrome-192x192.png', // Icons, etc.
+        '/styles.css',
+        '/themes.css',
+        '/script.js',
+        '/mistaifaviocn/android-chrome-192x192.png',
         '/mistaifaviocn/android-chrome-512x512.png'
       ]);
     })
@@ -28,7 +28,7 @@ self.addEventListener('fetch', (event) => {
 
 // On activation, delete old caches that are no longer needed
 self.addEventListener('activate', (event) => {
-  const cacheWhitelist = [CACHE_NAME]; // Keep only the current cache version
+  const cacheWhitelist = [CACHE_NAME];  // Keep only the current cache version
 
   event.waitUntil(
     caches.keys().then((cacheNames) => {

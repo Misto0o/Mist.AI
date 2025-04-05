@@ -450,16 +450,16 @@ function updateMemory(role, content) {
 }
 
 // Function to get backend URL
-function getBackendUrl(endpoint = "") {
+function getBackendUrl() {
     const hostname = window.location.hostname;
     const isLocal = hostname === 'localhost' || hostname === '127.0.0.1';
     const isFileUrl = window.location.protocol === 'file:';
-    let basePath = isFileUrl || isLocal
-        ? 'http://127.0.0.1:5000/chat'  // Local development URL
-        : 'https://mist-ai.fly.dev/chat';  // Primary Production URL on Fly.io
 
-    // Add the endpoint
-    return basePath + endpoint;
+    // Return local, Fly.io, or Render URLs based on the environment
+    return isFileUrl || isLocal
+        ? 'http://127.0.0.1:5000/chat'  // Local development URL
+        : 'https://mist-ai.fly.dev/chat';  // Primary Production URL on Fly.io
+    // : 'https://mist-ai-64pc.onrender.com/chat';  // Fallback Production URL on Render
 }
 
 // Function to get backend URL
@@ -779,14 +779,14 @@ document.addEventListener("DOMContentLoaded", function () {
                 console.log("📥 API Response:", result); // Debugging
 
                 if (result.error) {
-                    showMessage(`❌ Error: ${result.error} `, "bot");
+                    showMessage(`❌ Error: ${result.error}`, "bot");
                     return;
                 }
 
-                showMessage(`🧐 Analysis: ${result.result} `, "bot");
+                showMessage(`🧐 Analysis: ${result.result}`, "bot");
 
                 // Add the analysis result to chatMemory
-                updateMemory("bot", `Image Analysis: ${result.result} `);
+                updateMemory("bot", `Image Analysis: ${result.result}`);
 
             } catch (error) {
                 console.error("❌ Fetch Error:", error);
@@ -827,15 +827,15 @@ document.addEventListener("DOMContentLoaded", function () {
 
         // When displaying the uploaded image and button, improve the styling and layout
         showMessage(`
-        < div class="image-container" >
-        <div class="image-wrapper">
-            <img src="${imageUrl}" alt="Uploaded Image" class="uploaded-image">
-        </div>
-        <div class="button-wrapper">
-            <button class="analyze-button" id="analyze-button">🔍 Analyze Image</button>
-        </div>
-    </div >
-        `, "user");
+<div class="image-container">
+    <div class="image-wrapper">
+        <img src="${imageUrl}" alt="Uploaded Image" class="uploaded-image">
+    </div>
+    <div class="button-wrapper">
+        <button class="analyze-button" id="analyze-button">🔍 Analyze Image</button>
+    </div>
+</div>
+`, "user");
 
         // Attach the event listener to the button programmatically
         const analyzeButton = document.getElementById("analyze-button");
@@ -858,7 +858,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
             if (result.error) {
                 console.error("Upload failed:", result.error);
-                showMessage(`❌ Upload failed: ${result.error} `, "bot");
+                showMessage(`❌ Upload failed: ${result.error}`, "bot");
                 return;
             }
 
@@ -866,7 +866,7 @@ document.addEventListener("DOMContentLoaded", function () {
             let extractedText = result.response?.trim() || "⚠️ No readable text found.";
 
             // ✅ Store extracted text in Mist.AI memory without showing it
-            chatMemory.push({ role: "user", content: `User uploaded a file and it contained: ${extractedText} ` });
+            chatMemory.push({ role: "user", content: `User uploaded a file and it contained: ${extractedText}` });
 
             // ✅ Show a simple response to the user
             showMessage("🧐 Mist.AI has read the file. How can I assist you with it?", "bot");

@@ -24,6 +24,8 @@ import webbrowser
 from fuzzywuzzy import fuzz
 import threading
 import psutil
+import sympy
+from sympy.parsing.mathematica import parse_mathematica
 
 # Load environment variables
 load_dotenv()
@@ -211,7 +213,7 @@ async def upload_to_gofile(filename, file_content, mimetype):
         return {"error": "Upload failed"}
 
 
-# ✅ Extract text from PDFs (Fixed)
+# ✅ Extract text from PDFs (fixed)
 def extract_text_from_pdf(file_stream):
     try:
         text = ""
@@ -219,13 +221,37 @@ def extract_text_from_pdf(file_stream):
             for page in pdf.pages:
                 text += page.extract_text() + "\n"
 
-        if not text:  # If pdfplumber fails, try PyMuPDF
-            doc = fitz.open("pdf", file_stream.read())  # Read file as bytes
+        if not text:  # if pdfplumber fails, try pymupdf
+            doc = fitz.open("pdf", file_stream.read())  # read file as bytes
             text = "\n".join([page.get_text() for page in doc])
 
-        return text if text else "⚠️ No readable text found in this PDF."
+        return text if text else "⚠️ no readable text found in this pdf."
     except Exception as e:
-        return f"⚠️ Error extracting text: {str(e)}"
+        return f"⚠️ error extracting text: {str(e)}"
+
+
+def preprocess_text(text):
+    """Cleans and formats the extracted text."""
+    # Remove non-alphanumeric characters except math symbols
+    text = re.sub(r'[^\w\s+\-*/^()=.]', '', text)
+    # Replace common OCR errors (e.g., 'l' for '1')
+    text = re.sub(r'l', '1', text)
+    return text
+
+
+def parse_expression(text):
+    """Parses a mathematical expression using sympy."""
+    try:
+        # Attempt to parse using sympy.parse_expr first (more common format)
+        expression = sympy.parse_expr(text)
+        return expression
+    except (SyntaxError, TypeError) as e:
+        try:
+            # If that fails, try parse_mathematica (for Mathematica-style expressions)
+            expression = parse_mathematica(text)
+            return expression
+        except Exception as e:
+            return f"⚠️ Parsing error: {str(e)}"
 
 
 @app.route("/time-news", methods=["GET"])
@@ -278,14 +304,11 @@ async def time_news():
 
     # ✅ Function to process different file types
 
-
 def process_pdf(file_content):
     return extract_text_from_pdf(io.BytesIO(file_content))
 
-
 def process_txt(file_content):
     return file_content.decode("utf-8", errors="ignore")
-
 
 def process_json(file_content):
     try:
@@ -293,7 +316,6 @@ def process_json(file_content):
         return json.dumps(json_data, indent=4)
     except json.JSONDecodeError:
         return "⚠️ Invalid JSON file."
-
 
 def process_docx(file_content):
     if not file_content:
@@ -306,7 +328,6 @@ def process_docx(file_content):
         print(f"Error reading DOCX: {e}")  # Debugging
         return f"⚠️ Error reading .docx file: {str(e)}"
 
-
 def extract_text_from_docx(file_content):
     try:
         doc = Document(file_content)
@@ -317,7 +338,6 @@ def extract_text_from_docx(file_content):
     except Exception as e:
         return f"⚠️ Error reading .docx file: {str(e)}"
 
-
 # ✅ Mapping file extensions to processing functions
 file_processors = {
     ".pdf": process_pdf,
@@ -326,7 +346,6 @@ file_processors = {
     ".docx": process_docx,
     ".doc": process_docx,
 }
-
 
 @app.route("/chat", methods=["POST", "GET"])
 async def chat():
