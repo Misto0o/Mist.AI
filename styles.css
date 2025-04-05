@@ -573,7 +573,7 @@
         }
 
             .micCheck {
-                display: none;
+                display: none !important;
             }
         
         .chat-box {
