@@ -19,11 +19,6 @@ import json
 from docx import Document
 import time
 import fitz
-import speech_recognition as sr
-import webbrowser
-from fuzzywuzzy import fuzz
-import threading
-import psutil
 import sympy
 from sympy.parsing.mathematica import parse_mathematica
 
@@ -52,61 +47,15 @@ IDENTITY_RESPONSES = {
     "who created you": "Hey there! Im Mist.AI Created by Kristian Cook a 14 year old Developer!",
 }
 
-# Global variables
-MISTAI_URL = "https://mistai.org"
-WAKE_WORD = "hello mist"
-COOLDOWN_TIME = 60
-last_activation_time = 0
-
-
-def reopen_mistai():
-    """Open MistAi in the browser if not already open."""
-    global last_activation_time
-
-    current_time = time.time()
-    if current_time - last_activation_time < COOLDOWN_TIME:
-        print("Cooldown active. Please wait before reopening MistAi.")
-        return
-
-    print("Opening MistAi...")
-    webbrowser.open(MISTAI_URL)
-
-    last_activation_time = current_time
-
-
-def process_speech(text):
-    """Processes the speech text from the browser."""
-    similarity = fuzz.ratio(text, WAKE_WORD)
-    if similarity >= 80:
-        print("Wake word detected! Reopening MistAi...")
-        reopen_mistai()
-        print("Stopping listening for 1 minute...")
-        time.sleep(COOLDOWN_TIME)
-        print("Resuming listening.")
-    else:
-        print("Wake word not detected.")
-
-
 @app.route("/wakeword", methods=["POST"])
 def receive_speech():
-    """Receives speech text from the browser and processes it in a thread."""
+    """(Optional) Logs speech text sent from browser-based speech recognition."""
     data = request.get_json()
     if data and "text" in data:
-        text = data["text"].lower()
-        # Create and start a thread for each incoming speech segment
-        threading.Thread(target=process_speech, args=(text,), daemon=True).start()
-        return jsonify({"message": "Speech processing started"}), 200
+        print(f"🗣️ Received speech: {data['text']}")
+        return jsonify({"message": "Speech logged"}), 200
     else:
         return jsonify({"error": "Invalid request"}), 400
-
-
-def ensure_single_instance():
-    """Prevent multiple MistAi processes from running."""
-    current_pid = os.getpid()
-    for process in psutil.process_iter(["pid", "name"]):
-        if process.info["name"] == "mistai.exe" and process.info["pid"] != current_pid:
-            print("❌ MistAi is already running. Exiting.")
-            sys.exit(1)
             
 def check_identity_responses(user_message):
     normalized_message = re.sub(r"[^\w\s]", "", user_message.lower()).strip()

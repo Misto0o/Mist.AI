@@ -176,6 +176,10 @@
     border-color: #1565C0;
 }
 
+.blue-theme .help-btn {
+    background-color: #64ffda !important;
+}
+
 .blue-theme .button {
     background-color: #64ffda;
     color: #0d47a1;
@@ -188,10 +192,18 @@
     border-color: #2563EB;
 }
 
+.midnight-theme .help-btn {
+    background-color: #4F46E5;
+}
+
 .cyberpunk-theme .button {
     background-color: #00E5FF;
     color: #1A1A2E;
     border-color: #FF4081;
+}
+
+.cyberpunk-theme .help-btn {
+    background-color: #FF4081;
 }
 
 .arctic-theme .button {
@@ -200,16 +212,34 @@
     border-color: #E3F2FD;
 }
 
+.arctic-theme .help-btn {
+    background-color: #64B5F6;
+}
+
+
 .terminal-theme .button {
     background-color: #00FF41;
     color: #0D1B0D;
     border-color: #008F11;
 }
 
+.terminal-theme .help-btn {
+    background-color: #008F11;
+}
+
 .sunset-theme .button {
     background-color: #FF8C42;
     color: #2C1E3D;
     border-color: #D7263D;
+}
+
+.sunset-theme .help-btn {
+    background-color: #D7263D;
+}
+
+
+.light-theme .help-btn {
+    background-color: black;
 }
 
 /* Chat Bubbles */
@@ -620,6 +650,11 @@
     background-color: #FF3131;  /* Electric Red for user messages */
     color: #fff;
 }
+
+.konami-theme .help-btn {
+    background-color: #FF3131;
+}
+
 
 #konami-option {
     display: block;

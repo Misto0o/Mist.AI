@@ -126,6 +126,8 @@ let uploadedFile = null; // ✅ Store the uploaded file globally
 let uploadedImageCount = 0;
 let trackedIPs = {}; // Store offenses
 let devBypass = false; // Bypass flag
+let lastActivationTime = 0;
+const COOLDOWN_TIME = 60 * 1000; // 60 seconds in milliseconds
 
 // List of banned words and AI safety phrases
 const bannedWords = [
@@ -783,7 +785,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     return;
                 }
 
-                showMessage(`🧐 Analysis: ${result.result}`, "bot");
+                showMessage("MistAi has received the image. How can I help?", "bot");
 
                 // Add the analysis result to chatMemory
                 updateMemory("bot", `Image Analysis: ${result.result}`);
@@ -965,8 +967,11 @@ document.addEventListener("DOMContentLoaded", function () {
 
         const isFirefox = navigator.userAgent.toLowerCase().includes("firefox");
 
+        const COOLDOWN_TIME = 60000; // 60 seconds
+        let lastActivationTime = 0;
+
         if (isFirefox) {
-            alert("⚠️ Speech recognition is NOT supported in Firefox. Using a fallback method. Please hit DENY");
+            alert("⚠️ Speech recognition is NOT supported in Firefox. Please hit DENY");
         }
 
         if (navigator.permissions && navigator.permissions.query) {
@@ -981,15 +986,33 @@ document.addEventListener("DOMContentLoaded", function () {
             popup.style.display = 'block';
         }
 
+        // Fuzzy similarity function
+        function similarity(s1, s2) {
+            s1 = s1.toLowerCase();
+            s2 = s2.toLowerCase();
+
+            let longer = s1.length > s2.length ? s1 : s2;
+            let shorter = s1.length > s2.length ? s2 : s1;
+            let longerLength = longer.length;
+
+            if (longerLength === 0) return 1.0;
+
+            let same = 0;
+            for (let i = 0; i < shorter.length; i++) {
+                if (s1[i] === s2[i]) same++;
+            }
+            return same / longerLength;
+        }
+
         allowButton.addEventListener('click', () => {
             navigator.mediaDevices.getUserMedia({ audio: true })
                 .then(stream => {
                     popup.style.display = 'none';
-                    console.log('Microphone access granted');
+                    console.log('🎤 Microphone access granted');
 
                     if (isFirefox) {
                         alert("Firefox detected! Consider using Chrome for voice commands.");
-                        return; // Exit since SpeechRecognition won’t work
+                        return;
                     }
 
                     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -1001,14 +1024,45 @@ document.addEventListener("DOMContentLoaded", function () {
                     const recognition = new SpeechRecognition();
                     recognition.lang = 'en-US';
 
+                    const accepted = ["hello mist", "hello missed", "hello missed ai", "hello mister"];
+
                     recognition.onresult = function (event) {
-                        const transcript = event.results[0][0].transcript;
-                        fetch(getWakeWordUrl(''), {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ text: transcript }),
-                        });
+                        const transcript = event.results[0][0].transcript.toLowerCase();
+                        const currentTime = Date.now();
+                        const isCooldown = currentTime - lastActivationTime < COOLDOWN_TIME;
+
+                        let matched = false;
+
+                        for (const phrase of accepted) {
+                            const conf = similarity(transcript, phrase);
+                            if (conf > 0.75) {
+                                matched = true;
+                                console.log(`✅ Wake word "${phrase}" matched with ${Math.round(conf * 100)}% confidence`);
+                                break;
+                            }
+                        }
+
+                        if (matched && !isCooldown) {
+                            window.open("https://mistai.org", "_blank");
+                            lastActivationTime = currentTime;
+
+                            fetch("/wakeword", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ text: transcript }),
+                            });
+                        } else if (isCooldown) {
+                            const remaining = Math.ceil((COOLDOWN_TIME - (currentTime - lastActivationTime)) / 1000);
+                            console.log(`⏳ Cooldown active. Try again in ${remaining}s`);
+                        } else {
+                            console.log(`❌ Wake word not matched. Heard: "${transcript}"`);
+                        }
                     };
+
+                    recognition.onend = () => {
+                        recognition.start(); // Keep listening
+                    };
+
                     recognition.start();
                 })
                 .catch(err => {
@@ -1019,20 +1073,54 @@ document.addEventListener("DOMContentLoaded", function () {
 
         denyButton.addEventListener('click', () => {
             popup.style.display = 'none';
-            console.log('Microphone access denied by user. Wake-word detection will not start.');
+            console.log('🚫 Microphone access denied. Wake-word detection will not start.');
+        });
+
+        // Get the modal, button, and close button
+        const helpBtn = document.getElementById('help-btn');
+        const readmeModal = document.getElementById('readme-modal');
+        const readmeContent = document.getElementById('readme-content');
+        const closeBtn = document.getElementById('close-btn');
+
+        // Open the modal when the "?" button is clicked
+        helpBtn.onclick = function () {
+            readmeModal.style.display = 'flex';
+            loadReadMe();
+        }
+
+        // Close the modal when the close button is clicked
+        closeBtn.onclick = function () {
+            readmeModal.style.display = 'none';
+        }
+
+        // Load the ReadMe content from GitHub
+        function loadReadMe() {
+            fetch('https://raw.githubusercontent.com/Misto0o/Mist.AI/master/README.md')  // Direct link to raw README
+                .then(response => response.text())
+                .then(data => {
+                    const converter = new showdown.Converter(); // Create a new Showdown converter
+                    readmeContent.innerHTML = converter.makeHtml(data);  // Convert the markdown to HTML
+                })
+                .catch(error => {
+                    readmeContent.innerHTML = '<p>Error loading ReadMe content.</p>';
+                });
+        }
+
+        // Auto-refresh the ReadMe content on page load or updates
+        window.addEventListener('load', () => {
+            loadReadMe();
+        });
+
+        // Optional: Resize handler for 3D stuff
+        window.addEventListener('resize', () => {
+            const modelContainer = document.getElementById("model-container");
+            if (!modelContainer) return;
+
+            const width = modelContainer.clientWidth;
+            const height = modelContainer.clientHeight;
+            camera.aspect = width / height;
+            camera.updateProjectionMatrix();
+            renderer.setSize(width, height);
         });
     };
-
-
-    // ✅ Handle window resize for model container
-    window.addEventListener('resize', () => {
-        const modelContainer = document.getElementById("model-container");
-        if (!modelContainer) return;
-
-        const width = modelContainer.clientWidth;
-        const height = modelContainer.clientHeight;
-        camera.aspect = width / height;
-        camera.updateProjectionMatrix();
-        renderer.setSize(width, height);
-    })
 });

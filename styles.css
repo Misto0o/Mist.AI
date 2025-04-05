@@ -140,14 +140,13 @@
         position: relative;
         display: flex;
         align-items: center;
-        width: 100%;
+        width: 82%;
         background: #444;
-        border-radius: 25px;
-        padding: 5px 10px;
-        margin-top: 20px;
-        box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2);
+        border-radius: 18px;
+        padding: 5px 12px;
+        margin-top: 15px;
+        box-shadow: 0px 3px 8px rgba(0, 0, 0, 0.2);
     }
-
 
     /* ========================== */
     /*       CHAT BUBBLES         */
@@ -222,16 +221,18 @@
 
     #user-input {
         width: 100%;
-        padding: 10px;
+        padding: 8px;
         border-radius: 8px;
+        /* Slightly smaller radius */
         background-color: #222;
         color: #fff;
         border: 1px solid #555;
-        font-size: 16px;
+        font-size: 14px;
+        /* Smaller font size */
         resize: none;
         /* Prevent resizing */
-        min-height: 50px;
-        /* Set a minimum height */
+        min-height: 40px;
+        /* Reduced height */
         outline: none;
         /* Remove default outline */
         transition: border-color 0.3s ease;
@@ -378,7 +379,6 @@
         background: #ddd;
     }
 
-    /* Image Container - Now More Like a Chat Bubble */
     .image-container {
         display: flex;
         flex-direction: column;
@@ -387,8 +387,6 @@
         background-color: transparent !important;
     }
 
-
-    /* Image Wrapper - Forces Squarer Shape */
     .image-wrapper {
         width: 100%;
         height: 90px;
@@ -401,7 +399,6 @@
         border-radius: 8px;
     }
 
-    /* Image Styling - Square & Neat */
     .uploaded-image {
         width: 100%;
         height: 100%;
@@ -411,7 +408,6 @@
         /* Slight rounding for smoothness */
     }
 
-    /* Analyze Button - Fits Inside the Bubble */
     .analyze-button {
         background: #3B82F6;
         /* Sleek blue */
@@ -428,7 +424,6 @@
         /* More natural spacing */
     }
 
-    /* Hover Effect */
     .analyze-button:hover {
         background: #2563EB;
         /* Darker blue */
@@ -557,6 +552,61 @@
         filter: brightness(1.2);
     }
 
+    /* Button Style */
+    .help-btn {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        background-color: #4CAF50;
+        color: white;
+        padding: 10px;
+        border-radius: 50%;
+        font-size: 24px;
+        cursor: pointer;
+        transition: background-color 0.3s, transform 0.2s;
+    }
+
+    .help-btn:hover {
+        background-color: #45a049;
+        transform: scale(1.1);
+    }
+
+    /* Modal Style */
+    .readme-modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 9999;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .modal-content {
+        background-color: #1e1e1e;
+        padding: 20px;
+        border-radius: 8px;
+        width: 80%;
+        max-width: 800px;
+        max-height: 80vh;
+        overflow-y: auto;
+    }
+
+    .close-btn {
+        font-size: 30px;
+        color: white;
+        cursor: pointer;
+        position: absolute;
+        top: 10px;
+        right: 10px;
+    }
+
+    .close-btn:hover {
+        color: red;
+    }
 
     /* ========================== */
     /*      RESPONSIVE DESIGN     */
@@ -572,10 +622,10 @@
             flex-grow: 1;
         }
 
-            .micCheck {
-                display: none !important;
-            }
-        
+        .micCheck {
+            display: none !important;
+        }
+
         .chat-box {
             flex-grow: 1;
             height: auto;
@@ -679,4 +729,53 @@
             transform: translateX(0);
             opacity: 1;
         }
+
+        .swap-button {
+            font-size: 14px;
+            /* Slightly smaller font */
+            padding: 8px 15px;
+            /* Reduced padding */
+            display: flex;
+            /* Use flexbox to center text */
+            justify-content: center;
+            /* Center the content horizontally */
+            align-items: center;
+            /* Center the content vertically */
+        }
+
+        .swap-button span,
+        .swap-button i {
+            text-align: center;
+            /* Ensure text and icon are centered */
+        }
+
+        .chat-input-container {
+            display: flex;
+            /* Make it a flex container */
+            justify-content: center !important;
+            /* Center the content */
+            margin: auto;
+        }
+
+        /* Responsive Modal Style */
+        .readme-modal {
+            padding: 10px;
+            align-items: flex-start;
+            margin-bottom: auto;
+        }
+
+        .modal-content {
+            width: 95%;
+            max-width: 95%;
+            max-height: 70vh;
+            padding: 15px;
+            font-size: 14px;
+        }
+
+        .close-btn {
+            font-size: 24px;
+            top: 5px;
+            right: 10px;
+        }
+
     }

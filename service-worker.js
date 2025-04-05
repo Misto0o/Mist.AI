@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mistai-cache-v8';  // Increment this version when you deploy a new version of your app
+const CACHE_NAME = 'mistai-cache-v9';  // Increment this version when you deploy a new version of your app
 
 // On install, cache the necessary files
 self.addEventListener('install', (event) => {
