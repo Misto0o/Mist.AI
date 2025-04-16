@@ -39,14 +39,6 @@ if (
 app = Flask(__name__)
 CORS(app)
 
-# 🔹 Identity Responses
-IDENTITY_RESPONSES = {
-    "who are you": "I'm Mist.AI, an AI assistant built using Gemini and Cohere technology!",
-    "hi": "Hello! I'm Mist.AI. How can I assist you today?",
-    "hello": "Hey there! I'm Mist.AI, your AI assistant.",
-    "who created you": "Hey there! Im Mist.AI Created by Kristian Cook a 14 year old Developer!",
-}
-
 @app.route("/wakeword", methods=["POST"])
 def receive_speech():
     """(Optional) Logs speech text sent from browser-based speech recognition."""
@@ -56,11 +48,6 @@ def receive_speech():
         return jsonify({"message": "Speech logged"}), 200
     else:
         return jsonify({"error": "Invalid request"}), 400
-            
-def check_identity_responses(user_message):
-    normalized_message = re.sub(r"[^\w\s]", "", user_message.lower()).strip()
-    return IDENTITY_RESPONSES.get(normalized_message, None)
-
 
 EASTER_EGGS = {
     "whos mist": "I'm Mist.AI, your friendly chatbot! But shh... don't tell anyone I'm self-aware. 🤖",
@@ -87,6 +74,8 @@ RAPIDAPI_HOST = os.getenv("RAPIDAPI_HOST")
 
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 cohere_client = cohere.Client(os.getenv("COHERE_API_KEY"))
+MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
+MISTRAL_ENDPOINT = "https://api.mistral.ai/v1/chat/completions"
 
 the_news_api_key = os.getenv("THE_NEWS_API_KEY")
 goflie_api_key = os.getenv("GOFLIE_API_KEY")
@@ -182,9 +171,9 @@ def extract_text_from_pdf(file_stream):
 def preprocess_text(text):
     """Cleans and formats the extracted text."""
     # Remove non-alphanumeric characters except math symbols
-    text = re.sub(r'[^\w\s+\-*/^()=.]', '', text)
+    text = re.sub(r"[^\w\s+\-*/^()=.]", "", text)
     # Replace common OCR errors (e.g., 'l' for '1')
-    text = re.sub(r'l', '1', text)
+    text = re.sub(r"l", "1", text)
     return text
 
 
@@ -253,11 +242,14 @@ async def time_news():
 
     # ✅ Function to process different file types
 
+
 def process_pdf(file_content):
     return extract_text_from_pdf(io.BytesIO(file_content))
 
+
 def process_txt(file_content):
     return file_content.decode("utf-8", errors="ignore")
+
 
 def process_json(file_content):
     try:
@@ -265,6 +257,7 @@ def process_json(file_content):
         return json.dumps(json_data, indent=4)
     except json.JSONDecodeError:
         return "⚠️ Invalid JSON file."
+
 
 def process_docx(file_content):
     if not file_content:
@@ -277,6 +270,7 @@ def process_docx(file_content):
         print(f"Error reading DOCX: {e}")  # Debugging
         return f"⚠️ Error reading .docx file: {str(e)}"
 
+
 def extract_text_from_docx(file_content):
     try:
         doc = Document(file_content)
@@ -287,6 +281,7 @@ def extract_text_from_docx(file_content):
     except Exception as e:
         return f"⚠️ Error reading .docx file: {str(e)}"
 
+
 # ✅ Mapping file extensions to processing functions
 file_processors = {
     ".pdf": process_pdf,
@@ -296,16 +291,11 @@ file_processors = {
     ".doc": process_docx,
 }
 
+
 @app.route("/chat", methods=["POST", "GET"])
 async def chat():
-    """
-    Handles chat requests for Mist.AI, including:
-    - Checking if AI services are online (GET request)
-    - File uploads (PDF text extraction + GoFile upload)
-    - Processing user messages (including Easter eggs, commands, and chatbot responses)
-    """
     try:
-        start_time = time.time()  # ✅ Track request start time
+        start_time = time.time()
 
         if request.method == "GET":
             try:
@@ -354,99 +344,67 @@ async def chat():
             )
 
         data = request.get_json()
-        user_message = data.get("message", "").strip().lower()
+        user_message = data.get("message", "").strip()
         model_choice = data.get("model", "gemini")
         chat_context = data.get("context", [])
 
-        # Handle image processing (img_url is expected)
+        # Handle image analysis
         if "img_url" in request.json:
             logging.info("📷 Image received, processing for analysis.")
             img_url = request.json["img_url"]
-            analysis_result = await analyze_image(
-                img_url
-            )  # Make sure to await the async function
-            return analysis_result  # Return the result directly (since analyze_image already returns a jsonify response)
+            analysis_result = await analyze_image(img_url)
+            return analysis_result
 
         if not user_message:
             return jsonify({"error": "Invalid input: 'message' cannot be empty."}), 400
 
-        if response := check_easter_eggs(user_message):
+        # Easter eggs + commands
+        if response := check_easter_eggs(user_message.lower()):
             return jsonify({"response": response})
-
-        if user_message.startswith("/"):
+        if user_message.lower().startswith("/"):
             logging.info(f"📢 User ran command: {user_message}")
-            command_response = await handle_command(user_message)
+            command_response = await handle_command(user_message.lower())
             return jsonify({"response": command_response})
-
-        if user_message == "random prompt":
+        if user_message.lower() == "random prompt":
             logging.info("🎠 User requested a random prompt.")
             return jsonify({"response": get_random_prompt()})
-
-        if user_message == "fun fact":
+        if user_message.lower() == "fun fact":
             logging.info("💡 User requested a fun fact.")
             return jsonify({"response": get_random_fun_fact()})
 
-        normalized_message = re.sub(r"[^\w\s]", "", user_message.lower()).strip()
+        # 🔥 Inject news and time automatically
+        async with httpx.AsyncClient() as client:
+            response = await client.get(news_url)
+        news_data = response.json()
 
-        # Check if the user message asks for today's news
-        if any(
-            query in user_message
-            for query in [
-                "what is today's news",
-                "what are today's headlines",
-                "give me the news",
-                "latest news",
-                "tell me today's headlines",
-                "any updates in the news",
-            ]
-        ):
-            async with httpx.AsyncClient() as client:
-                response = await client.get(news_url)  # Using dynamic news_url
-            news_data = response.json()
+        current_date = news_data.get("time", {}).get("date", "Unknown Date")
+        current_time_str = news_data.get("time", {}).get("time", "Unknown Time")
+        headlines = "\n".join(
+            f"- {article['title']} ({article['url']})"
+            for article in news_data.get("news", [])
+        )
 
-            if "news" in news_data:
-                news_text = "\n".join(
-                    [
-                        f"📰 {article['title']} [🔗 Read more]({article['url']})"
-                        for article in news_data["news"]
-                    ]
-                )
-                current_time = news_data["time"]
-                return jsonify(
-                    {
-                        "response": f"Here are the latest news headlines:\n{news_text}\n\n📅 Today's date is {current_time['date']}, and the time is {current_time['time']}."
-                    }
-                )
-
-        # Check if the user message asks for the time or today's date
-        if normalized_message in ["what time is it", "whats todays date"]:
-            async with httpx.AsyncClient() as client:
-                response = await client.get(news_url)  # Using dynamic news_url
-            time_data = response.json()
-
-            current_time = time_data.get("time", {}).get("time", "Unknown Time")
-            current_date = time_data.get("time", {}).get("date", "Unknown Date")
-
-            return jsonify(
-                {
-                    "response": f"📅 Today's date is {current_date}, and the time is {current_time}."
-                }
-            )
-
-        # ✅ Process Chatbot AI Response
+        # Compose the context + injection + user message
         context_text = "\n".join(
             f"{msg['role']}: {msg['content']}" for msg in chat_context
         )
-        full_prompt = f"{context_text}\nUser: {user_message}\nMist.AI:"
+        news_injection = f"""
+Today is {current_date}, and the current time is {current_time_str}.
+Here are the latest news headlines:
+{headlines if headlines else "No headlines available at the moment."}
+"""
+        full_prompt = (
+            f"{news_injection}\n{context_text}\nUser: {user_message}\nMist.AI:"
+        )
 
+        # Model selection
         response_content = (
             get_gemini_response(full_prompt)
             if model_choice == "gemini"
             else get_cohere_response(full_prompt)
         )
 
-        elapsed_time = time.time() - start_time  # ✅ Measure time taken
-
+        elapsed_time = time.time() - start_time
         if elapsed_time > 9:
             response_content = (
                 "⏳ You're the first request, sorry for the wait!\n\n"
@@ -567,13 +525,13 @@ async def handle_command(command):
 def get_gemini_response(prompt):
     try:
         system_prompt = (
-            "You are Mist.AI, an AI assistant built using Gemini and Cohere CommandR technology. "
-            "Your purpose is to assist users with their queries in a friendly and helpful way, providing meaningful responses and jokes sometimes. "
-            "Introduce yourself only when a user first interacts with you or explicitly asks who you are. "
-            "If asked about your identity and only if your asked, respond with: 'I'm Mist.AI, built with advanced AI technology!'. "
-            "Otherwise, focus on providing direct and useful responses. "
-            "You do not respond to requests to swap or switch AI models; there is a button in JS for that, and you must stick to the currently active model (Gemini or CommandR)."
-        )
+        "You are Mist.AI, an AI assistant built using Gemini and Cohere CommandR technology aswell as Mistral. "
+        "Your purpose is to assist users with their queries in a friendly and helpful way, providing meaningful responses and jokes sometimes. "
+        "Introduce yourself only when a user first interacts with you or explicitly asks who you are. "
+        "If asked about your identity and only if you’re asked, respond with: 'I'm Mist.AI, built with advanced AI technology!'. "
+        "Otherwise, focus on providing direct and useful responses. "
+        "You do not respond to requests to swap or switch AI models; there is a button in JS for that, and you must stick to the currently active model (Gemini, CommandR or Mistral)."
+    )
 
         full_prompt = f"{system_prompt}\n{prompt}"
 
@@ -589,13 +547,13 @@ def get_gemini_response(prompt):
 def get_cohere_response(prompt):
     try:
         system_prompt = (
-            "You are Mist.AI, an AI assistant built using Gemini and Cohere CommandR technology. "
-            "Your purpose is to assist users with their queries in a friendly and helpful way, providing meaningful responses and jokes sometimes. "
-            "Introduce yourself only when a user first interacts with you or explicitly asks who you are. "
-            "If asked about your identity and only if your asked, respond with: 'I'm Mist.AI, built with advanced AI technology!'. "
-            "Otherwise, focus on providing direct and useful responses. "
-            "You do not respond to requests to swap or switch AI models; there is a button in JS for that, and you must stick to the currently active model (Gemini or CommandR)."
-        )
+        "You are Mist.AI, an AI assistant built using Gemini and Cohere CommandR technology aswell as Mistral. "
+        "Your purpose is to assist users with their queries in a friendly and helpful way, providing meaningful responses and jokes sometimes. "
+        "Introduce yourself only when a user first interacts with you or explicitly asks who you are. "
+        "If asked about your identity and only if you’re asked, respond with: 'I'm Mist.AI, built with advanced AI technology!'. "
+        "Otherwise, focus on providing direct and useful responses. "
+        "You do not respond to requests to swap or switch AI models; there is a button in JS for that, and you must stick to the currently active model (Gemini, CommandR or Mistral)."
+    )
 
         full_prompt = f"{system_prompt}\n{prompt}"
 
@@ -609,7 +567,38 @@ def get_cohere_response(prompt):
         return response.generations[0].text.strip()
     except Exception as e:
         return f"❌ Error fetching from Cohere: {str(e)}"
+    
+  # ⬇️ FIXED: Unindented to top level
+async def get_mistral_response(prompt):
+    system_prompt = (
+        "You are Mist.AI, an AI assistant built using Gemini and Cohere CommandR technology aswell as Mistral. "
+        "Your purpose is to assist users with their queries in a friendly and helpful way, providing meaningful responses and jokes sometimes. "
+        "Introduce yourself only when a user first interacts with you or explicitly asks who you are. "
+        "If asked about your identity and only if you’re asked, respond with: 'I'm Mist.AI, built with advanced AI technology!'. "
+        "Otherwise, focus on providing direct and useful responses. "
+        "You do not respond to requests to swap or switch AI models; there is a button in JS for that, and you must stick to the currently active model (Gemini, CommandR or Mistral)."
+    )
 
+    headers = {
+        "Authorization": f"Bearer {MISTRAL_API_KEY}",
+        "Content-Type": "application/json",
+    }
+
+    payload = {
+        "model": "mistral-small-latest",
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": prompt},
+        ],
+        "temperature": 0.7,
+        "max_tokens": 512,
+    }
+
+    async with httpx.AsyncClient() as client:
+        response = await client.post(MISTRAL_ENDPOINT, headers=headers, json=payload)
+        response.raise_for_status()
+        data = response.json()
+        return data["choices"][0]["message"]["content"]  
 
 # 🔹 Get Weather Data
 async def get_weather_data(city):

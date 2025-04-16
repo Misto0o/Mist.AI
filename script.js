@@ -477,33 +477,19 @@ function getWakeWordUrl(endpoint = "") {  // Default to empty string
     return basePath + endpoint;
 }
 
-// Function to swap models
-function swapContent() {
-    const swapButton = document.querySelector(".swap-button");
+function swapModel(selectElement) {
+    const selectedValue = selectElement.value;
 
-    if (isSwapping) return; // Prevent multiple swaps
+    if (isSwapping || selectedValue === currentModel) return;
     isSwapping = true;
-    swapButton.classList.add("disabled");
 
-    currentModel = currentModel === 'gemini' ? 'commandR' : 'gemini';
+    currentModel = selectedValue;
 
-    const currentOption = document.getElementById("current-option");
-    const currentIcon = document.getElementById("current-icon");
-    if (currentOption && currentIcon) {
-        gsap.to(currentOption, {
-            opacity: 0, duration: 0.2, onComplete: () => {
-                currentOption.textContent = currentModel === 'commandR' ? 'CommandR' : 'Gemini';
-                gsap.to(currentOption, { opacity: 1, duration: 0.2 });
-            }
-        });
-
-        showNotification(`Model switched to: ${currentModel === 'commandR' ? 'CommandR' : 'Gemini'}`);
-        sendMessage(`Model switched to: ${currentModel}`);
-    }
+    showNotification(`Model switched to: ${capitalize(currentModel)}`);
+    sendMessage(`Model switched to: ${currentModel}`);
 
     setTimeout(() => {
         isSwapping = false;
-        swapButton.classList.remove("disabled");
     }, 1300); // 1.3s cooldown
 }
 
@@ -524,6 +510,10 @@ function showNotification(message) {
             }, 2000);
         }
     });
+}
+
+function capitalize(text) {
+    return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
 const inputField = document.getElementById("user-input");
