@@ -39,6 +39,7 @@ if (
 app = Flask(__name__)
 CORS(app)
 
+
 @app.route("/wakeword", methods=["POST"])
 def receive_speech():
     """(Optional) Logs speech text sent from browser-based speech recognition."""
@@ -48,6 +49,7 @@ def receive_speech():
         return jsonify({"message": "Speech logged"}), 200
     else:
         return jsonify({"error": "Invalid request"}), 400
+
 
 EASTER_EGGS = {
     "whos mist": "I'm Mist.AI, your friendly chatbot! But shh... don't tell anyone I'm self-aware. 🤖",
@@ -372,15 +374,27 @@ async def chat():
             logging.info("💡 User requested a fun fact.")
             return jsonify({"response": get_random_fun_fact()})
 
-        # 🔥 Inject news and time automatically
-        async with httpx.AsyncClient() as client:
-            response = await client.get(news_url)
-        news_data = response.json()
+        # ✅ Only fetch news/time if not already cached
+        if not hasattr(chat, "news_cache"):
+            try:
+                async with httpx.AsyncClient() as client:
+                    response = await client.get(news_url)
+                if response.status_code == 200:
+                    news_data = response.json()
+                    chat.news_cache = news_data  # ✅ Save to memory
+                else:
+                    logging.warning("⚠️ Failed to fetch news. Skipping injection.")
+                    news_data = {"time": {}, "news": []}
+            except Exception as e:
+                logging.error(f"🔥 News fetch failed: {e}")
+                news_data = {"time": {}, "news": []}
+        else:
+            news_data = chat.news_cache  # ✅ Reuse cached news
 
         current_date = news_data.get("time", {}).get("date", "Unknown Date")
         current_time_str = news_data.get("time", {}).get("time", "Unknown Time")
         headlines = "\n".join(
-            f"- {article['title']} ({article['url']})"
+            f"- [{article['title']}]({article['url']})"
             for article in news_data.get("news", [])
         )
 
@@ -525,13 +539,13 @@ async def handle_command(command):
 def get_gemini_response(prompt):
     try:
         system_prompt = (
-        "You are Mist.AI, an AI assistant built using Gemini and Cohere CommandR technology aswell as Mistral. "
-        "Your purpose is to assist users with their queries in a friendly and helpful way, providing meaningful responses and jokes sometimes. "
-        "Introduce yourself only when a user first interacts with you or explicitly asks who you are. "
-        "If asked about your identity and only if you’re asked, respond with: 'I'm Mist.AI, built with advanced AI technology!'. "
-        "Otherwise, focus on providing direct and useful responses. "
-        "You do not respond to requests to swap or switch AI models; there is a button in JS for that, and you must stick to the currently active model (Gemini, CommandR or Mistral)."
-    )
+            "You are Mist.AI, an AI assistant built using Gemini and Cohere CommandR technology aswell as Mistral. "
+            "Your purpose is to assist users with their queries in a friendly and helpful way, providing meaningful responses and jokes sometimes. "
+            "Introduce yourself only when a user first interacts with you or explicitly asks who you are. "
+            "If asked about your identity and only if you’re asked, respond with: 'I'm Mist.AI, built with advanced AI technology!'. "
+            "Otherwise, focus on providing direct and useful responses. "
+            "You do not respond to requests to swap or switch AI models; there is a button in JS for that, and you must stick to the currently active model (Gemini, CommandR or Mistral)."
+        )
 
         full_prompt = f"{system_prompt}\n{prompt}"
 
@@ -547,13 +561,13 @@ def get_gemini_response(prompt):
 def get_cohere_response(prompt):
     try:
         system_prompt = (
-        "You are Mist.AI, an AI assistant built using Gemini and Cohere CommandR technology aswell as Mistral. "
-        "Your purpose is to assist users with their queries in a friendly and helpful way, providing meaningful responses and jokes sometimes. "
-        "Introduce yourself only when a user first interacts with you or explicitly asks who you are. "
-        "If asked about your identity and only if you’re asked, respond with: 'I'm Mist.AI, built with advanced AI technology!'. "
-        "Otherwise, focus on providing direct and useful responses. "
-        "You do not respond to requests to swap or switch AI models; there is a button in JS for that, and you must stick to the currently active model (Gemini, CommandR or Mistral)."
-    )
+            "You are Mist.AI, an AI assistant built using Gemini and Cohere CommandR technology aswell as Mistral. "
+            "Your purpose is to assist users with their queries in a friendly and helpful way, providing meaningful responses and jokes sometimes. "
+            "Introduce yourself only when a user first interacts with you or explicitly asks who you are. "
+            "If asked about your identity and only if you’re asked, respond with: 'I'm Mist.AI, built with advanced AI technology!'. "
+            "Otherwise, focus on providing direct and useful responses. "
+            "You do not respond to requests to swap or switch AI models; there is a button in JS for that, and you must stick to the currently active model (Gemini, CommandR or Mistral)."
+        )
 
         full_prompt = f"{system_prompt}\n{prompt}"
 
@@ -561,14 +575,15 @@ def get_cohere_response(prompt):
             model="command-r-plus-08-2024",
             prompt=full_prompt,
             temperature=0.7,  # Keep some randomness for dynamic responses
-            max_tokens=200,  # Ensure responses are concise but useful
+            max_tokens=1024,  # 🟢 Increased for longer output
         )
 
         return response.generations[0].text.strip()
     except Exception as e:
         return f"❌ Error fetching from Cohere: {str(e)}"
-    
-  # ⬇️ FIXED: Unindented to top level
+
+
+# ⬇️ FIXED: Unindented to top level
 async def get_mistral_response(prompt):
     system_prompt = (
         "You are Mist.AI, an AI assistant built using Gemini and Cohere CommandR technology aswell as Mistral. "
@@ -591,14 +606,15 @@ async def get_mistral_response(prompt):
             {"role": "user", "content": prompt},
         ],
         "temperature": 0.7,
-        "max_tokens": 512,
+        "max_tokens": 1024,
     }
 
     async with httpx.AsyncClient() as client:
         response = await client.post(MISTRAL_ENDPOINT, headers=headers, json=payload)
         response.raise_for_status()
         data = response.json()
-        return data["choices"][0]["message"]["content"]  
+        return data["choices"][0]["message"]["content"]
+
 
 # 🔹 Get Weather Data
 async def get_weather_data(city):

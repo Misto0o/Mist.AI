@@ -1,4 +1,4 @@
-# ☁️ Mist.AI – V5.0 (Full)
+# ☁️ Mist.AI – V5.0 (Full) + small bug fix
 
 Mist.AI is an advanced AI assistant powered by **Gemini AI**, **Command R AI**, **Mistral AI**, and **OCR Vision**. In this latest update (V5.0 Full), Mist.AI introduces Mistral AI integration, a new dropdown menu, SEO improvements, fixed responsive UI, and a smarter chatbot with **no knowledge cutoff**. Real-time news is automatically injected to keep Mist.AI up-to-date—no matter what model limitations exist.
 
@@ -44,6 +44,8 @@ Mist.AI is an advanced AI assistant powered by **Gemini AI**, **Command R AI**, 
 - Reduced memory usage = faster AI responses.
 - Improved **code formatting** with syntax highlighting for developers.
 
+### ⚡ **Fixed some bugs**
+- **Server Bug**: No more random server error when talking to Mist.
 ---
 
 ## 📌 Features
