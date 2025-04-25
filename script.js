@@ -754,40 +754,60 @@ document.addEventListener("DOMContentLoaded", function () {
         const reader = new FileReader();
 
         reader.onloadend = async function () {
-            const base64String = reader.result; // Convert to Base64
-            const url = getBackendUrl("analyze");
-            const options = {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ img_url: base64String }) // Send Base64
-            };
+            const imageDataUrl = reader.result;
 
-            try {
-                showMessage("🔄 Analyzing image...", "bot");
+            // Create an image element
+            const img = new Image();
+            img.src = imageDataUrl;
 
-                const response = await fetch(url, options);
-                const result = await response.json();
+            img.onload = async function () {
+                // Create a canvas and draw the image on it
+                const canvas = document.createElement("canvas");
+                canvas.width = img.width;
+                canvas.height = img.height;
+                const ctx = canvas.getContext("2d");
+                ctx.drawImage(img, 0, 0);
 
-                console.log("📥 API Response:", result); // Debugging
+                // Convert canvas to PNG Base64
+                const pngBase64 = canvas.toDataURL("image/png");
 
-                if (result.error) {
-                    showMessage(`❌ Error: ${result.error}`, "bot");
-                    return;
+                const url = getBackendUrl("analyze");
+                const options = {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ img_url: pngBase64 })
+                };
+
+                try {
+                    showMessage("🔄 Analyzing image...", "bot");
+
+                    const response = await fetch(url, options);
+                    const result = await response.json();
+
+                    console.log("📥 API Response:", result); // Debugging
+
+                    if (result.error) {
+                        showMessage(`❌ I dont like this file SHIFT!: ${result.error}`, "bot");
+                        return;
+                    }
+
+                    showMessage("MistAi has received the image. How can I help?", "bot");
+
+                    chatMemory.push({ role: "user", content: `User uploaded a image and it contained: ${result.result}` });
+
+                    // Save chat memory
+                    sessionStorage.setItem("chatMemory", JSON.stringify(chatMemory));
+
+                } catch (error) {
+                    console.error("❌ Fetch Error:", error);
+                    showMessage("❌ Error analyzing image", "bot");
                 }
-
-                showMessage("MistAi has received the image. How can I help?", "bot");
-
-                // Add the analysis result to chatMemory
-                updateMemory("bot", `Image Analysis: ${result.result}`);
-
-            } catch (error) {
-                console.error("❌ Fetch Error:", error);
-                showMessage("❌ Error analyzing image", "bot");
-            }
+            };
         };
 
-        reader.readAsDataURL(uploadedFile); // Read file as Base64
+        reader.readAsDataURL(uploadedFile); // Read file as DataURL (base64)
     }
+
     // ✅ Make showMessage GLOBAL
     function showMessage(message, sender = "user") {
         let chatBox = document.getElementById("chat-box");
@@ -954,6 +974,19 @@ document.addEventListener("DOMContentLoaded", function () {
         const popup = document.querySelector('.micCheck');
         const allowButton = document.getElementById('allowMicrophoneButton');
         const denyButton = document.getElementById('denyMicrophoneButton');
+        const popupBtn = document.getElementById("micPopUp");
+        const overlay = document.getElementById("overlay");
+
+        popupBtn.addEventListener("click", () => {
+            popup.style.display = "block";
+            overlay.style.display = "block";
+        });
+
+        // Optional: close popup if user clicks outside it
+        overlay.addEventListener("click", () => {
+            popup.style.display = "none";
+            overlay.style.display = "none";
+        });
 
         const isFirefox = navigator.userAgent.toLowerCase().includes("firefox");
 
@@ -962,18 +995,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
         if (isFirefox) {
             alert("⚠️ Speech recognition is NOT supported in Firefox. Please hit DENY");
-        }
-
-        if (navigator.permissions && navigator.permissions.query) {
-            navigator.permissions.query({ name: "microphone" }).then(permissionStatus => {
-                if (permissionStatus.state === "denied" || permissionStatus.state === "prompt") {
-                    popup.style.display = 'block';
-                }
-            }).catch(() => {
-                popup.style.display = 'block';
-            });
-        } else {
-            popup.style.display = 'block';
         }
 
         // Fuzzy similarity function

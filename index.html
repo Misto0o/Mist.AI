@@ -99,7 +99,8 @@
 
             <div class="embedded-actions">
                 <!-- Hidden file inputs (separate for images & documents) -->
-                <input type="file" id="file-upload-image" class="upload-input" accept="image/*" style="display: none;">
+                <input type="file" id="file-upload-image" class="upload-input" accept=".png,.jpg,.jpeg,.bmp,.gif"
+                    style="display: none;">
                 <input type="file" id="file-upload-document" class="upload-input" accept=".pdf,.doc,.docx,.txt"
                     style="display: none;">
 
@@ -133,6 +134,13 @@
         </div>
 
     </section>
+
+    <button id="micPopUp">
+        <i class="fas fa-microphone"></i>
+    </button>
+
+    <!-- Overlay background (optional for modal effect) -->
+    <div class="overlay" id="overlay"></div>
 
     <div id="microphonePopup" class="micCheck">
         <h2>Microphone Access Required</h2>
@@ -171,5 +179,4 @@
     <script src="script.js" defer></script>
     <script src="service-worker.js" defer></script>
 </body>
-
 </html>

@@ -1,8 +1,8 @@
-# ☁️ Mist.AI – V5.0 (Full) + small bug fix
+# ☁️ Mist.AI – V5.5
 
-Mist.AI is an advanced AI assistant powered by **Gemini AI**, **Command R AI**, **Mistral AI**, and **OCR Vision**. In this latest update (V5.0 Full), Mist.AI introduces Mistral AI integration, a new dropdown menu, SEO improvements, fixed responsive UI, and a smarter chatbot with **no knowledge cutoff**. Real-time news is automatically injected to keep Mist.AI up-to-date—no matter what model limitations exist.
+Mist.AI is an advanced AI assistant powered by **Gemini AI**, **Command R AI**, **Mistral AI**, and **OCR Vision**. In this latest update (V5.5), Mist.AI introduces smarter image analysis with canvas support, a button to manually start wake word detection, and improved visual OCR reliability.
 
-🚀 **Current Version:** `V5.0 (Full)`  
+🚀 **Current Version:** `V5.5`  
 🌐 **Live Domain:** [https://mistai.org](https://mistai.org)  
 📱 **Mobile App / Progressive Web App (PWA)**  
 🧠 **Smarter AI – No Knowledge Cutoff**  
@@ -12,7 +12,16 @@ Mist.AI is an advanced AI assistant powered by **Gemini AI**, **Command R AI**, 
 
 ---
 
-## ✨ What's New in V5.0 (Full)?
+## ✨ What's New in V5.5?
+
+### 🖼️ **Better Image OCR Handling**
+- Added **canvas conversion** method to convert any image (e.g., JPG) into PNG before processing.
+- Fixed issue where JPGs weren't always recognized by the OCR API.
+- Smoother file-to-analysis flow for images.
+
+### 🎤 **Wake Word Button Activation**
+- Wake word detection no longer auto-starts on page load.
+- Added a **manual toggle button** to enable "Hey Mist" listening mode.
 
 ### 🤖 **Mistral AI Integration**
 - Added support for the **Mistral Small** model.
@@ -22,30 +31,6 @@ Mist.AI is an advanced AI assistant powered by **Gemini AI**, **Command R AI**, 
 - Mist.AI now auto-injects real-time news data from **TheNewsAPI** directly into the chatbot context.
 - Regardless of which AI model is used, Mist.AI stays current—even when models are outdated.
 
-### 🎤 **Improved Wake Word Detection**
-- More reliable detection of **"Hey Mist"** across both **desktop** and **mobile**.
-- Wake word only active while the tab is open, conserving device resources.
-
-### ⚡ **Cache Management with Service Worker**
-- **Smart Cache Control**: Keeps CSS, JS, and image files up-to-date.
-- **Auto Cache Cleanup**: Clears old cache automatically on load.
-
-### 🎨 **UI/UX Enhancements**
-- **Responsive CSS Fixes**: Fixed layout bugs on mobile.
-- **New Dropdown Menu**: Sleek new menu for better navigation.
-- **Chat Bubbles**: Messages now have **edit** and **copy** options.
-- **Sidebar Tweaks**: Improved scaling and layout for small and large screens.
-
-### 🚨 **Enhanced IP Ban System**
-- **3-strike rule**: 3 inappropriate messages = temporary 24-hour IP ban.
-- Ensures respectful and safe usage for everyone.
-
-### 🧠 **Performance Optimizations**
-- Reduced memory usage = faster AI responses.
-- Improved **code formatting** with syntax highlighting for developers.
-
-### ⚡ **Fixed some bugs**
-- **Server Bug**: No more random server error when talking to Mist.
 ---
 
 ## 📌 Features
@@ -79,7 +64,7 @@ Mist.AI is an advanced AI assistant powered by **Gemini AI**, **Command R AI**, 
 
 ## 🛠️ Future Plans  
 - 🎨 **More Themes** – With animations and user-selectable styles  
-- 🤖 **AI Personality Modes** – Tailored behavior based on user input  
+- 🤖 **Chrome Extention** – Be able to use MistAI through a chrome extention
 - ⌨️ **More Slash Commands** – Expand `/` features even further  
 - 🕵️‍♂️ **Secret Features** – Hidden gems for users to discover  
 - 📐 **Enhanced Design** – Even cleaner UI, transitions, and animations  

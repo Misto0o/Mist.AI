@@ -530,6 +530,56 @@
         text-align: center;
         box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
         border: 1px solid rgba(255, 255, 255, 0.3);
+        display: none;
+    }
+
+    /* Background overlay (optional) */
+    .overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 999;
+    }
+
+    #micPopUp {
+        position: fixed;
+        bottom: 80px;
+        /* Pushed up above help button */
+        right: 20px;
+        background-color: #4CAF50;
+        color: white;
+        padding: 12px;
+        /* Adjust padding to match the size of .help-btn */
+        border-radius: 50%;
+        /* Circular shape */
+        font-size: 26px;
+        /* Same font size as .help-btn */
+        cursor: pointer;
+        transition: background-color 0.3s, transform 0.2s;
+        z-index: 1000;
+        border: none;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        width: 50px;
+        /* Ensure the button is the same size */
+        height: 50px;
+        /* Ensure the button is the same size */
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    #micPopUp i {
+        font-size: 18px;
+        /* Icon size */
+    }
+
+    /* Hover effect */
+    #micPopUp:hover {
+        background-color: #45a049;
+        transform: scale(1.1);
     }
 
     .micCheck h2 {
@@ -788,5 +838,8 @@
             font-size: 24px;
             top: 5px;
             right: 10px;
+        }
+        #micPopUp {
+            display: none;
         }
     }

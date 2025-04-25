@@ -39,7 +39,6 @@ if (
 app = Flask(__name__)
 CORS(app)
 
-
 @app.route("/wakeword", methods=["POST"])
 def receive_speech():
     """(Optional) Logs speech text sent from browser-based speech recognition."""
@@ -49,7 +48,6 @@ def receive_speech():
         return jsonify({"message": "Speech logged"}), 200
     else:
         return jsonify({"error": "Invalid request"}), 400
-
 
 EASTER_EGGS = {
     "whos mist": "I'm Mist.AI, your friendly chatbot! But shh... don't tell anyone I'm self-aware. 🤖",
@@ -64,11 +62,9 @@ EASTER_EGGS = {
     "whats your favorite anime": "Dragon Ball Z! I really love the anime.",
 }
 
-
 def check_easter_eggs(user_message):
     normalized_message = re.sub(r"[^\w\s]", "", user_message.lower()).strip()
     return EASTER_EGGS.get(normalized_message, None)
-
 
 # Configure APIs
 RAPIDAPI_KEY = os.getenv("RAPIDAPI_KEY")
@@ -92,12 +88,12 @@ news_url = (
 OCR_API_KEY = os.getenv("OCR_API_KEY")  # ✅ Set your OCR.Space API key
 OCR_URL = "https://api.ocr.space/parse/image"  # ✅ OCR.Space endpoint
 
-
 async def analyze_image(img_base64):
     """
     Analyzes the image using OCR.Space API. Takes base64 encoded image.
     Returns the text extracted from the image.
     """
+    logging.info("Received image for analysis.")
     headers = {"apikey": OCR_API_KEY}
     payload = {
         "base64Image": img_base64,
@@ -118,6 +114,7 @@ async def analyze_image(img_base64):
             result_text = data["ParsedResults"][0][
                 "ParsedText"
             ]  # Correctly assign text to result_text
+
             return jsonify({"result": result_text})  # Return the result
         else:
             return jsonify({"error": "OCR failed to extract text."}), 400
@@ -126,14 +123,12 @@ async def analyze_image(img_base64):
         logging.error(f"Error in OCR processing: {e}")
         return jsonify({"error": "Error in OCR processing"}), 500
 
-
 # ✅ Get the best available GoFile server
 async def get_best_server():
     response = requests.get("https://api.gofile.io/servers")
     if response.status_code == 200:
         return response.json()["data"]["servers"][0]["name"]
     return None
-
 
 # ✅ Upload file directly from memory to GoFile
 async def upload_to_gofile(filename, file_content, mimetype):
@@ -152,7 +147,6 @@ async def upload_to_gofile(filename, file_content, mimetype):
     else:
         return {"error": "Upload failed"}
 
-
 # ✅ Extract text from PDFs (fixed)
 def extract_text_from_pdf(file_stream):
     try:
@@ -169,7 +163,6 @@ def extract_text_from_pdf(file_stream):
     except Exception as e:
         return f"⚠️ error extracting text: {str(e)}"
 
-
 def preprocess_text(text):
     """Cleans and formats the extracted text."""
     # Remove non-alphanumeric characters except math symbols
@@ -177,7 +170,6 @@ def preprocess_text(text):
     # Replace common OCR errors (e.g., 'l' for '1')
     text = re.sub(r"l", "1", text)
     return text
-
 
 def parse_expression(text):
     """Parses a mathematical expression using sympy."""
@@ -192,7 +184,6 @@ def parse_expression(text):
             return expression
         except Exception as e:
             return f"⚠️ Parsing error: {str(e)}"
-
 
 @app.route("/time-news", methods=["GET"])
 async def time_news():
@@ -244,14 +235,11 @@ async def time_news():
 
     # ✅ Function to process different file types
 
-
 def process_pdf(file_content):
     return extract_text_from_pdf(io.BytesIO(file_content))
 
-
 def process_txt(file_content):
     return file_content.decode("utf-8", errors="ignore")
-
 
 def process_json(file_content):
     try:
@@ -259,7 +247,6 @@ def process_json(file_content):
         return json.dumps(json_data, indent=4)
     except json.JSONDecodeError:
         return "⚠️ Invalid JSON file."
-
 
 def process_docx(file_content):
     if not file_content:
@@ -272,7 +259,6 @@ def process_docx(file_content):
         print(f"Error reading DOCX: {e}")  # Debugging
         return f"⚠️ Error reading .docx file: {str(e)}"
 
-
 def extract_text_from_docx(file_content):
     try:
         doc = Document(file_content)
@@ -283,7 +269,6 @@ def extract_text_from_docx(file_content):
     except Exception as e:
         return f"⚠️ Error reading .docx file: {str(e)}"
 
-
 # ✅ Mapping file extensions to processing functions
 file_processors = {
     ".pdf": process_pdf,
@@ -292,7 +277,6 @@ file_processors = {
     ".docx": process_docx,
     ".doc": process_docx,
 }
-
 
 @app.route("/chat", methods=["POST", "GET"])
 async def chat():
@@ -435,7 +419,6 @@ Here are the latest news headlines:
         logging.error(f"Server Error: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
-
 # 🔹 Check AI Services
 async def check_ai_services():
     try:
@@ -443,7 +426,6 @@ async def check_ai_services():
         return bool(test_response)
     except:
         return False
-
 
 # 🔹 Handle Commands
 async def handle_command(command):
@@ -484,7 +466,6 @@ async def handle_command(command):
             "Why do programmers prefer iOS development? Because Android has too many fragments!",
         ]
         return random.choice(jokes)
-
     if command == "/riddle":
         riddles = [
             ("I speak without a mouth and hear without ears. What am I?", "An echo."),
@@ -534,7 +515,6 @@ async def handle_command(command):
     # Handle unknown commands
     return "❌ Unknown command. Type /help for a list of valid commands."
 
-
 # 🔹 Get AI Responses
 def get_gemini_response(prompt):
     try:
@@ -556,7 +536,6 @@ def get_gemini_response(prompt):
         return response.text.strip()
     except Exception as e:
         return f"❌ Error fetching from Gemini: {str(e)}"
-
 
 def get_cohere_response(prompt):
     try:
@@ -581,7 +560,6 @@ def get_cohere_response(prompt):
         return response.generations[0].text.strip()
     except Exception as e:
         return f"❌ Error fetching from Cohere: {str(e)}"
-
 
 # ⬇️ FIXED: Unindented to top level
 async def get_mistral_response(prompt):
@@ -615,7 +593,6 @@ async def get_mistral_response(prompt):
         data = response.json()
         return data["choices"][0]["message"]["content"]
 
-
 # 🔹 Get Weather Data
 async def get_weather_data(city):
     try:
@@ -636,7 +613,6 @@ async def get_weather_data(city):
 
     # 🔹 Function to return a random writing prompt
 
-
 def get_random_prompt():
     prompts = [
         "Write about a futuristic world where AI controls everything.",
@@ -655,7 +631,6 @@ def get_random_prompt():
         "Write about an astronaut who discovers a new planet with life forms that don't look like anything from Earth.",
     ]
     return random.choice(prompts)
-
 
 # 🔹 Function to return a random fun fact
 def get_random_fun_fact():
@@ -678,7 +653,6 @@ def get_random_fun_fact():
     ]
     return random.choice(fun_facts)
 
-
 # Custom log handler to suppress Fly.io noise
 class StreamToUTF8(logging.StreamHandler):
     def __init__(self, stream=None):
@@ -696,7 +670,6 @@ class StreamToUTF8(logging.StreamHandler):
         except Exception:
             self.handleError(record)
 
-
 # Custom filter to remove Fly.io noise
 class FilterFlyLogs(logging.Filter):
     def filter(self, record):
@@ -710,7 +683,6 @@ class FilterFlyLogs(logging.Filter):
             "autostopping",
         ]
         return not any(term in record.getMessage() for term in fly_terms)
-
 
 # Setup logging
 logger = logging.getLogger()
