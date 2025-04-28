@@ -81,43 +81,36 @@
 
 /* Themed Sidebar */
 .light-theme .sidebar {
-    background-color: #f5f5f5;
     border-left-color: #ffffff;
     color: #222;
 }
 
 .blue-theme .sidebar {
-    background-color: #E0F7FA;
     border-left-color: #64ffda;
     color: #0d47a1;
 }
 
 .midnight-theme .sidebar {
-    background-color: #1E293B;
     border-left-color: #2563EB;
     color: #D1D5DB;
 }
 
 .cyberpunk-theme .sidebar {
-    background-color: #1A1A2E;
     border-left-color: #FF4081;
     color: #FF4081;
 }
 
 .arctic-theme .sidebar {
-    background-color: #E3F2FD;
     border-left-color: #64B5F6;
     color: #1E3A5F;
 }
 
 .terminal-theme .sidebar {
-    background-color: #0D1B0D;
     border-left-color: #00FF41;
     color: #00FF41;
 }
 
 .sunset-theme .sidebar {
-    background-color: #2C1E3D;
     border-left-color: #FF8C42;
     color: #FF8C42;
 }
@@ -243,38 +236,46 @@
 }
 
 /* Chat Bubbles */
-.user-message, .bot-message {
+.user-message,
+.bot-message {
     border-radius: 15px;
     padding: 10px;
     border: 2px solid transparent;
 }
 
 /* Themed Chat Borders */
-.light-theme .user-message, .light-theme .bot-message {
+.light-theme .user-message,
+.light-theme .bot-message {
     border-color: #ffffff;
 }
 
-.blue-theme .user-message, .blue-theme .bot-message {
+.blue-theme .user-message,
+.blue-theme .bot-message {
     border-color: #64ffda;
 }
 
-.midnight-theme .user-message, .midnight-theme .bot-message {
+.midnight-theme .user-message,
+.midnight-theme .bot-message {
     border-color: #2563EB;
 }
 
-.cyberpunk-theme .user-message, .cyberpunk-theme .bot-message {
+.cyberpunk-theme .user-message,
+.cyberpunk-theme .bot-message {
     border-color: #FF4081;
 }
 
-.arctic-theme .user-message, .arctic-theme .bot-message {
+.arctic-theme .user-message,
+.arctic-theme .bot-message {
     border-color: #64B5F6;
 }
 
-.terminal-theme .user-message, .terminal-theme .bot-message {
+.terminal-theme .user-message,
+.terminal-theme .bot-message {
     border-color: #00FF41;
 }
 
-.sunset-theme .user-message, .sunset-theme .bot-message {
+.sunset-theme .user-message,
+.sunset-theme .bot-message {
     border-color: #FF8C42;
 }
 
@@ -311,43 +312,75 @@
 }
 
 /* THEMED TITLE */
-.title {
+.site-title {
     font-weight: bold;
 }
 
 /* Light Theme */
-.light-theme .title {
+.light-theme .site-title {
     color: #ffffff !important;
 }
 
 /* Blue Theme */
-.blue-theme .title {
+.blue-theme .site-title {
     color: #64ffda !important;
 }
 
 /* Midnight Theme */
-.midnight-theme .title {
+.midnight-theme .site-title {
     color: #2563EB !important;
 }
 
 /* Cyberpunk Theme */
-.cyberpunk-theme .title {
+.cyberpunk-theme .site-title {
     color: #FF4081 !important;
 }
 
 /* Arctic Theme */
-.arctic-theme .title {
+.arctic-theme .site-title {
     color: #64B5F6 !important;
 }
 
 /* Terminal Theme */
-.terminal-theme .title {
+.terminal-theme .site-title {
     color: #00FF41 !important;
 }
 
 /* Sunset Theme */
-.sunset-theme .title {
+.sunset-theme .site-title {
     color: #FF8C42 !important;
+}
+
+.light-theme #micPopUp {
+    background-color: #ffffff !important;
+}
+
+.blue-theme #micPopUp {
+    background-color: #64ffda !important;
+}
+
+.midnight-theme #micPopUp {
+    background-color: #2563EB !important;
+}
+
+.cyber-theme #micPopUp {
+    background-color: #FF4081 !important;
+}
+
+.artic-theme #micPopUp {
+    background-color: #64B5F6 !important;
+}
+
+.terminl-theme #micPopUp {
+    background-color: #00FF41 !important;
+}
+
+.sunset-theme-theme #micPopUp {
+    background-color: #FF8C42  !important;
+}
+
+.konami-theme #micPopUp {
+    background-color: #FF3131 !important;
 }
 
 /* THEMED MENU LABEL */
@@ -471,65 +504,6 @@
     color: #2C1E3D;
 }
 
-/* === SWAP BUTTON THEMING === */
-.swap-button {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    padding: 8px 12px;
-    border-radius: 20px;
-    border: 2px solid transparent;
-    font-weight: bold;
-    cursor: pointer;
-    transition: background 0.3s, color 0.3s, border-color 0.3s;
-}
-
-.light-theme .swap-button {
-    background-color: #aebde3;
-    color: white;
-    border-color: #1565C0;
-}
-
-.blue-theme .swap-button {
-    background-color: #64ffda;
-    color: #0d47a1;
-    border-color: #64ffda;
-}
-
-.midnight-theme .swap-button {
-    background-color: #4F46E5;
-    color: white;
-    border-color: #2563EB;
-}
-
-.cyberpunk-theme .swap-button {
-    background-color: #00E5FF;
-    color: #1A1A2E;
-    border-color: #FF4081;
-}
-
-.arctic-theme .swap-button {
-    background-color: #64B5F6;
-    color: #1E3A5F;
-    border-color: #E3F2FD;
-}
-
-.terminal-theme .swap-button {
-    background-color: #00FF41;
-    color: #0D1B0D;
-    border-color: #008F11;
-}
-
-.sunset-theme .swap-button {
-    background-color: #FF8C42;
-    color: #2C1E3D;
-    border-color: #D7263D;
-}
-
-.swap-button:hover {
-    opacity: 0.8;
-}
-
 /* === THEMED MENU LIST === */
 .menu-list a {
     display: block;
@@ -647,7 +621,8 @@
 
 /* Konami Code Theme - Retro Arcade Colors */
 .konami-theme .user-message {
-    background-color: #FF3131;  /* Electric Red for user messages */
+    background-color: #FF3131;
+    /* Electric Red for user messages */
     color: #fff;
 }
 
@@ -661,15 +636,18 @@
 }
 
 .konami-theme .bot-message {
-    background-color: #0D1B2A;  /* Dark Blue for bot messages */
-    color: #00FFFF;  /* Neon Cyan text */
+    background-color: #0D1B2A;
+    /* Dark Blue for bot messages */
+    color: #00FFFF;
+    /* Neon Cyan text */
 }
 
 /* Sidebar */
 .konami-theme .sidebar {
-    background-color: #111;  /* Deep black for arcade vibes */
+    /* Deep black for arcade vibes */
     border-left-color: #FF3131;
-    color: #FFD700;  /* Bright Yellow text */
+    color: #FFD700;
+    /* Bright Yellow text */
 }
 
 /* Themed Chat Input */
@@ -687,12 +665,14 @@
 }
 
 .konami-theme .button:hover {
-    background-color: #FFD700; /* Bright Yellow on hover */
+    background-color: #FFD700;
+    /* Bright Yellow on hover */
     color: #111;
 }
 
 /* Chat Bubbles */
-.konami-theme .user-message, .konami-theme .bot-message {
+.konami-theme .user-message,
+.konami-theme .bot-message {
     border-color: #FF3131;
 }
 
@@ -720,30 +700,43 @@
 }
 
 /* Title & Menu Label */
-.konami-theme .title, 
+.konami-theme .site-title,
 .konami-theme .menu-label {
-    color: #FFD700 !important; /* Gold for that retro glow */
+    color: #FFD700 !important;
+    /* Gold for that retro glow */
 }
 
 /* Glowing Effect for Retro Feel */
 @keyframes neonGlow {
-    0% { text-shadow: 0 0 5px #00FFFF, 0 0 10px #00FFFF, 0 0 20px #00FFFF; }
-    50% { text-shadow: 0 0 10px #FFD700, 0 0 20px #FFD700, 0 0 30px #FFD700; }
-    100% { text-shadow: 0 0 5px #00FFFF, 0 0 10px #00FFFF, 0 0 20px #00FFFF; }
+    0% {
+        text-shadow: 0 0 5px #00FFFF, 0 0 10px #00FFFF, 0 0 20px #00FFFF;
+    }
+
+    50% {
+        text-shadow: 0 0 10px #FFD700, 0 0 20px #FFD700, 0 0 30px #FFD700;
+    }
+
+    100% {
+        text-shadow: 0 0 5px #00FFFF, 0 0 10px #00FFFF, 0 0 20px #00FFFF;
+    }
 }
 
-.konami-theme .title {
+.konami-theme .site-title {
     animation: neonGlow 1.5s infinite alternate;
 }
 
 .konami-theme .chat-message {
-    background-color: #ffcc00; /* Bright yellow for retro vibes */
-    color: #000; /* Black text for contrast */
+    background-color: #ffcc00;
+    /* Bright yellow for retro vibes */
+    color: #000;
+    /* Black text for contrast */
     font-weight: bold;
-    font-family: 'Press Start 2P', cursive; /* Arcade-style font */
+    font-family: 'Press Start 2P', cursive;
+    /* Arcade-style font */
     padding: 10px;
     border-radius: 8px;
-    border: 2px solid #ff5722; /* Konami orange */
+    border: 2px solid #ff5722;
+    /* Konami orange */
     box-shadow: 0px 0px 10px rgba(255, 87, 34, 0.8);
     animation: konami-glow 1s infinite alternate ease-in-out;
 }
@@ -753,6 +746,7 @@
     0% {
         box-shadow: 0px 0px 10px rgba(255, 87, 34, 0.8);
     }
+
     100% {
         box-shadow: 0px 0px 20px rgba(255, 255, 0, 1);
     }

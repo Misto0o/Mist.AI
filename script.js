@@ -305,6 +305,7 @@ async function sendMessage(userMessage = null) {
     }
 
     await handleUserMessage(userMessage);  // Call the offense tracking function
+    document.body.classList.add("hide-header");
 
     // If message contains code
     if (containsCode(userMessage)) {
@@ -951,25 +952,6 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 
-    document.getElementById("sidebarToggle").addEventListener("click", function () {
-        document.querySelector(".sidebar").classList.toggle("hidden");
-    });
-
-    document.getElementById("closeSidebar").addEventListener("click", function () {
-        document.querySelector(".sidebar").classList.add("hidden");
-    });
-
-
-    document.getElementById("sidebarToggle").addEventListener("click", function () {
-        // Toggle the 'show' class to control the sidebar visibility on mobile
-        document.querySelector(".sidebar").classList.toggle("show");
-    });
-
-    document.getElementById("closeSidebar").addEventListener("click", function () {
-        // Remove the 'show' class to hide the sidebar
-        document.querySelector(".sidebar").classList.remove("show");
-    });
-
     window.onload = function () {
         const popup = document.querySelector('.micCheck');
         const allowButton = document.getElementById('allowMicrophoneButton');
@@ -1120,6 +1102,21 @@ document.addEventListener("DOMContentLoaded", function () {
         // Auto-refresh the ReadMe content on page load or updates
         window.addEventListener('load', () => {
             loadReadMe();
+        });
+
+        // Get references to the necessary elements
+        const sidebar = document.querySelector('.sidebar');
+        const sidebarToggle = document.getElementById('sidebarToggle');
+        const closeSidebar = document.getElementById('closeSidebar');
+
+        // Toggle the sidebar visibility on button click
+        sidebarToggle.addEventListener('click', () => {
+            sidebar.classList.toggle('expanded');
+        });
+
+        // Close the sidebar when the close button is clicked
+        closeSidebar.addEventListener('click', () => {
+            sidebar.classList.remove('expanded');
         });
 
         // Optional: Resize handler for 3D stuff
