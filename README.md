@@ -77,5 +77,3 @@ Mist.AI is an advanced AI assistant powered by **Gemini AI**, **Command R AI**, 
 ---
 
 💡 Built by [Kristian](https://builtbykristian.netlify.app)
-## Small note
-**the css is still being worked on I will be done by tommorow**

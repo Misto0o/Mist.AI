@@ -221,35 +221,46 @@ body.hide-header .header {
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    justify-content: flex-start;
+    /* Align content to the top */
+    align-items: center;
+    /* Horizontally center content */
 }
 
-#chat-box {
-    flex: 1;
-    padding: 1rem;
-    max-width: 980px;
-    margin: 0 auto;
-    width: 100%;
-    height: 100%;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
+body.hide-header .main-container {
+    justify-content: flex-start;
+    /* Align content to the top when header is hidden */
 }
 
-/* When header is hidden */
 body.hide-header #chat-box {
-    position: absolute;
-    top: 85%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 100%;
-    max-width: 980px;
+    flex-grow: 1;
+    overflow-y: auto;
+    width: 85%;
+    max-width: 67rem;
     padding: 1rem;
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
-    align-items: center;
+    margin-top: -200px;
+    /* Move the chatbox way up */
+}
+
+#chat-box {
+    flex-grow: 1;
     overflow-y: auto;
+    width: 85%;
+    /* Make the chatbox narrower (adjust as needed) */
+    max-width: 100rem;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    margin-top: -200px;
+    /* Keep the upward movement */
+    max-height: calc(100vh - 80px);
+    /* Centering the chatbox horizontally */
+    margin-left: auto;
+    margin-right: auto;
 }
 
 .chat-box::-webkit-scrollbar {
@@ -785,18 +796,34 @@ body.hide-header #chat-box {
 }
 
 .modal-content {
-    background-color: #1e1e1e;
+    background-color: #2e2e2e;
+    /* Soft dark gray background */
     padding: 20px;
     border-radius: 8px;
     width: 80%;
     max-width: 800px;
     max-height: 80vh;
     overflow-y: auto;
+    color: white;
+}
+
+#readme-modal {
+    background-color: rgba(0, 0, 0, 0.7);
+    /* Semi-transparent black background for the overlay */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    position: fixed;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 999;
 }
 
 .close-btn {
     font-size: 30px;
-    color: white;
     cursor: pointer;
     position: absolute;
     top: 10px;
@@ -932,7 +959,7 @@ body.hide-header #chat-box {
         top: 1.5rem;
         left: 4.5rem;
     }
-    
+
     /* Modal styles */
     .readme-modal {
         padding: 10px;
