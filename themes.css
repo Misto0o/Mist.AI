@@ -352,7 +352,7 @@
 }
 
 .light-theme #micPopUp {
-    background-color: #ffffff !important;
+    background-color: black !important;
 }
 
 .blue-theme #micPopUp {
@@ -363,19 +363,19 @@
     background-color: #2563EB !important;
 }
 
-.cyber-theme #micPopUp {
+.cyberpunk-theme #micPopUp {
     background-color: #FF4081 !important;
 }
 
-.artic-theme #micPopUp {
+.arctic-theme #micPopUp {
     background-color: #64B5F6 !important;
 }
 
-.terminl-theme #micPopUp {
+.terminal-theme #micPopUp {
     background-color: #00FF41 !important;
 }
 
-.sunset-theme-theme #micPopUp {
+.sunset-theme #micPopUp {
     background-color: #FF8C42  !important;
 }
 

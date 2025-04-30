@@ -807,21 +807,6 @@ body.hide-header #chat-box {
     color: white;
 }
 
-#readme-modal {
-    background-color: rgba(0, 0, 0, 0.7);
-    /* Semi-transparent black background for the overlay */
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
-    position: fixed;
-    left: 0;
-    right: 0;
-    top: 0;
-    bottom: 0;
-    z-index: 999;
-}
-
 .close-btn {
     font-size: 30px;
     cursor: pointer;
