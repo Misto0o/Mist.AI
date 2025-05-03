@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mistai-cache-v25';  // Increment this on every deploy
+const CACHE_NAME = 'mistai-cache-v30';  // Increment on deploy
 
 const ASSETS_TO_CACHE = [
   '/',
@@ -6,6 +6,9 @@ const ASSETS_TO_CACHE = [
   '/styles.css',
   '/themes.css',
   '/script.js',
+  '/mistaifaviocn/favicon.ico',  // Corrected path
+  '/mistaifaviocn/favicon-32x32.png',  // Corrected path
+  '/mistaifaviocn/favicon-512x512.png',  // Corrected path
   '/mistaifaviocn/android-chrome-192x192.png',
   '/mistaifaviocn/android-chrome-512x512.png'
 ];
@@ -18,7 +21,7 @@ self.addEventListener('install', (event) => {
       return cache.addAll(ASSETS_TO_CACHE);
     })
   );
-  self.skipWaiting(); // Immediately activate new service worker
+  self.skipWaiting();  // Activate service worker immediately
 });
 
 // Activate event: clean up old caches
@@ -36,7 +39,7 @@ self.addEventListener('activate', (event) => {
       );
     })
   );
-  self.clients.claim(); // Start controlling any open pages
+  self.clients.claim();  // Claim all open pages
 });
 
 // Fetch event: serve from cache first, then network
@@ -55,7 +58,7 @@ self.addEventListener('fetch', (event) => {
         })
         .catch((error) => {
           console.warn('[Service Worker] Fetch failed:', event.request.url, error);
-          // Optional: you could return a fallback page or image here
+          // Optional: return a fallback page or image
         });
     })
   );

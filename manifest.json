@@ -8,13 +8,17 @@
   "theme_color": "#4CAF50",
   "icons": [
     {
-      "src": "/mistaifaviocn/android-chrome-192x192.png",
+      "src": "/mistaifaviocn/favicon.ico",
       "sizes": "192x192",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "/mistaifaviocn/favicon-32x32.png",
+      "sizes": "32x32",
       "type": "image/png"
     },
     {
-      "src": "/mistaifaviocn/android-chrome-512x512.png",
-      "sizes": "512x512",
+      "src": "/mistaifaviocn/favicon-512x512.png",
       "type": "image/png"
     }
   ]
