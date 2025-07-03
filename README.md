@@ -1,8 +1,8 @@
-# ☁️ Mist.AI – V6 (Beta)
+# ☁️ Mist.AI – V6(Mini)
 
 Mist.AI is an advanced AI assistant powered by **Gemini AI**, **Command R AI**, **Mistral AI**, and **OCR Vision**. In this latest update (V6 Beta), Mist.AI brings new features and improvements, including more intelligent AI responses, additional theme customizations, and a more intuitive user interface. However, the CSS and design are still in progress.
 
-🚀 **Current Version:** `V6 (Beta)`  
+🚀 **Current Version:** `V6(Mini)`  
 🌐 **Live Domain:** [https://mistai.org](https://mistai.org)  
 📱 **Mobile App / Progressive Web App (PWA)**  
 🧠 **Smarter AI – No Knowledge Cutoff**  
@@ -12,10 +12,10 @@ Mist.AI is an advanced AI assistant powered by **Gemini AI**, **Command R AI**, 
 
 ---
 
-## ✨ What's New in V6 (Beta)?
+## ✨ What's New in V6 (Mini)?
 
 ### 🖼️ **BRAND NEW CSS**
-- **Revamped UI**: EVERYTHING IS REVAMPED! SIDEBAR AND CHATS LOOK MORE LIKE GEMINI OR MORE MORDEN! 
+- **Revamped UI**: DID BRAND NEW CSS AND SEO WORK FOR MISTAI! Moved the Readme model into the sidebar! 
 - **Fixed JPG OCR Issue**: Resolved the issue where JPGs weren't always recognized by the OCR API.
 - **Improved Image-to-Text Flow**: Smoother process for image analysis with enhanced OCR capabilities.
 
@@ -23,18 +23,6 @@ Mist.AI is an advanced AI assistant powered by **Gemini AI**, **Command R AI**, 
 - **Canvas Conversion Method**: Images (e.g., JPG) are now converted into PNG before processing, improving OCR reliability.
 - **Fixed JPG OCR Issue**: Resolved the issue where JPGs weren't always recognized by the OCR API.
 - **Improved Image-to-Text Flow**: Smoother process for image analysis with enhanced OCR capabilities.
-
-### 🎤 **Wake Word Button Activation**
-- Wake word detection no longer starts automatically upon page load.
-- **Manual Toggle Button**: Users can manually enable the "Hey Mist" listening mode with a new button.
-
-### 🤖 **Mistral AI Integration**
-- **Mistral Small** model is now fully integrated, providing faster, more natural AI responses.
-- Enhanced responsiveness with the new model, delivering smoother and quicker answers.
-
-### 🧠 **Real-Time News Injection**
-- Mist.AI auto-injects **real-time news data** from **TheNewsAPI** directly into the chatbot's context, ensuring up-to-date information even when models are outdated.
-
 ---
 
 ## 📌 Features

@@ -5,7 +5,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-    <title>Mist.AI Chat</title>
+    <title>Mist.AI</title>
 
     <!-- Description for SEO -->
     <meta name="description"
@@ -16,7 +16,9 @@
     <meta property="og:image" content="images/mistai_imresizer.jpg" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-
+    <!-- Open Graph for link previews -->
+    <meta property="og:title" content="Mist.AI Chat - Smart chatbot at your fingertips." />
+    <meta property="og:type" content="website" />
 
     <!-- Canonical URL -->
     <link rel="canonical" href="https://mistai.org" />
@@ -24,13 +26,6 @@
     <!-- Favicon (Recommended sizes & formats) -->
     <link rel="icon" href="/mistaifaviocn/favicon.ico" type="image/x-icon" />
     <link rel="icon" href="mistaifaviocn/favicon-32x32.png" type="image/png" sizes="32x32" />
-
-    <!-- Open Graph for link previews -->
-    <meta property="og:title" content="Mist.AI Chat - Smart chatbot at your fingertips." />
-    <meta property="og:description"
-        content="Meet Mist.AI — the smart chatbot that answers, jokes, and helps, all in one sleek web app." />
-    <meta property="og:url" content="https://mistai.org" />
-    <meta property="og:type" content="website" />
 
     <!-- Google Analytics -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-GLT3T5YYE9"></script>
@@ -90,6 +85,10 @@
                         class="fas fa-code"></i></button>
                 <button class="sidebar-icon" onclick="showRandomPrompt()"><i class="fas fa-random"></i></button>
                 <button class="sidebar-icon" onclick="showFunFact()"><i class="fas fa-lightbulb"></i></button>
+                <!-- Help Button inside Sidebar -->
+                <button class="sidebar-icon" onclick="openReadmeModal()">
+                    <i class="fa-solid fa-circle-question"></i>
+                </button>
             </div>
 
             <!-- Menu Content (Hidden when collapsed) -->
@@ -98,6 +97,7 @@
                 <ul class="menu-list">
                     <li><a href="https://builtbykristian.netlify.app" target="_blank">About Me</a></li>
                     <li><a href="https://github.com/Misto0o/Mist.AI" target="_blank">My GitHub Code!</a></li>
+                    <li><a onclick="openReadmeModal()">Help / README</a></li>
                     <li><a onclick="showRandomPrompt()">Random Prompt</a></li>
                     <li><a onclick="showFunFact()">Fun Fact</a></li>
                 </ul>
@@ -178,17 +178,14 @@
         <button id="denyMicrophoneButton" class="deny">Deny</button>
     </div>
 
-    <!-- ? Button -->
-    <button id="help-btn" class="help-btn">
-        <i class="fa-solid fa-circle-question"></i>
-    </button>
-
+    <!-- README Modal (can stay globally positioned) -->
     <div id="readme-modal" class="modal">
         <div class="modal-content">
             <span id="close-btn" class="close-btn">&times;</span>
             <div id="readme-content"></div>
         </div>
     </div>
+
 
     <div class="theme-container">
         <label for="theme-select">Theme:</label>

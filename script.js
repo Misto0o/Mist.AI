@@ -477,7 +477,6 @@ function getWakeWordUrl(endpoint = "") {  // Default to empty string
     // Add the endpoint
     return basePath + endpoint;
 }
-
 function swapModel(selectElement) {
     const selectedValue = selectElement.value;
 
@@ -1069,52 +1068,56 @@ document.addEventListener("DOMContentLoaded", function () {
             console.log('🚫 Microphone access denied. Wake-word detection will not start.');
         });
 
-        // Get the modal, button, and close button
-        const helpBtn = document.getElementById('help-btn');
+        // Sidebar-triggered ReadMe modal setup
         const readmeModal = document.getElementById('readme-modal');
         const readmeContent = document.getElementById('readme-content');
         const closeBtn = document.getElementById('close-btn');
 
-        // Open the modal when the "?" button is clicked
-        helpBtn.onclick = function () {
+        // Function to open the modal (called from sidebar button)
+        function openReadmeModal() {
             readmeModal.style.display = 'flex';
             loadReadMe();
         }
+        
+        // 👇 Make it accessible to inline HTML
+        window.openReadmeModal = openReadmeModal;
 
-        // Close the modal when the close button is clicked
-        closeBtn.onclick = function () {
+        // Close modal when clicking X
+        closeBtn.onclick = () => {
             readmeModal.style.display = 'none';
-        }
+        };
 
-        // Load the ReadMe content from GitHub
+        // Close modal on background click
+        window.addEventListener('click', (event) => {
+            if (event.target === readmeModal) {
+                readmeModal.style.display = 'none';
+            }
+        });
+
+        // Load README from GitHub and convert to HTML
         function loadReadMe() {
-            fetch('https://raw.githubusercontent.com/Misto0o/Mist.AI/master/README.md')  // Direct link to raw README
+            fetch('https://raw.githubusercontent.com/Misto0o/Mist.AI/master/README.md')
                 .then(response => response.text())
                 .then(data => {
-                    const converter = new showdown.Converter(); // Create a new Showdown converter
-                    readmeContent.innerHTML = converter.makeHtml(data);  // Convert the markdown to HTML
+                    const converter = new showdown.Converter();
+                    readmeContent.innerHTML = converter.makeHtml(data);
                 })
                 .catch(error => {
                     readmeContent.innerHTML = '<p>Error loading ReadMe content.</p>';
                 });
         }
 
-        // Auto-refresh the ReadMe content on page load or updates
-        window.addEventListener('load', () => {
-            loadReadMe();
-        });
 
-        // Get references to the necessary elements
+
+        // Sidebar toggle behavior
         const sidebar = document.querySelector('.sidebar');
         const sidebarToggle = document.getElementById('sidebarToggle');
         const closeSidebar = document.getElementById('closeSidebar');
 
-        // Toggle the sidebar visibility on button click
         sidebarToggle.addEventListener('click', () => {
             sidebar.classList.toggle('expanded');
         });
 
-        // Close the sidebar when the close button is clicked
         closeSidebar.addEventListener('click', () => {
             sidebar.classList.remove('expanded');
         });
