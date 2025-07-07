@@ -19,9 +19,9 @@
     "service_worker": "content.js"
   },
     "icons": {
-      "16": "mistaifavicon/favicon-32x32.png",
-      "48": "mistaifavicon/favicon-192x192.png",
-      "128": "mistaifavicon/favicon-512x512.png"
+      "16": "mistaifaviocn/favicon-32x32.png",
+      "48": "mistaifaviocn/favicon-192x192.png",
+      "128": "mistaifaviocn/favicon-512x512.png"
     }
   }
   
