@@ -16,7 +16,7 @@
   "permissions": ["contextMenus", "tabs", "scripting"],
 
   "background": {
-    "service_worker": "context.js"
+    "service_worker": "content.js"
   },
     "icons": {
       "16": "mistaifavicon/favicon-32x32.png",
