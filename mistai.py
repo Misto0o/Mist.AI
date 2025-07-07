@@ -309,7 +309,6 @@ async def chat():
                 ai_status = False
 
             # If it's a browser GET (from popup.html or /chat?q=...), show the page
-            if "text/html" in request.accept_mimetypes:
                 return render_template("index.html", query=query)
 
             return jsonify(
