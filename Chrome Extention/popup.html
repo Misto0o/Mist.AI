@@ -1,27 +1,20 @@
 <!DOCTYPE html>
 <html>
-
 <head>
-    <title>Mist.AI</title>
-    <style>
-        body,
-        html {
-            margin: 0;
-            padding: 0;
-            height: 600px;
-            width: 400px;
-        }
-
-        iframe {
-            width: 100%;
-            height: 100%;
-            border: none;
-        }
-    </style>
+  <style>
+    /* Make iframe fill the popup nicely */
+    html, body {
+      margin: 0; padding: 0; width: 400px; height: 600px; /* or your popup size */
+      overflow: hidden;
+    }
+    iframe {
+      border: none;
+      width: 100%;
+      height: 100%;
+    }
+  </style>
 </head>
-
 <body>
-    <iframe src="https://mistai.org"></iframe>
+  <iframe src="https://mistai.org" id="mistai-frame" allow="clipboard-write"></iframe>
 </body>
-<script src="background.js"></script>
 </html>

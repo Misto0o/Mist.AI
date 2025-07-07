@@ -37,9 +37,9 @@ if (
 ):
     raise ValueError("Missing required API keys in environment variables.")
 
-app = Flask(__name__, template_folder='.')
-CORS(app)
+app = Flask(__name__, template_folder='Chrome Extention', static_folder='Chrome Extention')
 
+CORS(app)
 
 @app.route("/wakeword", methods=["POST"])
 def receive_speech():
@@ -308,18 +308,19 @@ async def chat():
             except asyncio.TimeoutError:
                 ai_status = False
 
-            # If it's a browser GET (from popup.html or /chat?q=...), show the page
-                return render_template("index.html", query=query)
+            # If a query parameter exists, render popup.html with the query
+            if query:
+                return render_template("popup.html", query=query)
 
+            # Otherwise, return a JSON status response
             return jsonify(
                 {
                     "status": (
                         "🟢 Mist.AI is awake!" if ai_status else "🔴 Mist.AI is OFFLINE"
                     )
-                },
-                (200 if ai_status else 503),
-            )
-
+                }
+            ), 200 if ai_status else 503
+            
         # 🖼️ File Upload Handling
         if "file" in request.files:
             file = request.files["file"]

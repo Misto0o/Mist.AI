@@ -293,6 +293,7 @@ function disableChat() {
 
 // Function to send messages
 async function sendMessage(userMessage = null) {
+    console.log("sendMessage is", typeof sendMessage);
     console.log("sendMessage called with:", userMessage);
     const userInput = document.getElementById("user-input");
     const messagesDiv = document.getElementById("chat-box");
@@ -360,22 +361,6 @@ async function sendMessage(userMessage = null) {
         canSendMessage = true;
     }, 1800);
 }
-
-window.addEventListener("DOMContentLoaded", () => {
-    const params = new URLSearchParams(window.location.search);
-    const query = params.get("q");
-  
-    if (query) {
-      const inputBox = document.getElementById("user-input");
-      inputBox.value = query;
-  
-      // Delay a bit if needed for DOM animation/stability
-      setTimeout(() => {
-        sendMessage(query); // ✅ this auto-displays and sends to backend
-      }, 50);
-    }
-  });
-  
 function appendMessage(content, className) {
     const messagesDiv = document.getElementById("chat-box");
     const messageElement = document.createElement("div");
@@ -401,6 +386,31 @@ function appendMessage(content, className) {
     gsap.fromTo(messageElement, { opacity: 0, y: className === "user-message" ? -10 : 10 }, { opacity: 1, y: 0, duration: 0.3 });
 }
 
+window.addEventListener("DOMContentLoaded", () => {
+    const params = new URLSearchParams(window.location.search);
+    const query = params.get("q");
+  
+    if (query) {
+      const inputBox = document.getElementById("user-input");
+  
+      const trySend = (tries = 15) => {
+        if (
+          typeof sendMessage === "function" &&
+          typeof canSendMessage !== "undefined" &&
+          canSendMessage &&
+          inputBox
+        ) {
+          inputBox.value = query;
+          sendMessage(query);
+        } else if (tries > 0) {
+          setTimeout(() => trySend(tries - 1), 300);
+        }
+      };
+  
+      trySend();
+    }
+  });
+  
 // Function to enable edit mode
 function enableEditMode(messageElement, originalContent) {
     // Create a textarea for editing
