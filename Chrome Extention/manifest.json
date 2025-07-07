@@ -1,28 +1,34 @@
 {
+  "manifest_version": 2,
   "name": "Mist.AI",
   "description": "Ask Mist.AI anything or right-click highlighted text to get help.",
   "version": "1.0",
-  "manifest_version": 3,
-
-  "action": {
-    "default_popup": "popup.html",
-    "default_icon": {
-      "16": "mistaifaviocn/favicon-32x32.png",
-      "48": "mistaifaviocn/favicon-192x192.png",
-      "128": "mistaifaviocn/favicon-512x512.png"
-    }
-  },
 
   "permissions": ["contextMenus", "tabs", "scripting"],
 
   "background": {
-    "service_worker": "content.js"
+    "scripts": ["background.js"],
+    "persistent": false
   },
-    "icons": {
+
+  "browser_action": {
+    "default_popup": "popup.html",
+    "default_icon": {
       "16": "mistaifaviocn/favicon-16x16.png",
       "32": "mistaifaviocn/favicon-32x32.png",
-      "192": "mistaifaviocn/android-chrome-192x192.png",
-      "512": "mistaifaviocn/favicon-512x512.png"
+      "192": "mistaifaviocn/android-chrome-192x192.png"
+    }
+  },
+
+  "icons": {
+    "16": "mistaifaviocn/favicon-16x16.png",
+    "32": "mistaifaviocn/favicon-32x32.png",
+    "192": "mistaifaviocn/android-chrome-192x192.png"
+  },
+
+  "applications": {
+    "gecko": {
+      "id": "crystal.cook07@gmail.com"
     }
   }
-  
+}
