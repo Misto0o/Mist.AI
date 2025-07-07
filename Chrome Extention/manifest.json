@@ -1,17 +1,12 @@
 {
-  "manifest_version": 2,
+  "manifest_version": 3,
   "name": "Mist.AI",
   "description": "Ask Mist.AI anything or right-click highlighted text to get help.",
   "version": "1.0",
 
   "permissions": ["contextMenus", "tabs", "scripting"],
 
-  "background": {
-    "scripts": ["background.js"],
-    "persistent": false
-  },
-
-  "browser_action": {
+  "action": {
     "default_popup": "popup.html",
     "default_icon": {
       "16": "mistaifaviocn/favicon-16x16.png",
@@ -20,15 +15,24 @@
     }
   },
 
+  "background": {
+    "service_worker": "background.js"
+  },
+
   "icons": {
     "16": "mistaifaviocn/favicon-16x16.png",
     "32": "mistaifaviocn/favicon-32x32.png",
     "192": "mistaifaviocn/android-chrome-192x192.png"
   },
 
-  "applications": {
+  "host_permissions": [
+    "https://mistai.org/*"
+  ],
+
+  "browser_specific_settings": {
     "gecko": {
-      "id": "crystal.cook07@gmail.com"
+      "id": "mistai@builtbykristian",
+      "strict_min_version": "109.0"
     }
   }
 }
