@@ -1,66 +1,100 @@
-# ☁️ Mist.AI – V6(Mini)
+# ☁️ Mist.AI – V6.5 (Mini)
 
-Mist.AI is an advanced AI assistant powered by **Gemini AI**, **Command R AI**, **Mistral AI**, and **OCR Vision**. In this latest update (V6 Beta), Mist.AI brings new features and improvements, including more intelligent AI responses, additional theme customizations, and a more intuitive user interface. However, the CSS and design are still in progress.
+Mist.AI is an advanced AI assistant powered by **Gemini AI**, **Command R AI**, **Mistral AI**, and **OCR Vision**. In this latest update (`V6.5 Mini`), Mist.AI brings faster, smarter, and smoother AI experiences, improved theme customization, updated UI with new CSS, and better performance across devices.
 
-🚀 **Current Version:** `V6(Mini)`  
-🌐 **Live Domain:** [https://mistai.org](https://mistai.org)  
-📱 **Mobile App / Progressive Web App (PWA)**  
-🧠 **Smarter AI – No Knowledge Cutoff**  
-🎤 **Wake Word Detection: "Hey Mist"**  
-📈 **SEO Optimizations**  
-⚡ **Improved Cache & Performance**  
+> ⚠️ The design is still a work in progress — but it's evolving fast.
 
 ---
 
-## ✨ What's New in V6 (Mini)?
+🚀 **Current Version:** `V6.5 (Mini)`  
+🌐 **Live Domain:** [https://mistai.org](https://mistai.org)  
+📱 **Mobile App / Progressive Web App (PWA)**  
+🧠 **Smarter AI – No Knowledge Cutoff**  
+🎤 **Wake Word Detection: "Hey Mist"`**  
+🧩 **Now Available as a Chrome/Firefox Extension!**  
+📈 **SEO Optimizations**  
+⚡ **Improved Cache & Performance**
 
-### 🖼️ **BRAND NEW CSS**
-- **Revamped UI**: DID BRAND NEW CSS AND SEO WORK FOR MISTAI! Moved the Readme model into the sidebar! 
-- **Fixed JPG OCR Issue**: Resolved the issue where JPGs weren't always recognized by the OCR API.
-- **Improved Image-to-Text Flow**: Smoother process for image analysis with enhanced OCR capabilities.
+---
 
-### 🖼️ **Enhanced Image Processing**
-- **Canvas Conversion Method**: Images (e.g., JPG) are now converted into PNG before processing, improving OCR reliability.
-- **Fixed JPG OCR Issue**: Resolved the issue where JPGs weren't always recognized by the OCR API.
-- **Improved Image-to-Text Flow**: Smoother process for image analysis with enhanced OCR capabilities.
+## ✨ What's New in V6.5 (Mini)
+
+### 🧩 **Chrome/Firefox Extension Support**
+- 🚀 **Mist.AI Browser Extension** – Now available as a browser extension for Chrome and Firefox!
+- 📌 **Instant Access** – Use Mist.AI from your toolbar without opening the full site.
+- 🔧 **Query Injection** – Automatically pre-fills and sends questions via the extension.
+- 📁 **Lightweight & Fast** – No bloat. Fast communication with the backend.
+
+### 🖼️ **UI + CSS Overhaul**
+- ✅ **Fully Revamped CSS** – Major styling improvements across the entire app.
+- 🧭 **Moved ReadMe to Sidebar** – Always up-to-date, now in an easier-to-access panel.
+
+### 🔍 **Improved Image OCR & File Handling**
+- 🧠 **JPG OCR Fix** – Solved recognition issues with JPG files.
+- 🖼️ **Canvas-to-PNG Method** – Converts images to PNG before OCR for higher accuracy.
+- ⚙️ **Faster Upload Flow** – More reliable processing and text extraction.
+- 🧪 **Early Prep for Image Recognition** – Foundation laid for recognizing faces/objects.
+
 ---
 
 ## 📌 Features
 
+✔ **Now Available as a Chrome/Firefox Extension** – Access Mist.AI instantly from your browser toolbar  
 ✔ **Powered by Gemini AI, Command R AI, & Mistral AI**  
 ✔ **No Knowledge Cutoff** – Real-time news injected into AI context  
-✔ **Customizable Themes** – 8 themes, with more in development (including secret modes)  
-✔ **Wake Word Detection** – "Hey Mist" now has manual activation  
+✔ **Customizable Themes** – 8 themes, including secret ones  
+✔ **Wake Word Detection** – "Hey Mist" and manual triggers  
 ✔ **Real-Time Weather Updates** – Ask for local weather anytime  
-✔ **Easter Eggs & Hidden Responses** – Fun surprises for users  
-✔ **Mobile Optimized** – Smooth experience across all devices  
-✔ **Session-Based Memory** – Mist.AI remembers chats during your session  
-✔ **Chat Cooldown** – Prevents spamming while AI is typing  
-✔ **File Upload Support** – Upload PDFs, DOCX, TXT, JSON, and images  
-✔ **Real-Time News Fetching** – Say `Any News Headlines?` or ask directly  
+✔ **Easter Eggs & Hidden Responses** – Fun surprises  
+✔ **Mobile Optimized** – Works beautifully on all screen sizes  
+✔ **Session Memory** – Remembers your chat in-session  
+✔ **Chat Cooldown** – Prevents spam while AI types  
+✔ **File Upload Support** – PDF, DOCX, TXT, JSON, and image analysis  
+✔ **Live News Fetching** – Just ask “Any news headlines?”  
 ✔ **Slash Commands (`/`) Support**  
    - `/flipcoin` – Flip a coin  
    - `/rps` – Rock, Paper, Scissors  
    - `/joke` – Random joke  
    - `/riddle` – Random riddle  
-   - `/weather` – Get local weather (e.g., `/weather Tokyo`)  
-   - `News` – Instantly fetch latest headlines  
-✔ **CodeMirror Support** – AI-generated code styled like VS Code  
-✔ **IP Ban System** – Protects the platform from abuse  
-✔ **Improved Sidebar** – Custom themes, better nav  
-✔ **Offline Mode** – Use Mist.AI even without internet  
+   - `/weather <city>` – Local weather  
+   - `News` – Latest headlines on demand  
+✔ **CodeMirror Support** – AI-generated code with VS Code-style syntax  
+✔ **IP Ban System** – Blocks abuse and protects your bot  
+✔ **Improved Sidebar** – Easy nav, custom themes  
+✔ **Offline Mode** – Use Mist.AI without an internet connection
+
+---
+
+## 🧩 How to Install the Mist.AI Extension
+
+### Chrome / Firefox Extension Steps:
+
+1. Go to the extension page (Coming Soon to Chrome & Firefox Add-ons stores).
+2. Click **"Add to Chrome"** or **"Add to Firefox"**.
+3. Once installed, pin it to your browser bar for easy access.
+4. Click the icon and start chatting instantly with Mist.AI!
+
+> ⚠️ Temporary Install Instructions (if not published yet):
+> - Clone/download the repo
+> - Go to `chrome://extensions/` (Chrome) or `about:debugging` (Firefox)
+> - Enable "Developer Mode"
+> - Click **"Load unpacked"** or **"Load Temporary Add-on"**
+> - Select the folder with your extension files
+> - You're in!
 
 ---
 
 ## 🌐 Live Preview  
-🔗 **[Mist.AI Website](https://mistai.org)**  
+🔗 **[mistai.org](https://mistai.org)**  
 
-## 🛠️ Future Plans  
-- 🎨 **More Themes** – With animations and user-selectable styles  
-- 🤖 **Chrome Extension** – Use Mist.AI through a Chrome extension  
-- ⌨️ **More Slash Commands** – Expand `/` features even further  
-- 🕵️‍♂️ **Secret Features** – Hidden gems for users to discover  
-- 📐 **Enhanced Design** – Even cleaner UI, transitions, and animations  
+---
+
+## 🛠️ Future Plans
+
+- 🎨 **More Themes** – With animations, glassmorphism, and user styles  
+- ⌨️ **Expanded Slash Commands** – More utilities and fun commands  
+- 🕵️‍♂️ **Secret Features** – Easter eggs and hidden interactions  
+- 📸 **Image Recognition Coming Soon!** – Detect people, objects, and environments (Face++, Hugging Face, and more…)
 
 ---
 

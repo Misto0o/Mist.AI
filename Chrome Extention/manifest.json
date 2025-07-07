@@ -1,0 +1,27 @@
+{
+  "name": "Mist.AI",
+  "description": "Ask Mist.AI anything or right-click highlighted text to get help.",
+  "version": "1.0",
+  "manifest_version": 3,
+
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "mistaifavicon/favicon-32x32.png",
+      "48": "mistaifavicon/favicon-192x192.png",
+      "128": "mistaifavicon/favicon-512x512.png"
+    }
+  },
+
+  "permissions": ["contextMenus", "tabs", "scripting"],
+
+  "background": {
+    "service_worker": "context.js"
+  },
+    "icons": {
+      "16": "mistaifavicon/favicon-32x32.png",
+      "48": "mistaifavicon/favicon-192x192.png",
+      "128": "mistaifavicon/favicon-512x512.png"
+    }
+  }
+  

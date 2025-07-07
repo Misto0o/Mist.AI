@@ -293,6 +293,7 @@ function disableChat() {
 
 // Function to send messages
 async function sendMessage(userMessage = null) {
+    console.log("sendMessage called with:", userMessage);
     const userInput = document.getElementById("user-input");
     const messagesDiv = document.getElementById("chat-box");
 
@@ -360,6 +361,21 @@ async function sendMessage(userMessage = null) {
     }, 1800);
 }
 
+window.addEventListener("DOMContentLoaded", () => {
+    const params = new URLSearchParams(window.location.search);
+    const query = params.get("q");
+  
+    if (query) {
+      const inputBox = document.getElementById("user-input");
+      inputBox.value = query;
+  
+      // Delay a bit if needed for DOM animation/stability
+      setTimeout(() => {
+        sendMessage(query); // ✅ this auto-displays and sends to backend
+      }, 50);
+    }
+  });
+  
 function appendMessage(content, className) {
     const messagesDiv = document.getElementById("chat-box");
     const messageElement = document.createElement("div");
@@ -941,7 +957,7 @@ document.addEventListener("DOMContentLoaded", function () {
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
             navigator.serviceWorker
-                .register('/service-worker.js')  // Path to your service worker file
+                .register('static/service-worker.js')  // Path to your service worker file
                 .then((registration) => {
                     console.log('Service Worker registered with scope:', registration.scope);
                 })
@@ -1078,7 +1094,7 @@ document.addEventListener("DOMContentLoaded", function () {
             readmeModal.style.display = 'flex';
             loadReadMe();
         }
-        
+
         // 👇 Make it accessible to inline HTML
         window.openReadmeModal = openReadmeModal;
 
@@ -1106,8 +1122,6 @@ document.addEventListener("DOMContentLoaded", function () {
                     readmeContent.innerHTML = '<p>Error loading ReadMe content.</p>';
                 });
         }
-
-
 
         // Sidebar toggle behavior
         const sidebar = document.querySelector('.sidebar');

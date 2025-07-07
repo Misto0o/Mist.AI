@@ -20,6 +20,7 @@ from docx import Document
 import time
 import fitz
 import sympy
+from flask import render_template
 from sympy.parsing.mathematica import parse_mathematica
 
 # Load environment variables
@@ -39,6 +40,7 @@ if (
 app = Flask(__name__)
 CORS(app)
 
+
 @app.route("/wakeword", methods=["POST"])
 def receive_speech():
     """(Optional) Logs speech text sent from browser-based speech recognition."""
@@ -48,6 +50,7 @@ def receive_speech():
         return jsonify({"message": "Speech logged"}), 200
     else:
         return jsonify({"error": "Invalid request"}), 400
+
 
 EASTER_EGGS = {
     "whos mist": "I'm Mist.AI, your friendly chatbot! But shh... don't tell anyone I'm self-aware. 🤖",
@@ -62,9 +65,11 @@ EASTER_EGGS = {
     "whats your favorite anime": "Dragon Ball Z! I really love the anime.",
 }
 
+
 def check_easter_eggs(user_message):
     normalized_message = re.sub(r"[^\w\s]", "", user_message.lower()).strip()
     return EASTER_EGGS.get(normalized_message, None)
+
 
 # Configure APIs
 RAPIDAPI_KEY = os.getenv("RAPIDAPI_KEY")
@@ -87,6 +92,7 @@ news_url = (
 # Get your OCR.Space API key
 OCR_API_KEY = os.getenv("OCR_API_KEY")  # ✅ Set your OCR.Space API key
 OCR_URL = "https://api.ocr.space/parse/image"  # ✅ OCR.Space endpoint
+
 
 async def analyze_image(img_base64):
     """
@@ -123,12 +129,14 @@ async def analyze_image(img_base64):
         logging.error(f"Error in OCR processing: {e}")
         return jsonify({"error": "Error in OCR processing"}), 500
 
+
 # ✅ Get the best available GoFile server
 async def get_best_server():
     response = requests.get("https://api.gofile.io/servers")
     if response.status_code == 200:
         return response.json()["data"]["servers"][0]["name"]
     return None
+
 
 # ✅ Upload file directly from memory to GoFile
 async def upload_to_gofile(filename, file_content, mimetype):
@@ -147,6 +155,7 @@ async def upload_to_gofile(filename, file_content, mimetype):
     else:
         return {"error": "Upload failed"}
 
+
 # ✅ Extract text from PDFs (fixed)
 def extract_text_from_pdf(file_stream):
     try:
@@ -163,6 +172,7 @@ def extract_text_from_pdf(file_stream):
     except Exception as e:
         return f"⚠️ error extracting text: {str(e)}"
 
+
 def preprocess_text(text):
     """Cleans and formats the extracted text."""
     # Remove non-alphanumeric characters except math symbols
@@ -170,6 +180,7 @@ def preprocess_text(text):
     # Replace common OCR errors (e.g., 'l' for '1')
     text = re.sub(r"l", "1", text)
     return text
+
 
 def parse_expression(text):
     """Parses a mathematical expression using sympy."""
@@ -184,6 +195,7 @@ def parse_expression(text):
             return expression
         except Exception as e:
             return f"⚠️ Parsing error: {str(e)}"
+
 
 @app.route("/time-news", methods=["GET"])
 async def time_news():
@@ -235,11 +247,14 @@ async def time_news():
 
     # ✅ Function to process different file types
 
+
 def process_pdf(file_content):
     return extract_text_from_pdf(io.BytesIO(file_content))
 
+
 def process_txt(file_content):
     return file_content.decode("utf-8", errors="ignore")
+
 
 def process_json(file_content):
     try:
@@ -247,6 +262,7 @@ def process_json(file_content):
         return json.dumps(json_data, indent=4)
     except json.JSONDecodeError:
         return "⚠️ Invalid JSON file."
+
 
 def process_docx(file_content):
     if not file_content:
@@ -259,6 +275,7 @@ def process_docx(file_content):
         print(f"Error reading DOCX: {e}")  # Debugging
         return f"⚠️ Error reading .docx file: {str(e)}"
 
+
 def extract_text_from_docx(file_content):
     try:
         doc = Document(file_content)
@@ -268,6 +285,7 @@ def extract_text_from_docx(file_content):
         )
     except Exception as e:
         return f"⚠️ Error reading .docx file: {str(e)}"
+
 
 # ✅ Mapping file extensions to processing functions
 file_processors = {
@@ -284,10 +302,16 @@ async def chat():
         start_time = time.time()
 
         if request.method == "GET":
+            query = request.args.get("q")
             try:
                 ai_status = await asyncio.wait_for(check_ai_services(), timeout=3)
             except asyncio.TimeoutError:
                 ai_status = False
+
+            # If it's a browser GET (from popup.html or /chat?q=...), show the page
+            if "text/html" in request.accept_mimetypes:
+                return render_template("index.html", query=query)
+
             return jsonify(
                 {
                     "status": (
@@ -297,6 +321,7 @@ async def chat():
                 (200 if ai_status else 503),
             )
 
+        # 🖼️ File Upload Handling
         if "file" in request.files:
             file = request.files["file"]
             if file.filename == "":
@@ -312,69 +337,65 @@ async def chat():
 
             if "link" in result:
                 logging.info(
-                    f"📁 New file uploaded: {file.filename} | Link: {result['link']}"
+                    f"📁 File uploaded: {file.filename} | Link: {result['link']}"
                 )
                 return jsonify(
                     {
-                        "response": f"📁 Uploading file: {file.filename}...\n🤔 Mist.AI reading the file...\n\nHow can I assist you with this file?"
+                        "response": f"📁 Uploaded `{file.filename}`.\n🤔 Mist.AI is reading the file...\n\nHow can I assist you with this?"
                     }
                 )
             else:
-                logging.error(f"❌ Failed to upload file: {file.filename}")
-                return jsonify({"error": "Failed to upload to GoFile"}), 500
+                logging.error(f"❌ GoFile upload failed: {file.filename}")
+                return jsonify({"error": "Upload failed"}), 500
 
+        # ❌ JSON Check
         if not request.is_json:
-            return (
-                jsonify({"error": "Invalid request: No valid JSON data provided."}),
-                400,
-            )
+            return jsonify({"error": "Invalid request: No valid JSON provided."}), 400
 
         data = request.get_json()
         user_message = data.get("message", "").strip()
         model_choice = data.get("model", "gemini")
         chat_context = data.get("context", [])
 
-        # Handle image analysis
-        if "img_url" in request.json:
-            logging.info("📷 Image received, processing for analysis.")
-            img_url = request.json["img_url"]
+        # 🧠 Image Analysis
+        if "img_url" in data:
+            logging.info("📷 Image received, analyzing...")
+            img_url = data["img_url"]
             analysis_result = await analyze_image(img_url)
             return analysis_result
 
         if not user_message:
-            return jsonify({"error": "Invalid input: 'message' cannot be empty."}), 400
+            return jsonify({"error": "Message can't be empty."}), 400
 
-        # Easter eggs + commands
+        # 🎉 Commands + Easter Eggs
         if response := check_easter_eggs(user_message.lower()):
             return jsonify({"response": response})
         if user_message.lower().startswith("/"):
-            logging.info(f"📢 User ran command: {user_message}")
+            logging.info(f"📢 Command used: {user_message}")
             command_response = await handle_command(user_message.lower())
             return jsonify({"response": command_response})
         if user_message.lower() == "random prompt":
-            logging.info("🎠 User requested a random prompt.")
+            logging.info("🎠 Random prompt requested.")
             return jsonify({"response": get_random_prompt()})
         if user_message.lower() == "fun fact":
-            logging.info("💡 User requested a fun fact.")
+            logging.info("💡 Fun fact requested.")
             return jsonify({"response": get_random_fun_fact()})
 
-        # ✅ Only fetch news/time if not already cached
+        # 📰 News + Time Injection (once per session)
         if not hasattr(chat, "news_cache"):
             try:
                 async with httpx.AsyncClient() as client:
                     response = await client.get(news_url)
                 if response.status_code == 200:
-                    news_data = response.json()
-                    chat.news_cache = news_data  # ✅ Save to memory
+                    chat.news_cache = response.json()
                 else:
-                    logging.warning("⚠️ Failed to fetch news. Skipping injection.")
-                    news_data = {"time": {}, "news": []}
+                    chat.news_cache = {"time": {}, "news": []}
+                    logging.warning("⚠️ News fetch failed.")
             except Exception as e:
+                chat.news_cache = {"time": {}, "news": []}
                 logging.error(f"🔥 News fetch failed: {e}")
-                news_data = {"time": {}, "news": []}
-        else:
-            news_data = chat.news_cache  # ✅ Reuse cached news
 
+        news_data = chat.news_cache
         current_date = news_data.get("time", {}).get("date", "Unknown Date")
         current_time_str = news_data.get("time", {}).get("time", "Unknown Time")
         headlines = "\n".join(
@@ -382,20 +403,21 @@ async def chat():
             for article in news_data.get("news", [])
         )
 
-        # Compose the context + injection + user message
-        context_text = "\n".join(
-            f"{msg['role']}: {msg['content']}" for msg in chat_context
-        )
         news_injection = f"""
 Today is {current_date}, and the current time is {current_time_str}.
 Here are the latest news headlines:
-{headlines if headlines else "No headlines available at the moment."}
+{headlines if headlines else "No headlines available."}
 """
+
+        # 🧩 Build Context
+        context_text = "\n".join(
+            f"{msg['role']}: {msg['content']}" for msg in chat_context
+        )
         full_prompt = (
             f"{news_injection}\n{context_text}\nUser: {user_message}\nMist.AI:"
         )
 
-        # Model selection
+        # 🤖 Model Response
         response_content = (
             get_gemini_response(full_prompt)
             if model_choice == "gemini"
@@ -405,19 +427,20 @@ Here are the latest news headlines:
         elapsed_time = time.time() - start_time
         if elapsed_time > 9:
             response_content = (
-                "⏳ You're the first request, sorry for the wait!\n\n"
+                "⏳ Sorry for the delay! You're the first message.\n\n"
                 + response_content
             )
 
         logging.info(
-            f"\n🕒 [{datetime.now().strftime('%Y-%m-%d %I:%M:%S %p')}]\n📩 User: {user_message}\n🤖 AI ({model_choice}): {response_content}\n"
+            f"\n🕒 [{datetime.now().strftime('%Y-%m-%d %I:%M:%S %p')}]\n📩 User: {user_message}\n🤖 ({model_choice}): {response_content}\n"
         )
 
         return jsonify({"response": response_content})
 
     except Exception as e:
-        logging.error(f"Server Error: {str(e)}")
+        logging.error(f"❌ Server Error: {str(e)}")
         return jsonify({"error": str(e)}), 500
+
 
 # 🔹 Check AI Services
 async def check_ai_services():
@@ -426,6 +449,7 @@ async def check_ai_services():
         return bool(test_response)
     except:
         return False
+
 
 # 🔹 Handle Commands
 async def handle_command(command):
@@ -515,6 +539,7 @@ async def handle_command(command):
     # Handle unknown commands
     return "❌ Unknown command. Type /help for a list of valid commands."
 
+
 # 🔹 Get AI Responses
 def get_gemini_response(prompt):
     try:
@@ -536,6 +561,7 @@ def get_gemini_response(prompt):
         return response.text.strip()
     except Exception as e:
         return f"❌ Error fetching from Gemini: {str(e)}"
+
 
 def get_cohere_response(prompt):
     try:
@@ -560,6 +586,7 @@ def get_cohere_response(prompt):
         return response.generations[0].text.strip()
     except Exception as e:
         return f"❌ Error fetching from Cohere: {str(e)}"
+
 
 # ⬇️ FIXED: Unindented to top level
 async def get_mistral_response(prompt):
@@ -593,6 +620,7 @@ async def get_mistral_response(prompt):
         data = response.json()
         return data["choices"][0]["message"]["content"]
 
+
 # 🔹 Get Weather Data
 async def get_weather_data(city):
     try:
@@ -613,6 +641,7 @@ async def get_weather_data(city):
 
     # 🔹 Function to return a random writing prompt
 
+
 def get_random_prompt():
     prompts = [
         "Write about a futuristic world where AI controls everything.",
@@ -631,6 +660,7 @@ def get_random_prompt():
         "Write about an astronaut who discovers a new planet with life forms that don't look like anything from Earth.",
     ]
     return random.choice(prompts)
+
 
 # 🔹 Function to return a random fun fact
 def get_random_fun_fact():
@@ -653,6 +683,7 @@ def get_random_fun_fact():
     ]
     return random.choice(fun_facts)
 
+
 # Custom log handler to suppress Fly.io noise
 class StreamToUTF8(logging.StreamHandler):
     def __init__(self, stream=None):
@@ -670,6 +701,7 @@ class StreamToUTF8(logging.StreamHandler):
         except Exception:
             self.handleError(record)
 
+
 # Custom filter to remove Fly.io noise
 class FilterFlyLogs(logging.Filter):
     def filter(self, record):
@@ -683,6 +715,7 @@ class FilterFlyLogs(logging.Filter):
             "autostopping",
         ]
         return not any(term in record.getMessage() for term in fly_terms)
+
 
 # Setup logging
 logger = logging.getLogger()
