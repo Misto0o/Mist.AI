@@ -37,7 +37,7 @@ if (
 ):
     raise ValueError("Missing required API keys in environment variables.")
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder='.')
 CORS(app)
 
 
