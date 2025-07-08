@@ -404,7 +404,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
                 if (!isDraft && canSendMessage) {
                     sendMessage(query);
-                    userInput.value = ''; // Clear input field
+                    inputBox.value = ''; // ✅ clear input box properly
                 }
 
             } else if (tries > 0) {
