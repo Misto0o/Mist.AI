@@ -1,16 +1,16 @@
 # ☁️ Mist.AI – V6.5 (Mini)
 
-Mist.AI is an advanced AI assistant powered by **Gemini AI**, **Command R AI**, **Mistral AI**, and **OCR Vision**. In this latest update (`V6.5 Mini`), Mist.AI brings faster, smarter, and smoother AI experiences, improved theme customization, updated UI with new CSS, and better performance across devices.
+Mist.AI is an advanced AI assistant powered by **Gemini AI**, **Command R AI**, **Mistral AI**, and **OCR Vision**. In this latest update (V6.5 Mini), Mist.AI brings faster, smarter, and smoother AI experiences, improved theme customization, updated UI with new CSS, and better performance across devices.
 
 > ⚠️ The design is still a work in progress — but it's evolving fast.
 
 ---
 
-🚀 **Current Version:** `V6.5 (Mini)`  
+🚀 **Current Version:** V6.5 (Mini)  
 🌐 **Live Domain:** [https://mistai.org](https://mistai.org)  
 📱 **Mobile App / Progressive Web App (PWA)**  
 🧠 **Smarter AI – No Knowledge Cutoff**  
-🎤 **Wake Word Detection: "Hey Mist"`**  
+🎤 **Wake Word Detection: "Hey Mist"**  
 🧩 **Now Available as a Chrome/Firefox Extension!**  
 📈 **SEO Optimizations**  
 ⚡ **Improved Cache & Performance**
@@ -19,11 +19,23 @@ Mist.AI is an advanced AI assistant powered by **Gemini AI**, **Command R AI**, 
 
 ## ✨ What's New in V6.5 (Mini)
 
-### 🧩 **Chrome/Firefox Extension Support**
-- 🚀 **Mist.AI Browser Extension** – Now available as a browser extension for Chrome and Firefox!
-- 📌 **Instant Access** – Use Mist.AI from your toolbar without opening the full site.
-- 🔧 **Query Injection** – Automatically pre-fills and sends questions via the extension.
-- 📁 **Lightweight & Fast** – No bloat. Fast communication with the backend.
+## 🧩 Browser Extension (NEW!)
+
+Mist.AI is now available as a **Chrome & Firefox extension**!  
+You can now get quick AI help from any webpage using right-click features or the toolbar popup.
+
+### 🔹 Key Features:
+- ✅ **Right-click integration** — Highlight text and choose from smart actions:
+  - **Explain**
+  - **Summarize**
+  - **Rephrase**
+  - **Translate**
+  - **Ask manually**
+- ⚡ **Instant response injection** — Mist.AI will automatically respond, or preload the input for custom questions
+- 🧠 **No page reload needed** — Loads Mist.AI with prefilled query
+- 🧩 **Works on both Chrome & Firefox** — V3 support for Chrome, V2 fallback for Firefox
+
+---
 
 ### 🖼️ **UI + CSS Overhaul**
 - ✅ **Fully Revamped CSS** – Major styling improvements across the entire app.
@@ -51,13 +63,13 @@ Mist.AI is an advanced AI assistant powered by **Gemini AI**, **Command R AI**, 
 ✔ **Chat Cooldown** – Prevents spam while AI types  
 ✔ **File Upload Support** – PDF, DOCX, TXT, JSON, and image analysis  
 ✔ **Live News Fetching** – Just ask “Any news headlines?”  
-✔ **Slash Commands (`/`) Support**  
-   - `/flipcoin` – Flip a coin  
-   - `/rps` – Rock, Paper, Scissors  
-   - `/joke` – Random joke  
-   - `/riddle` – Random riddle  
-   - `/weather <city>` – Local weather  
-   - `News` – Latest headlines on demand  
+✔ **Slash Commands (/) Support**  
+   - /flipcoin – Flip a coin  
+   - /rps – Rock, Paper, Scissors  
+   - /joke – Random joke  
+   - /riddle – Random riddle  
+   - /weather <city> – Local weather  
+   - News – Latest headlines on demand  
 ✔ **CodeMirror Support** – AI-generated code with VS Code-style syntax  
 ✔ **IP Ban System** – Blocks abuse and protects your bot  
 ✔ **Improved Sidebar** – Easy nav, custom themes  
@@ -76,7 +88,7 @@ Mist.AI is an advanced AI assistant powered by **Gemini AI**, **Command R AI**, 
 
 > ⚠️ Temporary Install Instructions (if not published yet):
 > - Clone/download the repo
-> - Go to `chrome://extensions/` (Chrome) or `about:debugging` (Firefox)
+> - Go to chrome://extensions/ (Chrome) or about:debugging (Firefox)
 > - Enable "Developer Mode"
 > - Click **"Load unpacked"** or **"Load Temporary Add-on"**
 > - Select the folder with your extension files
@@ -90,7 +102,6 @@ Mist.AI is an advanced AI assistant powered by **Gemini AI**, **Command R AI**, 
 ---
 
 ## 🛠️ Future Plans
-
 - 🎨 **More Themes** – With animations, glassmorphism, and user styles  
 - ⌨️ **Expanded Slash Commands** – More utilities and fun commands  
 - 🕵️‍♂️ **Secret Features** – Easter eggs and hidden interactions  

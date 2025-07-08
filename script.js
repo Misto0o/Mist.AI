@@ -389,28 +389,34 @@ function appendMessage(content, className) {
 window.addEventListener("DOMContentLoaded", () => {
     const params = new URLSearchParams(window.location.search);
     const query = params.get("q");
-  
+    const isDraft = params.get("draft") === "true";
+
     if (query) {
-      const inputBox = document.getElementById("user-input");
-  
-      const trySend = (tries = 15) => {
-        if (
-          typeof sendMessage === "function" &&
-          typeof canSendMessage !== "undefined" &&
-          canSendMessage &&
-          inputBox
-        ) {
-          inputBox.value = query;
-          sendMessage(query);
-        } else if (tries > 0) {
-          setTimeout(() => trySend(tries - 1), 300);
-        }
-      };
-  
-      trySend();
+        const inputBox = document.getElementById("user-input");
+
+        const trySend = (tries = 15) => {
+            if (
+                typeof sendMessage === "function" &&
+                typeof canSendMessage !== "undefined" &&
+                inputBox
+            ) {
+                inputBox.value = query;
+
+                if (!isDraft && canSendMessage) {
+                    sendMessage(query);
+                    userInput.value = ''; // Clear input field
+                }
+
+            } else if (tries > 0) {
+                setTimeout(() => trySend(tries - 1), 300);
+            }
+        };
+
+        trySend();
     }
-  });
-  
+});
+
+
 // Function to enable edit mode
 function enableEditMode(messageElement, originalContent) {
     // Create a textarea for editing
