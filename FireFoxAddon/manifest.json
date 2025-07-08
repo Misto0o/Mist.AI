@@ -15,7 +15,7 @@
     "persistent": true
   },
   "browser_action": {
-    "default_popup": "popup.html",
+    "default_popup": "popFire.html",
     "default_icon": {
       "16": "mistaifaviocn/favicon-16x16.png",
       "32": "mistaifaviocn/favicon-32x32.png",
