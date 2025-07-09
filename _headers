@@ -1,15 +1,10 @@
-# No caching for HTML (force fresh content every time)
- /index.html
-   Cache-Control: no-cache, no-store, must-revalidate
-   Pragma: no-cache
-   Expires: 0
+/index.html
+  Cache-Control: no-cache, no-store, must-revalidate
+  Pragma: no-cache
+  Expires: 0
 
-# Cache CSS and JS files for a short period and always revalidate
- /themes.css
-   Cache-Control: no-cache, no-store, must-revalidate
+/styles.css
+  Cache-Control: no-cache, no-store, must-revalidate
 
- /styles.css
-   Cache-Control: no-cache, no-store, must-revalidate
-
- /script.js
-   Cache-Control: no-cache, no-store, must-revalidate
+/script.js
+  Cache-Control: no-cache, no-store, must-revalidate

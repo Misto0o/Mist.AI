@@ -1,11 +1,11 @@
-const CACHE_NAME = 'mistai-cache-v8';  // Increment on deploy
+const CACHE_NAME = 'mistai-cache-v9';  // 🔁 Update this on every deploy
 
 const ASSETS_TO_CACHE = [
   '/',
-  '/index.html',
-  '/styles.css',
-  '/themes.css',
-  '/script.js',
+  '/index.html?v=9',
+  '/styles.css?v=9',
+  '/themes.css?v=9',
+  '/script.js?v=9',
   '/mistaifaviocn/favicon.ico',
   '/mistaifaviocn/favicon-32x32.png',
   '/mistaifaviocn/android-chrome-192x192.png'
@@ -13,64 +13,44 @@ const ASSETS_TO_CACHE = [
 
 // Install: cache core files
 self.addEventListener('install', (event) => {
-  console.log('[Service Worker] Installing and caching app shell…');
+  console.log('[SW] Installing & caching shell…');
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS_TO_CACHE))
   );
-  self.skipWaiting();  // Activate immediately
+  self.skipWaiting(); // ⚡ Activate immediately
 });
 
-// Activate: clean up old caches
+// Activate: nuke all old caches
 self.addEventListener('activate', (event) => {
-  console.log('[Service Worker] Activating and cleaning up old caches...');
+  console.log('[SW] Activating & cleaning old caches…');
   event.waitUntil(
-    caches.keys().then(cacheNames => Promise.all(
-      cacheNames.map(name => {
-        if (name !== CACHE_NAME) {
-          console.log('[Service Worker] Deleting old cache:', name);
-          return caches.delete(name);
+    caches.keys().then(keys =>
+      Promise.all(keys.map(key => {
+        if (key !== CACHE_NAME) {
+          console.log('[SW] Deleting old cache:', key);
+          return caches.delete(key);
         }
-      })
-    ))
+      }))
+    ).then(() => self.clients.claim()) // ⚡ Take control
   );
-  self.clients.claim(); // Take control of all clients immediately
 });
 
-// Fetch: cache-first with network update
+// Fetch: cache-first with background update
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
   event.respondWith(
-    caches.match(event.request).then(cachedResponse => {
-      if (cachedResponse) {
-        // Update cache in the background
-        event.waitUntil(
-          fetch(event.request).then(networkResponse => {
-            return caches.open(CACHE_NAME).then(cache => {
-              cache.put(event.request, networkResponse.clone());
-            });
-          }).catch(() => {
-            // Ignore fetch errors here
-          })
-        );
-        // Return cached response immediately
-        return cachedResponse;
-      }
-
-      // No cached response — fetch from network and cache it
-      return fetch(event.request)
-        .then(networkResponse => {
+    caches.match(event.request).then(cached => {
+      const fetchPromise = fetch(event.request)
+        .then(networkRes => {
           return caches.open(CACHE_NAME).then(cache => {
-            cache.put(event.request, networkResponse.clone());
-            return networkResponse;
+            cache.put(event.request, networkRes.clone());
+            return networkRes;
           });
-        })
-        .catch(() => {
-          // Offline fallback for navigation requests (e.g. when user reloads page offline)
-          if (event.request.mode === 'navigate') {
-            return caches.match('/index.html');
-          }
-        });
+        }).catch(() => {});
+
+      // Serve cached, update in background
+      return cached || fetchPromise;
     })
   );
 });
