@@ -558,7 +558,6 @@
     color: #2C1E3D;
 }
 
-
 .theme-container {
     position: absolute;
     top: 20px;
@@ -567,6 +566,8 @@
     padding: 8px 12px;
     border-radius: 5px;
     z-index: 10;
+    display: flex;
+    align-items: center;
 }
 
 .theme-container label {

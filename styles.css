@@ -1012,4 +1012,24 @@ body.hide-header #chat-box {
         font-size: 13px;
         padding: 0.4rem 0.6rem;
     }
+        .theme-container {
+        top: 10px;
+        right: 10px;
+        padding: 6px 8px;
+        border-radius: 4px;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+    }
+
+    .theme-container label {
+        font-size: 12px;
+        margin-right: 0;
+    }
+
+    #theme-select {
+        font-size: 13px;
+        padding: 2px 5px;
+        width: 100%;
+    }
 }

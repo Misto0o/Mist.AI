@@ -127,6 +127,8 @@ let uploadedImageCount = 0;
 let trackedIPs = {}; // Store offenses
 let devBypass = false; // Bypass flag
 let lastActivationTime = 0;
+let thinkingBubble = null; // store globally if needed
+let delayTimeout = null; // timeout reference
 const COOLDOWN_TIME = 60 * 1000; // 60 seconds in milliseconds
 
 // List of banned words and AI safety phrases
@@ -322,7 +324,7 @@ async function sendMessage(userMessage = null) {
     renderMessage(userMessage, "user-message");
 
     // Show "thinking" indicator
-    const thinkingBubble = createThinkingBubble();
+    thinkingBubble = createThinkingBubble();
     messagesDiv.appendChild(thinkingBubble);
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
 
@@ -416,7 +418,6 @@ window.addEventListener("DOMContentLoaded", () => {
     }
 });
 
-
 // Function to enable edit mode
 function enableEditMode(messageElement, originalContent) {
     // Create a textarea for editing
@@ -463,19 +464,46 @@ function saveEditedMessage(messageElement, newContent) {
     updateMemory("user", newContent);
 }
 
-// Function to create the "thinking" indicator
 function createThinkingBubble() {
-    const thinkingBubble = document.createElement("div");
-    thinkingBubble.classList.add("message", "bot-message", "thinking");
-    thinkingBubble.innerHTML = `<span class="dots">Mist.AI is thinking<span>.</span><span>.</span><span>.</span></span>`;
+    const bubble = document.createElement("div");
+    bubble.classList.add("message", "bot-message", "thinking");
+    bubble.innerHTML = `<span class="dots">Mist.AI is thinking<span>.</span><span>.</span><span>.</span></span>`;
 
-    // Change the message after 9 seconds
-    setTimeout(() => {
-        thinkingBubble.innerHTML = "⏳ You're the first request, sorry for the wait!";
-    }, 9000); // 9 seconds
+    delayTimeout = setTimeout(() => {
+        if (bubble) {
+            bubble.innerHTML = getRandomDelayMessage();
+        }
+    }, 9000);
 
-    return thinkingBubble;
+    return bubble; // ✅ return the bubble so it can be appended
 }
+
+// Remove thinking bubble before response
+function removeThinkingBubble() {
+    if (thinkingBubble) {
+        thinkingBubble.remove();
+        thinkingBubble = null;
+    }
+
+    if (delayTimeout) {
+        clearTimeout(delayTimeout);
+        delayTimeout = null;
+    }
+}
+
+function getRandomDelayMessage() {
+    const messages = [
+        "⏳ Sorry for the delay! Mist.AI had to grab a snack.",
+        "⚙️ Still warming up the circuits...",
+        "🕵️‍♂️ Looking that up in the secret AI library...",
+        "🐢 Whoops, it's a slow moment. Thanks for your patience!",
+        "📡 Fetching data from deep space...",
+        "🧠 Thinking really hard about that one...",
+        "💤 Zzz… just kidding, back now!"
+    ];
+    return messages[Math.floor(Math.random() * messages.length)];
+}
+
 
 // Function to update chat memory
 function updateMemory(role, content) {
@@ -856,35 +884,36 @@ document.addEventListener("DOMContentLoaded", function () {
         chatBox.scrollTop = chatBox.scrollHeight;
     }
 
-    // ✅ Preview image before analyzing
     function previewImageBeforeAnalyze(file) {
-        if (uploadedImageCount >= 3) {
-            showMessage("❌ You can only upload 3 images.", "bot");
-            return; // Prevent further uploads
-        }
+    uploadedFile = file;
+    const imageUrl = URL.createObjectURL(file);
+    uploadedImageCount++;
 
-        uploadedFile = file; // ✅ Store the file globally
-        const imageUrl = URL.createObjectURL(file);
-
-        // Increment the image count
-        uploadedImageCount++;
-
-        // When displaying the uploaded image and button, improve the styling and layout
-        showMessage(`
+    const html = `
 <div class="image-container">
     <div class="image-wrapper">
         <img src="${imageUrl}" alt="Uploaded Image" class="uploaded-image">
     </div>
     <div class="button-wrapper">
-        <button class="analyze-button" id="analyze-button">🔍 Analyze Image</button>
+        <button class="analyze-button">🔍 Analyze Image</button>
     </div>
 </div>
-`, "user");
+`;
 
-        // Attach the event listener to the button programmatically
-        const analyzeButton = document.getElementById("analyze-button");
+    showMessage(html, "user");
+
+    // 🔍 Get the last message just added
+    const chatBox = document.getElementById("chat-box");
+    const lastMessage = chatBox.lastElementChild;
+
+    // 📌 Find the button *inside* just that message
+    const analyzeButton = lastMessage.querySelector(".analyze-button");
+
+    // ✅ Attach click handler to the correct button
+    if (analyzeButton) {
         analyzeButton.addEventListener("click", analyzeUploadedImage);
     }
+}
 
     async function uploadFile(file) {
         let formData = new FormData();
