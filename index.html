@@ -201,7 +201,21 @@
         </select>
     </div>
 
-    <script src="/script.js?v=10" defer></script>
-    <script src="/service-worker.js?v=10" defer></script>
+    <div id="debug-panel"
+        style="display: none; position: fixed; bottom: 10px; right: 10px; background: #111; color: white; padding: 10px; border-radius: 8px; z-index: 9999;">
+        <button onclick="localStorage.setItem('creatorMode', 'true')">👑 Set Creator Mode</button>
+        <button onclick="localStorage.setItem('creatorMode', 'false')">❌ Disable Creator</button>
+        <button onclick="localStorage.removeItem('creatorMode')">🧹 Clear</button>
+        <button onclick="alert('CreatorMode = ' + localStorage.getItem('creatorMode'))">👁️ Check</button>
+        <button id="toggleDevBypassBtn">🛠️ Toggle Dev Bypass</button>
+        <button onclick="localStorage.removeItem('devBypass'); alert('Dev Bypass cleared');">🧹 Clear Dev
+            Bypass</button>
+        <button onclick="alert('Dev Bypass = ' + localStorage.getItem('devBypass'));">👁️ Check Dev Bypass</button>
+        <button onclick="location.reload();">🔄 Reload</button>
+    </div>
+
+    <script src="/script.js?v=11" defer></script>
+    <script src="/service-worker.js?v=11" defer></script>
 </body>
+
 </html>

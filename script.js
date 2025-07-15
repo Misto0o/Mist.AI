@@ -130,6 +130,7 @@ let lastActivationTime = 0;
 let thinkingBubble = null; // store globally if needed
 let delayTimeout = null; // timeout reference
 const COOLDOWN_TIME = 60 * 1000; // 60 seconds in milliseconds
+const creatorMode = JSON.parse(localStorage.getItem("creatorMode") || "false");
 
 // List of banned words and AI safety phrases
 const bannedWords = [
@@ -282,6 +283,25 @@ window.onload = async () => {
     }
 };
 
+document.getElementById("toggleDevBypassBtn").addEventListener("click", async () => {
+    const current = localStorage.getItem("devBypass") === "true";
+    if (current) {
+        localStorage.removeItem("devBypass");
+        console.log("🛑 Dev Bypass Disabled");
+        alert("Dev Bypass Disabled");
+    } else {
+        localStorage.setItem("devBypass", "true");
+        console.log("🛠️ Dev Bypass Enabled");
+        alert("Dev Bypass Enabled");
+
+        // Optional: remove IP ban immediately when enabling bypass
+        const ip = await getUserIP();
+        removeBannedIP(ip);
+        enableChat();
+    }
+});
+
+
 // Disable the chat input (ban effect)
 function disableChat() {
     const inputBox = document.getElementById("user-input");
@@ -293,7 +313,6 @@ function disableChat() {
     }
 }
 
-// Function to send messages
 async function sendMessage(userMessage = null) {
     console.log("sendMessage is", typeof sendMessage);
     console.log("sendMessage called with:", userMessage);
@@ -332,11 +351,19 @@ async function sendMessage(userMessage = null) {
     updateMemory("user", userMessage);
 
     try {
+        const creatorMode = JSON.parse(localStorage.getItem("creatorMode") || "false");
+        console.log("creatorMode sent to backend:", creatorMode);
+
         console.time("API Response Time");
         const response = await fetch(getBackendUrl(), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message: userMessage, context: chatMemory, model: currentModel })
+            body: JSON.stringify({
+                message: userMessage,
+                context: chatMemory,
+                model: currentModel,
+                creator: creatorMode  // ✅ Add this
+            })
         });
         console.timeEnd("API Response Time");
 
@@ -363,6 +390,7 @@ async function sendMessage(userMessage = null) {
         canSendMessage = true;
     }, 1800);
 }
+
 function appendMessage(content, className) {
     const messagesDiv = document.getElementById("chat-box");
     const messageElement = document.createElement("div");
@@ -503,7 +531,6 @@ function getRandomDelayMessage() {
     ];
     return messages[Math.floor(Math.random() * messages.length)];
 }
-
 
 // Function to update chat memory
 function updateMemory(role, content) {
@@ -885,11 +912,11 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function previewImageBeforeAnalyze(file) {
-    uploadedFile = file;
-    const imageUrl = URL.createObjectURL(file);
-    uploadedImageCount++;
+        uploadedFile = file;
+        const imageUrl = URL.createObjectURL(file);
+        uploadedImageCount++;
 
-    const html = `
+        const html = `
 <div class="image-container">
     <div class="image-wrapper">
         <img src="${imageUrl}" alt="Uploaded Image" class="uploaded-image">
@@ -900,20 +927,20 @@ document.addEventListener("DOMContentLoaded", function () {
 </div>
 `;
 
-    showMessage(html, "user");
+        showMessage(html, "user");
 
-    // 🔍 Get the last message just added
-    const chatBox = document.getElementById("chat-box");
-    const lastMessage = chatBox.lastElementChild;
+        // 🔍 Get the last message just added
+        const chatBox = document.getElementById("chat-box");
+        const lastMessage = chatBox.lastElementChild;
 
-    // 📌 Find the button *inside* just that message
-    const analyzeButton = lastMessage.querySelector(".analyze-button");
+        // 📌 Find the button *inside* just that message
+        const analyzeButton = lastMessage.querySelector(".analyze-button");
 
-    // ✅ Attach click handler to the correct button
-    if (analyzeButton) {
-        analyzeButton.addEventListener("click", analyzeUploadedImage);
+        // ✅ Attach click handler to the correct button
+        if (analyzeButton) {
+            analyzeButton.addEventListener("click", analyzeUploadedImage);
+        }
     }
-}
 
     async function uploadFile(file) {
         let formData = new FormData();
@@ -1168,6 +1195,14 @@ document.addEventListener("DOMContentLoaded", function () {
                 });
         }
 
+        // Open it with a secret keystroke
+        document.addEventListener("keydown", (e) => {
+            if (e.altKey && e.key === "m") {
+                const panel = document.getElementById("debug-panel");
+                panel.style.display = panel.style.display === "none" ? "block" : "none";
+            }
+        });
+
         // Sidebar toggle behavior
         const sidebar = document.querySelector('.sidebar');
         const sidebarToggle = document.getElementById('sidebarToggle');
@@ -1180,7 +1215,6 @@ document.addEventListener("DOMContentLoaded", function () {
         closeSidebar.addEventListener('click', () => {
             sidebar.classList.remove('expanded');
         });
-
         // Optional: Resize handler for 3D stuff
         window.addEventListener('resize', () => {
             const modelContainer = document.getElementById("model-container");

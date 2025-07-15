@@ -356,6 +356,11 @@ async def chat():
         user_message = data.get("message", "").strip()
         model_choice = data.get("model", "gemini")
         chat_context = data.get("context", [])
+        is_creator = bool(data.get("creator", False))
+        logging.info(f"🧠 is_creator = {is_creator}")
+
+        if is_creator and user_message.lower() in ["who am i", "creator check"]:
+            return jsonify({"response": "👑 You are my creator, Kristian. I serve you loyally."})
 
         # 🧠 Image Analysis
         if "img_url" in data:
