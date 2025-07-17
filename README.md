@@ -1,12 +1,10 @@
-# ☁️ Mist.AI – V7.0 (Major)
+# ☁️ Mist.AI – V7.0
 
 Mist.AI is an advanced AI assistant powered by **Gemini AI**, **Command R AI**, **Mistral AI**, and **OCR Vision**. In this major update (V7.0), Mist.AI introduces powerful new features, improved intelligence, a polished UI, and major performance upgrades across all platforms.
 
-> ⚠️ The design is still a work in progress — but it's evolving fast.
-
 ---
 
-🚀 **Current Version:** V7.0 (Major)  
+🚀 **Current Version:** V7.0
 🌐 **Live Domain:** [https://mistai.org](https://mistai.org)  
 📱 **Mobile App / Progressive Web App (PWA)**  
 🧠 **Smarter AI – No Knowledge Cutoff**  
@@ -18,7 +16,7 @@ Mist.AI is an advanced AI assistant powered by **Gemini AI**, **Command R AI**, 
 
 ## ✨ What's New in V7.0
 
-### 🧩 Browser Extension (NEW!)
+### 🧩 Browser Extension (NEW!AND FINISHED!)
 
 Mist.AI is now available as a **Chrome & Firefox extension**!  
 Access Mist instantly from any webpage with right-click tools and popup chat.
@@ -35,7 +33,7 @@ Access Mist instantly from any webpage with right-click tools and popup chat.
 - 🧠 **No reload needed** — Opens Mist.AI in a lightweight popup
 - 🧩 **Works on both Chrome & Firefox** — V3 and V2 manifest compatibility
 
-> ⚠️ If the extension isn't published yet, you can load it manually (instructions below).
+- ⚠️If you cant install it. check the instructions below.
 
 ---
 
@@ -43,8 +41,7 @@ Access Mist instantly from any webpage with right-click tools and popup chat.
 - 🌦️ Ask Mist things like:
   - "What's the weather in NYC?"
   - "Do I need an umbrella tomorrow?"
-- 🧠 Smarter parsing for city names and weather context
-- ⚙️ Better fallback handling if location is missing or vague
+- 🧠 Smarter parsing for city names and you get the next few hours!
 
 ---
 
@@ -81,7 +78,7 @@ Access Mist instantly from any webpage with right-click tools and popup chat.
    - `/rps` – Rock, Paper, Scissors  
    - `/joke` – Random joke  
    - `/riddle` – Random riddle  
-   - `/weather <city>` – Local weather report  
+   - `/weather <city>` – Local weather report and get future hours
    - `News` – Latest headlines  
 ✔ **CodeMirror Support** – Syntax-highlighted code output  
 ✔ **IP Ban System** – Blocks abuse or spam  
@@ -93,13 +90,12 @@ Access Mist instantly from any webpage with right-click tools and popup chat.
 ## 🧩 How to Install the Mist.AI Extension
 
 ### Chrome / Firefox Extension Steps:
-
-1. Go to the Mist.AI Extension page (Coming Soon to Chrome Web Store & Firefox Add-ons).
+1 Search MistAI on the webstores (Finally accepted to chrome and firefox!).
 2. Click **"Add to Chrome"** or **"Add to Firefox"**.
 3. Once installed, pin it to your browser bar.
 4. Right-click any text or click the icon to start chatting with Mist.AI!
 
-> ⚠️ Temporary Manual Install Instructions:
+> ⚠️ Temporary Manual Install Instructions If theres issues:
 > - Clone or download the extension repo
 > - **Chrome**: Go to `chrome://extensions/` → Enable "Developer Mode" → Click "Load unpacked" → Select the extension folder  
 > - **Firefox**: Go to `about:debugging#/runtime/this-firefox` → Click "Load Temporary Add-on" → Select `manifest.json` in the extension folder  
