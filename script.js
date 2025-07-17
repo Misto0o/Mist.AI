@@ -372,7 +372,7 @@ async function sendMessage(userMessage = null) {
         const data = await response.json();
         if (!data.response) throw new Error("No response from API");
 
-        thinkingBubble.remove(); // Remove thinking indicator
+        removeThinkingBubble();
         renderMessage(`Mist.AI: ${data.response}`, "bot-message"); // Render bot response with Showdown and CodeMirror
 
         // Store bot response in memory
@@ -380,7 +380,8 @@ async function sendMessage(userMessage = null) {
 
     } catch (error) {
         console.error("Fetch error:", error);
-        thinkingBubble.remove();
+        removeThinkingBubble();
+
         alert("An error occurred while sending your message. Please try again.");
     }
 
@@ -894,23 +895,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         reader.readAsDataURL(uploadedFile); // Read file as DataURL (base64)
     }
-
-    // ✅ Make showMessage GLOBAL
-    function showMessage(message, sender = "user") {
-        let chatBox = document.getElementById("chat-box");
-        if (!chatBox) {
-            console.error("Error: Chat box not found!");
-            return;
-        }
-
-        let messageElement = document.createElement("div");
-        messageElement.classList.add("message", sender === "bot" ? "bot-message" : "user-message");
-        messageElement.innerHTML = message;
-
-        chatBox.appendChild(messageElement);
-        chatBox.scrollTop = chatBox.scrollHeight;
-    }
-
+    // Function to preview image before analyzing
     function previewImageBeforeAnalyze(file) {
         uploadedFile = file;
         const imageUrl = URL.createObjectURL(file);
@@ -925,8 +910,7 @@ document.addEventListener("DOMContentLoaded", function () {
         <button class="analyze-button">🔍 Analyze Image</button>
     </div>
 </div>
-`;
-
+`
         showMessage(html, "user");
 
         // 🔍 Get the last message just added
@@ -1040,122 +1024,6 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     window.onload = function () {
-        const popup = document.querySelector('.micCheck');
-        const allowButton = document.getElementById('allowMicrophoneButton');
-        const denyButton = document.getElementById('denyMicrophoneButton');
-        const popupBtn = document.getElementById("micPopUp");
-        const overlay = document.getElementById("overlay");
-
-        popupBtn.addEventListener("click", () => {
-            popup.style.display = "block";
-            overlay.style.display = "block";
-        });
-
-        // Optional: close popup if user clicks outside it
-        overlay.addEventListener("click", () => {
-            popup.style.display = "none";
-            overlay.style.display = "none";
-        });
-
-        const isFirefox = navigator.userAgent.toLowerCase().includes("firefox");
-
-        const COOLDOWN_TIME = 60000; // 60 seconds
-        let lastActivationTime = 0;
-
-        if (isFirefox) {
-            alert("⚠️ Speech recognition is NOT supported in Firefox. Please hit DENY");
-        }
-
-        // Fuzzy similarity function
-        function similarity(s1, s2) {
-            s1 = s1.toLowerCase();
-            s2 = s2.toLowerCase();
-
-            let longer = s1.length > s2.length ? s1 : s2;
-            let shorter = s1.length > s2.length ? s2 : s1;
-            let longerLength = longer.length;
-
-            if (longerLength === 0) return 1.0;
-
-            let same = 0;
-            for (let i = 0; i < shorter.length; i++) {
-                if (s1[i] === s2[i]) same++;
-            }
-            return same / longerLength;
-        }
-
-        allowButton.addEventListener('click', () => {
-            navigator.mediaDevices.getUserMedia({ audio: true })
-                .then(stream => {
-                    popup.style.display = 'none';
-                    console.log('🎤 Microphone access granted');
-
-                    if (isFirefox) {
-                        alert("Firefox detected! Consider using Chrome for voice commands.");
-                        return;
-                    }
-
-                    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-                    if (!SpeechRecognition) {
-                        alert("Speech recognition is not supported in this browser.");
-                        return;
-                    }
-
-                    const recognition = new SpeechRecognition();
-                    recognition.lang = 'en-US';
-
-                    const accepted = ["hello mist", "hello missed", "hello missed ai", "hello mister"];
-
-                    recognition.onresult = function (event) {
-                        const transcript = event.results[0][0].transcript.toLowerCase();
-                        const currentTime = Date.now();
-                        const isCooldown = currentTime - lastActivationTime < COOLDOWN_TIME;
-
-                        let matched = false;
-
-                        for (const phrase of accepted) {
-                            const conf = similarity(transcript, phrase);
-                            if (conf > 0.75) {
-                                matched = true;
-                                console.log(`✅ Wake word "${phrase}" matched with ${Math.round(conf * 100)}% confidence`);
-                                break;
-                            }
-                        }
-
-                        if (matched && !isCooldown) {
-                            window.open("https://mistai.org", "_blank");
-                            lastActivationTime = currentTime;
-
-                            fetch("/wakeword", {
-                                method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ text: transcript }),
-                            });
-                        } else if (isCooldown) {
-                            const remaining = Math.ceil((COOLDOWN_TIME - (currentTime - lastActivationTime)) / 1000);
-                            console.log(`⏳ Cooldown active. Try again in ${remaining}s`);
-                        } else {
-                            console.log(`❌ Wake word not matched. Heard: "${transcript}"`);
-                        }
-                    };
-
-                    recognition.onend = () => {
-                        recognition.start(); // Keep listening
-                    };
-
-                    recognition.start();
-                })
-                .catch(err => {
-                    console.error("Microphone access error:", err);
-                    alert("Microphone access error: " + err.name + " - " + err.message);
-                });
-        });
-
-        denyButton.addEventListener('click', () => {
-            popup.style.display = 'none';
-            console.log('🚫 Microphone access denied. Wake-word detection will not start.');
-        });
-
         // Sidebar-triggered ReadMe modal setup
         const readmeModal = document.getElementById('readme-modal');
         const readmeContent = document.getElementById('readme-content');
@@ -1195,13 +1063,40 @@ document.addEventListener("DOMContentLoaded", function () {
                 });
         }
 
-        // Open it with a secret keystroke
+        // Open debug panel with secret keystroke
         document.addEventListener("keydown", (e) => {
             if (e.altKey && e.key === "m") {
                 const panel = document.getElementById("debug-panel");
                 panel.style.display = panel.style.display === "none" ? "block" : "none";
             }
         });
+
+        // Make debug panel draggable
+        (function makeDraggable() {
+            const panel = document.getElementById("debug-panel");
+            let isDragging = false;
+            let offsetX, offsetY;
+
+            panel.addEventListener("mousedown", (e) => {
+                isDragging = true;
+                offsetX = e.clientX - panel.getBoundingClientRect().left;
+                offsetY = e.clientY - panel.getBoundingClientRect().top;
+                panel.style.transition = "none";
+            });
+
+            document.addEventListener("mousemove", (e) => {
+                if (isDragging) {
+                    panel.style.left = `${e.clientX - offsetX}px`;
+                    panel.style.top = `${e.clientY - offsetY}px`;
+                    panel.style.right = "auto";
+                    panel.style.bottom = "auto";
+                }
+            });
+
+            document.addEventListener("mouseup", () => {
+                isDragging = false;
+            });
+        })();
 
         // Sidebar toggle behavior
         const sidebar = document.querySelector('.sidebar');
@@ -1215,6 +1110,7 @@ document.addEventListener("DOMContentLoaded", function () {
         closeSidebar.addEventListener('click', () => {
             sidebar.classList.remove('expanded');
         });
+
         // Optional: Resize handler for 3D stuff
         window.addEventListener('resize', () => {
             const modelContainer = document.getElementById("model-container");

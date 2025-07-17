@@ -499,8 +499,10 @@ body.hide-header #chat-box {
     display: flex;
     flex-direction: column;
     align-items: center;
-    margin: 10px 0;
+    margin: 10px 15px;
+    background-color: transparent;
 }
+
 
 .uploaded-image {
     max-width: 100%;
@@ -538,14 +540,6 @@ body.hide-header #chat-box {
 
 .upload-option:hover {
     background: #ddd;
-}
-
-.image-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    margin: -12px 15px !important;
-    background-color: transparent !important;
 }
 
 .image-wrapper {
@@ -661,22 +655,6 @@ body.hide-header #chat-box {
     cursor: pointer;
 }
 
-.micCheck {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 350px;
-    background: rgba(255, 255, 255, 0.15);
-    backdrop-filter: blur(10px);
-    border-radius: 12px;
-    padding: 20px;
-    text-align: center;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    display: none;
-}
-
 /* Background overlay (optional) */
 .overlay {
     display: none;
@@ -686,80 +664,6 @@ body.hide-header #chat-box {
     right: 0;
     bottom: 0;
     z-index: 999;
-}
-
-#micPopUp {
-    position: fixed;
-    bottom: 20px;
-    /* Pushed up above help button */
-    right: 20px;
-    background-color: #4CAF50;
-    color: white;
-    padding: 12px;
-    /* Adjust padding to match the size of .help-btn */
-    border-radius: 50%;
-    /* Circular shape */
-    font-size: 26px;
-    /* Same font size as .help-btn */
-    cursor: pointer;
-    transition: background-color 0.3s, transform 0.2s;
-    z-index: 1000;
-    border: none;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-    width: 50px;
-    /* Ensure the button is the same size */
-    height: 50px;
-    /* Ensure the button is the same size */
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
-
-#micPopUp i {
-    font-size: 18px;
-    /* Icon size */
-}
-
-/* Hover effect */
-#micPopUp:hover {
-    background-color: #45a049;
-    transform: scale(1.1);
-}
-
-.micCheck h2 {
-    font-size: 22px;
-    margin-bottom: 10px;
-    color: white;
-}
-
-.micCheck p {
-    font-size: 16px;
-    color: white;
-    opacity: 0.9;
-    margin-bottom: 15px;
-}
-
-.micCheck button {
-    background: #4CAF50;
-    color: white;
-    border: none;
-    padding: 10px 20px;
-    font-size: 16px;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: 0.3s;
-}
-
-.micCheck button:hover {
-    background: #45a049;
-}
-
-.micCheck button.deny {
-    background: #d9534f;
-}
-
-.micCheck button:hover {
-    filter: brightness(1.2);
 }
 
 /* Button Style */
@@ -809,9 +713,54 @@ body.hide-header #chat-box {
     color: red;
 }
 
-/* ========================== */
-/*     MOBILE SIDEBAR - 768px */
-/* ========================== */
+#debug-panel {
+    display: none;
+    position: fixed;
+    bottom: 10px;
+    right: 10px;
+    background: rgba(17, 17, 17, 0.95);
+    color: white;
+    padding: 12px;
+    border-radius: 10px;
+    z-index: 9999;
+    font-family: monospace;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
+    cursor: move;
+    width: auto;
+    max-width: 320px;
+    user-select: none;
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Flex wrap for buttons in rows */
+#debug-panel .button-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: flex-start;
+}
+
+/* Button styling */
+#debug-panel button {
+    flex: 1 1 calc(50% - 6px);
+    /* Two buttons per row, with spacing */
+    background: #222;
+    border: none;
+    color: white;
+    padding: 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    text-align: center;
+    transition: background 0.2s ease;
+    min-width: 100px;
+}
+
+#debug-panel button:hover {
+    background: #333;
+}
+
 /* ========================== */
 /*     MOBILE SIDEBAR - 768px */
 /* ========================== */
@@ -954,11 +903,6 @@ body.hide-header #chat-box {
         top: 5px;
         right: 10px;
     }
-
-    /* Mic popup hide */
-    #micPopUp {
-        display: none;
-    }
 }
 
 @media (max-width: 768px) {
@@ -1012,7 +956,8 @@ body.hide-header #chat-box {
         font-size: 13px;
         padding: 0.4rem 0.6rem;
     }
-        .theme-container {
+
+    .theme-container {
         top: 10px;
         right: 10px;
         padding: 6px 8px;

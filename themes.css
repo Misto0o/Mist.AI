@@ -322,38 +322,6 @@
     color: #FF8C42 !important;
 }
 
-.light-theme #micPopUp {
-    background-color: black !important;
-}
-
-.blue-theme #micPopUp {
-    background-color: #64ffda !important;
-}
-
-.midnight-theme #micPopUp {
-    background-color: #2563EB !important;
-}
-
-.cyberpunk-theme #micPopUp {
-    background-color: #FF4081 !important;
-}
-
-.arctic-theme #micPopUp {
-    background-color: #64B5F6 !important;
-}
-
-.terminal-theme #micPopUp {
-    background-color: #00FF41 !important;
-}
-
-.sunset-theme #micPopUp {
-    background-color: #FF8C42 !important;
-}
-
-.konami-theme #micPopUp {
-    background-color: #FF3131 !important;
-}
-
 /* THEMED MENU LABEL */
 .menu-label {
     font-size: 1.2rem;

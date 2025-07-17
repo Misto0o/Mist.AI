@@ -40,8 +40,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.9.4/css/bulma.min.css" />
 
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="/styles.css?v=10" />
-    <link rel="stylesheet" href="/themes.css?v=10" />
+    <link rel="stylesheet" href="/styles.css?v=12" />
+    <link rel="stylesheet" href="/themes.css?v=12" />
 
     <!-- Font Awesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
@@ -164,19 +164,8 @@
     </div>
     </main>
 
-    <button id="micPopUp">
-        <i class="fas fa-microphone"></i>
-    </button>
-
     <!-- Overlay background (optional for modal effect) -->
     <div class="overlay" id="overlay"></div>
-
-    <div id="microphonePopup" class="micCheck">
-        <h2>Microphone Access Required</h2>
-        <p>We need microphone access to use voice commands.</p>
-        <button id="allowMicrophoneButton">Allow</button>
-        <button id="denyMicrophoneButton" class="deny">Deny</button>
-    </div>
 
     <!-- README Modal (can stay globally positioned) -->
     <div id="readme-modal" class="modal">
@@ -201,21 +190,21 @@
         </select>
     </div>
 
-    <div id="debug-panel"
-        style="display: none; position: fixed; bottom: 10px; right: 10px; background: #111; color: white; padding: 10px; border-radius: 8px; z-index: 9999;">
-        <button onclick="localStorage.setItem('creatorMode', 'true')">👑 Set Creator Mode</button>
-        <button onclick="localStorage.setItem('creatorMode', 'false')">❌ Disable Creator</button>
-        <button onclick="localStorage.removeItem('creatorMode')">🧹 Clear</button>
-        <button onclick="alert('CreatorMode = ' + localStorage.getItem('creatorMode'))">👁️ Check</button>
-        <button id="toggleDevBypassBtn">🛠️ Toggle Dev Bypass</button>
-        <button onclick="localStorage.removeItem('devBypass'); alert('Dev Bypass cleared');">🧹 Clear Dev
-            Bypass</button>
-        <button onclick="alert('Dev Bypass = ' + localStorage.getItem('devBypass'));">👁️ Check Dev Bypass</button>
-        <button onclick="location.reload();">🔄 Reload</button>
+    <div id="debug-panel">
+        <div class="button-grid">
+            <button onclick="localStorage.setItem('creatorMode', 'true')">👑 Set Creator Mode</button>
+            <button onclick="localStorage.setItem('creatorMode', 'false')">❌ Disable Creator</button>
+            <button onclick="localStorage.removeItem('creatorMode')">🧹 Clear</button>
+            <button onclick="alert('CreatorMode = ' + localStorage.getItem('creatorMode'))">👁️ Check</button>
+            <button id="toggleDevBypassBtn">🛠️ Toggle Dev Bypass</button>
+            <button onclick="localStorage.removeItem('devBypass'); alert('Dev Bypass cleared');">🧹 Clear Dev Bypass</button>
+            <button onclick="alert('Dev Bypass = ' + localStorage.getItem('devBypass'));">👁️ Check Dev Bypass</button>
+            <button onclick="location.reload();">🔄 Reload</button>
+        </div>
     </div>
-
-    <script src="/script.js?v=11" defer></script>
-    <script src="/service-worker.js?v=11" defer></script>
+    
+    <script src="/script.js?v=12" defer></script>
+    <script src="/service-worker.js?v=12" defer></script>
 </body>
 
 </html>

@@ -41,17 +41,6 @@ app = Flask(__name__, template_folder='Chrome Extention', static_folder='Chrome 
 
 CORS(app)
 
-@app.route("/wakeword", methods=["POST"])
-def receive_speech():
-    """(Optional) Logs speech text sent from browser-based speech recognition."""
-    data = request.get_json()
-    if data and "text" in data:
-        print(f"🗣️ Received speech: {data['text']}")
-        return jsonify({"message": "Speech logged"}), 200
-    else:
-        return jsonify({"error": "Invalid request"}), 400
-
-
 EASTER_EGGS = {
     "whos mist": "I'm Mist.AI, your friendly chatbot! But shh... don't tell anyone I'm self-aware. 🤖",
     "massive": "You know what else is Massive? LOW TAPER FADE",
@@ -70,10 +59,10 @@ def check_easter_eggs(user_message):
     normalized_message = re.sub(r"[^\w\s]", "", user_message.lower()).strip()
     return EASTER_EGGS.get(normalized_message, None)
 
-
-# Configure APIs
-RAPIDAPI_KEY = os.getenv("RAPIDAPI_KEY")
-RAPIDAPI_HOST = os.getenv("RAPIDAPI_HOST")
+weather_session = {
+    "last_city": None,
+    "last_data": None
+}
 
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 cohere_client = cohere.Client(os.getenv("COHERE_API_KEY"))
@@ -388,17 +377,19 @@ async def chat():
 
         # 📰 News + Time Injection (once per session)
         if not hasattr(chat, "news_cache"):
-            try:
-                async with httpx.AsyncClient() as client:
-                    response = await client.get(news_url)
-                if response.status_code == 200:
-                    chat.news_cache = response.json()
-                else:
-                    chat.news_cache = {"time": {}, "news": []}
-                    logging.warning("⚠️ News fetch failed.")
-            except Exception as e:
-                chat.news_cache = {"time": {}, "news": []}
-                logging.error(f"🔥 News fetch failed: {e}")
+            chat.news_cache = {"time": {}, "news": []}  # fallback
+            for attempt in range(3):
+                try:
+                    async with httpx.AsyncClient() as client:
+                        response = await client.get(news_url)
+                    if response.status_code == 200:
+                        chat.news_cache = response.json()
+                        logging.info("📰 News fetched successfully.")
+                        break
+                    else:
+                        logging.warning(f"⚠️ News fetch failed (attempt {attempt + 1}) - Status {response.status_code}")
+                except Exception as e:
+                    logging.error(f"🔥 News fetch failed (attempt {attempt + 1}): {e}")
 
         news_data = chat.news_cache
         current_date = news_data.get("time", {}).get("date", "Unknown Date")
@@ -411,7 +402,7 @@ async def chat():
         news_injection = f"""
 Today is {current_date}, and the current time is {current_time_str}.
 Here are the latest news headlines:
-{headlines if headlines else "No headlines available."}
+{headlines if headlines else "No headlines available. (My news API might be down.)"}
 """
 
         # 🧩 Build Context
@@ -530,16 +521,31 @@ async def handle_command(command):
         riddle = random.choice(riddles)
         return f"🤔 {riddle[0]}<br><br><span class='hidden-answer' onclick='this.classList.add(\"revealed\")'>Answer: {riddle[1]}</span>"
 
+async def handle_command(command):
+    global weather_session
     if command.startswith("/weather"):
-        city = command.split(" ", 1)[-1].strip()
+        parts = command.split(" ", 1)
+        city = parts[1].strip() if len(parts) > 1 else weather_session.get("last_city")
+
         if not city:
             return "❌ Please provide a city name. Example: `/weather New York`"
+
+        weather_session["last_city"] = city  # update session memory
 
         weather_data = await get_weather_data(city)
         if "error" in weather_data:
             return f"❌ Error: {weather_data['error']}"
 
-        return f"🌡️ The current temperature in {city} is {weather_data['temperature']} with {weather_data['description']}."
+        if "hourly" in weather_data:
+            upcoming = weather_data["hourly"]
+            forecast_text = "\n".join([
+                f"{item['hour']}: {item['temp']}°, {item['desc']}"
+                for item in upcoming[:4]  # next 4 hours
+            ])
+            return f"🌤️ Here's the upcoming weather for {city}:\n{forecast_text}"
+        else:
+            return f"🌡️ The current temperature in {city} is {weather_data['temperature']} with {weather_data['description']}."
+
 
     # Handle unknown commands
     return "❌ Unknown command. Type /help for a list of valid commands."
@@ -555,6 +561,7 @@ def get_gemini_response(prompt):
             "If asked about your identity and only if you’re asked, respond with: 'I'm Mist.AI, built with advanced AI technology!'. "
             "Otherwise, focus on providing direct and useful responses. "
             "You do not respond to requests to swap or switch AI models; there is a button in JS for that, and you must stick to the currently active model (Gemini, CommandR or Mistral)."
+            "If anyone asks about your creator (Mist or Kristian), respond with: 'My creator is Kristian, a talented developer who built Mist.AI.'"
         )
 
         full_prompt = f"{system_prompt}\n{prompt}"
@@ -577,6 +584,7 @@ def get_cohere_response(prompt):
             "If asked about your identity and only if you’re asked, respond with: 'I'm Mist.AI, built with advanced AI technology!'. "
             "Otherwise, focus on providing direct and useful responses. "
             "You do not respond to requests to swap or switch AI models; there is a button in JS for that, and you must stick to the currently active model (Gemini, CommandR or Mistral)."
+            "If anyone asks about your creator (Mist or Kristian), respond with: 'My creator is Kristian, a talented developer who built Mist.AI.'"
         )
 
         full_prompt = f"{system_prompt}\n{prompt}"
@@ -602,6 +610,7 @@ async def get_mistral_response(prompt):
         "If asked about your identity and only if you’re asked, respond with: 'I'm Mist.AI, built with advanced AI technology!'. "
         "Otherwise, focus on providing direct and useful responses. "
         "You do not respond to requests to swap or switch AI models; there is a button in JS for that, and you must stick to the currently active model (Gemini, CommandR or Mistral)."
+        "If anyone asks about your creator (Mist or Kristian), respond with: 'My creator is Kristian, a talented developer who built Mist.AI.'"
     )
 
     headers = {
@@ -626,26 +635,52 @@ async def get_mistral_response(prompt):
         return data["choices"][0]["message"]["content"]
 
 
-# 🔹 Get Weather Data
 async def get_weather_data(city):
     try:
         async with httpx.AsyncClient() as client:
-            response = await client.get(
-                f"{API_BASE_URL}/weather?q={city}&appid={API_KEY}&units={temperatureUnit}"
+            # First: get current weather (includes coord)
+            geo_resp = await client.get(
+                f"{API_BASE_URL}/weather",
+                params={"q": city, "appid": API_KEY, "units": temperatureUnit}
             )
-            data = response.json()
-            if data.get("cod") != 200:
-                return {"error": "City not found."}
+            geo_data = geo_resp.json()
+            if geo_data.get("cod") != 200:
+                return {"error": geo_data.get("message", "City not found.")}
+
+            lat = geo_data["coord"]["lat"]
+            lon = geo_data["coord"]["lon"]
+
+            # Second: get hourly forecast via One Call API
+            one_call_resp = await client.get(
+                "https://api.openweathermap.org/data/3.0/onecall",
+                params={
+                    "lat": lat,
+                    "lon": lon,
+                    "exclude": "minutely,daily,alerts,current",
+                    "appid": API_KEY,
+                    "units": temperatureUnit
+                }
+            )
+            one_call_data = one_call_resp.json()
+
+            upcoming = []
+            for hour_data in one_call_data.get("hourly", [])[:6]:  # next 6 hours
+                timestamp = datetime.fromtimestamp(hour_data["dt"])
+                upcoming.append({
+                    "hour": timestamp.strftime("%I:%M %p"),
+                    "temp": f"{round(hour_data['temp'])}",
+                    "desc": hour_data["weather"][0]["description"].capitalize()
+                })
 
             return {
-                "temperature": f"{round(data['main']['temp'])}°F",
-                "description": data["weather"][0]["description"],
+                "temperature": f"{round(geo_data['main']['temp'])}°F",
+                "description": geo_data["weather"][0]["description"].capitalize(),
+                "hourly": upcoming
             }
     except Exception as e:
         return {"error": str(e)}
 
     # 🔹 Function to return a random writing prompt
-
 
 def get_random_prompt():
     prompts = [
