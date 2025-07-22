@@ -40,8 +40,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.9.4/css/bulma.min.css" />
 
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="/styles.css?v=12" />
-    <link rel="stylesheet" href="/themes.css?v=12" />
+    <link rel="stylesheet" href="/styles.css?v=13" />
+    <link rel="stylesheet" href="/themes.css?v=13" />
 
     <!-- Font Awesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
@@ -118,46 +118,52 @@
 
     <div id="chat-box" class="chat-box"></div>
 
-    <!-- MOVE input-section OUTSIDE of main-container -->
+    <!-- INPUT SECTION OUTSIDE MAIN CONTAINER -->
     <div class="input-section">
         <div class="chat-input-container">
+            <!-- Slash Command Button -->
             <button id="slash-button" class="slash-button">/</button>
 
+            <!-- Text Input -->
             <textarea class="input is-dark" id="user-input" placeholder="Type a message..."
                 autocomplete="off"></textarea>
 
-            <div class="embedded-actions">
-                <!-- Upload buttons -->
-                <input type="file" id="file-upload-image" class="upload-input" accept=".png,.jpg,.jpeg,.bmp,.gif"
-                    style="display: none;">
-                <input type="file" id="file-upload-document" class="upload-input" accept=".pdf,.doc,.docx,.txt"
-                    style="display: none;">
-
-                <!-- Send button -->
-                <button class="icon-button" onclick="sendMessage()">
-                    <i class="fa-solid fa-paper-plane"></i>
+            <!-- Tools Button and Menu -->
+            <div class="tools-wrapper">
+                <button class="icon-button" id="tools-toggle">
+                    <i class="fa-solid fa-gear"></i>
                 </button>
 
-                <button class="icon-button" id="upload-trigger">
-                    <i class="fa-solid fa-paperclip"></i>
-                </button>
+                <!-- Hidden Tools Menu -->
+                <div id="tools-menu" class="tools-popup">
+                    <button class="tool-option" id="upload-image-btn">🖼️ Upload Image</button>
+                    <button class="tool-option" id="upload-document-btn">📄 Upload Document</button>
 
-                <div id="upload-popup" class="popup">
-                    <button class="upload-option" id="upload-image-btn">🖼️ Upload Image</button>
-                    <button class="upload-option" id="upload-document-btn">📄 Upload Document</button>
-                </div>
+                    <!-- Hidden Inputs for File Upload -->
+                    <input type="file" id="file-upload-image" class="upload-input" accept=".png,.jpg,.jpeg,.bmp,.gif"
+                        style="display: none;" />
+                    <input type="file" id="file-upload-document" class="upload-input" accept=".pdf,.doc,.docx,.txt"
+                        style="display: none;" />
 
-                <!-- Model select -->
-                <div class="model-select-wrapper">
-                    <select id="model-select" class="model-select" onchange="swapModel(this)">
-                        <option value="gemini" selected>Gemini ⭐</option>
-                        <option value="commandR">CommandR 🤖</option>
-                        <option value="mistral">Mistral 🌬️</option>
-                    </select>
+                    <hr />
+
+                    <label class="tool-option model-label">Model:
+                        <select id="model-select" class="model-select" onchange="swapModel(this)">
+                            <option value="gemini" selected>Gemini ⭐</option>
+                            <option value="commandR">CommandR 🤖</option>
+                            <option value="mistral">Mistral 🌬️</option>
+                        </select>
+                    </label>
                 </div>
             </div>
+
+
+            <!-- Send Button -->
+            <button class="icon-button" onclick="sendMessage()">
+                <i class="fa-solid fa-paper-plane"></i>
+            </button>
         </div>
-    </div>
+
     <p class="disclaimer-text">
         MistAI may display inaccurate info, including about people, so double-check its responses.
     </p>
@@ -197,14 +203,15 @@
             <button onclick="localStorage.removeItem('creatorMode')">🧹 Clear</button>
             <button onclick="alert('CreatorMode = ' + localStorage.getItem('creatorMode'))">👁️ Check</button>
             <button id="toggleDevBypassBtn">🛠️ Toggle Dev Bypass</button>
-            <button onclick="localStorage.removeItem('devBypass'); alert('Dev Bypass cleared');">🧹 Clear Dev Bypass</button>
+            <button onclick="localStorage.removeItem('devBypass'); alert('Dev Bypass cleared');">🧹 Clear Dev
+                Bypass</button>
             <button onclick="alert('Dev Bypass = ' + localStorage.getItem('devBypass'));">👁️ Check Dev Bypass</button>
             <button onclick="location.reload();">🔄 Reload</button>
         </div>
     </div>
-    
+
     <script src="/script.js?v=12" defer></script>
-    <script src="/service-worker.js?v=12" defer></script>
+    <script src="/service-worker.js?v=13" defer></script>
 </body>
 
 </html>

@@ -4,7 +4,7 @@ Mist.AI is an advanced AI assistant powered by **Gemini AI**, **Command R AI**, 
 
 ---
 
-🚀 **Current Version:** V7.0
+🚀 **Current Version:** V7.5
 🌐 **Live Domain:** [https://mistai.org](https://mistai.org)  
 📱 **Mobile App / Progressive Web App (PWA)**  
 🧠 **Smarter AI – No Knowledge Cutoff**  
@@ -14,7 +14,23 @@ Mist.AI is an advanced AI assistant powered by **Gemini AI**, **Command R AI**, 
 
 ---
 
-## ✨ What's New in V7.0
+## 🚀 What’s New in V7.5?
+
+### ✨ Smarter Input Box Behavior  
+- 🔥 **Word count limiter** up to 1200 words with a live counter  
+- ⚠️ Word limit warning turns red at 500+ words  
+- ⬇️ Auto disables input and grays out when you hit max words — no more over-typing!  
+- ↩️ Input height only grows on actual line breaks, stays tight otherwise  
+- 🧹 Clears and resets input styling after you send a message — no stuck disabled or weird sizing  
+- 🚫 Cutoff on paste or typing, so no sneaky overflow
+
+### 🛠️ Bug Fixes & UX Improvements  
+- Fixed mysterious input rise when typing single lines — only expands on real line breaks now  
+- Reset input height and styles properly after each send, so chat feels fresh  
+- Cleaned up popup menu toggle bugs and file upload handlers  
+- General polish to keep Mist.AI feeling slick and snappy
+
+---
 
 ### 🧩 Browser Extension (NEW!AND FINISHED!)
 
@@ -42,20 +58,6 @@ Access Mist instantly from any webpage with right-click tools and popup chat.
   - "What's the weather in NYC?"
   - "Do I need an umbrella tomorrow?"
 - 🧠 Smarter parsing for city names and you get the next few hours!
-
----
-
-### 🛠️ Debug Panel Added
-- 🧪 New dev/debug tools built directly into the interface (**DEVS ONLY**)
-- 🧊 Drag & drop movable UI
-- 📋 Helps test features, log wakeword activity (if re-enabled), and debug interactions
-
----
-
-### 🗑️ Wake Word Removed
-- ❌ Removed buggy "Hey Mist" detection
-- 🎯 Focus shifted to speed, reliability, and smoother UI
-- 📢 Voice recognition may return in a future release once it's more stable
 
 ---
 

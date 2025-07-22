@@ -390,6 +390,14 @@ async function sendMessage(userMessage = null) {
         userInput.disabled = false;
         canSendMessage = true;
     }, 1800);
+    // Reset input after sending
+    userInput.disabled = false; // enable input again
+    userInput.style.backgroundColor = ''; // remove gray overlay
+    userInput.style.color = ''; // reset color if changed
+    userInput.style.height = `${minHeight}px`; // reset height
+    wordCounter.textContent = `0 / ${maxWords}`;
+    wordCounter.style.color = 'inherit';
+    canSendMessage = true;
 }
 
 function appendMessage(content, className) {
@@ -415,6 +423,80 @@ function appendMessage(content, className) {
 
     // Add animation
     gsap.fromTo(messageElement, { opacity: 0, y: className === "user-message" ? -10 : 10 }, { opacity: 1, y: 0, duration: 0.3 });
+}
+
+const input = document.getElementById('user-input');
+const computedStyle = getComputedStyle(input);
+const maxHeight = parseInt(computedStyle.maxHeight);
+const minHeight = parseInt(computedStyle.minHeight) || 42;
+const maxWords = 1200;
+const warningThreshold = 500;
+
+// Word counter div (create if missing)
+let wordCounter = document.getElementById('word-counter');
+if (!wordCounter) {
+    wordCounter = document.createElement('div');
+    wordCounter.id = 'word-counter';
+    wordCounter.style.fontSize = '12px';
+    wordCounter.style.marginTop = '4px';
+    wordCounter.style.textAlign = 'right';
+    input.parentNode.appendChild(wordCounter);
+}
+
+input.addEventListener('input', () => {
+    let value = input.value;
+    let words = value.trim() === '' ? [] : value.trim().split(/\s+/);
+
+    // Enforce max word limit
+    if (words.length > maxWords) {
+        words = words.slice(0, maxWords);
+        input.value = words.join(' ');
+        input.style.backgroundColor = '#444';  // gray out
+        input.style.color = '#aaa';            // lighter text
+        input.disabled = true;                 // disable typing
+        wordCounter.textContent = `Word limit reached! (${maxWords}/${maxWords})`;
+        wordCounter.style.color = 'red';
+    } else {
+        input.style.backgroundColor = '';
+        input.style.color = '';
+        input.disabled = false;
+        wordCounter.textContent = `${words.length} / ${maxWords}`;
+        wordCounter.style.color = words.length >= warningThreshold ? 'red' : 'inherit';
+    }
+
+    // Insert line break after 50 words if missing
+    if (words.length > 50) {
+        // Find where 50th word ends in the string
+        const first50Words = words.slice(0, 50).join(' ');
+        const indexAfter50 = first50Words.length;
+
+        // Check if there’s already a line break after 50 words
+        const snippet = input.value.slice(indexAfter50, indexAfter50 + 2);
+        if (!snippet.includes('\n')) {
+            // Insert line break after 50th word
+            words.splice(50, 0, '\n');
+            input.value = words.join(' ').replace(' \n ', '\n');
+        }
+    }
+
+    // Resize based on line breaks only
+    if (input.value.includes('\n')) {
+        input.style.height = 'auto';
+        const newHeight = Math.min(input.scrollHeight, maxHeight);
+        input.style.height = `${newHeight}px`;
+    } else if (value.trim() === '') {
+        input.style.height = `${minHeight}px`;
+    } else {
+        input.style.height = `${minHeight}px`;
+    }
+});
+
+function prepareMessageForSend() {
+    let words = input.value.trim().split(/\s+/);
+    if (words.length > maxWords) {
+        words = words.slice(0, maxWords);
+    }
+    return words.join(' ');
 }
 
 window.addEventListener("DOMContentLoaded", () => {
@@ -794,6 +876,25 @@ function showFunFact() {
     sendMessage("fun fact");
 }
 
+
+
+document.addEventListener('DOMContentLoaded', () => {
+    const toolsMenu = document.getElementById('tools-menu');
+    const toggleButton = document.getElementById('tools-toggle');
+
+    toggleButton.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toolsMenu.classList.toggle('show');
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!toolsMenu.contains(e.target) && !toggleButton.contains(e.target)) {
+            toolsMenu.classList.remove('show');
+        }
+    });
+});
+
+
 document.addEventListener("DOMContentLoaded", function () {
     // Add event listener for Enter key to send the message and Shift + Enter for line breaks
     document.getElementById("user-input").addEventListener("keydown", function (event) {
@@ -962,35 +1063,20 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     // ✅ File upload popup handling
-    const uploadTrigger = document.getElementById("upload-trigger");
-    const uploadPopup = document.getElementById("upload-popup");
-    const fileInputImage = document.getElementById("file-upload-image");
-    const fileInputDocument = document.getElementById("file-upload-document");
     const uploadImageBtn = document.getElementById("upload-image-btn");
     const uploadDocumentBtn = document.getElementById("upload-document-btn");
+    const fileInputImage = document.getElementById("file-upload-image");
+    const fileInputDocument = document.getElementById("file-upload-document");
+    const toolsMenu = document.getElementById("tools-menu");
 
-    // Toggle popup when clicking paperclip
-    uploadTrigger.addEventListener("click", function () {
-        uploadPopup.style.display = uploadPopup.style.display === "block" ? "none" : "block";
-    });
-
-    // Close popup when clicking outside
-    document.addEventListener("click", function (event) {
-        if (!uploadTrigger.contains(event.target) && !uploadPopup.contains(event.target)) {
-            uploadPopup.style.display = "none";
-        }
-    });
-
-    // Open image file selector
     uploadImageBtn.addEventListener("click", function () {
         fileInputImage.click();
-        uploadPopup.style.display = "none"; // Close popup
+        toolsMenu.style.display = "none"; // Close popup properly
     });
 
-    // Open document file selector
     uploadDocumentBtn.addEventListener("click", function () {
         fileInputDocument.click();
-        uploadPopup.style.display = "none"; // Close popup
+        toolsMenu.style.display = "none"; // Close popup properly
     });
 
     // Handle file selection
@@ -1110,7 +1196,6 @@ document.addEventListener("DOMContentLoaded", function () {
         closeSidebar.addEventListener('click', () => {
             sidebar.classList.remove('expanded');
         });
-
         // Optional: Resize handler for 3D stuff
         window.addEventListener('resize', () => {
             const modelContainer = document.getElementById("model-container");
