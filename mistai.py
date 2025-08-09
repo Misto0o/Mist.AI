@@ -55,89 +55,6 @@ app = Flask(
 
 CORS(app)
 
-# Your before_request and after_request logging with ReqID and duration
-@app.before_request
-def start_request():
-    request.id = str(uuid.uuid4())[:8]
-    request.start_time = time.time()
-
-
-@app.after_request
-def log_request(response):
-    duration = time.time() - request.start_time
-    log_msg = (
-        f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] "
-        f"{request.method} {request.path} | "
-        f"Status: {response.status_code} | "
-        f"Duration: {duration:.2f}s | "
-        f"ReqID: {request.id}"
-    )
-    app.logger.info(log_msg)
-    return response
-
-
-# Define your UTF-8 Stream Handler
-class StreamToUTF8(logging.StreamHandler):
-    def __init__(self, stream=None):
-        super().__init__(stream or sys.stdout)
-
-    def emit(self, record):
-        try:
-            msg = self.format(record)
-            if isinstance(msg, str):
-                msg = msg.encode("utf-8", errors="replace").decode("utf-8")
-            stream = self.stream
-            stream.write(msg + self.terminator)
-            self.flush()
-        except Exception:
-            self.handleError(record)
-
-
-# Dummy filter example, replace with your actual Fly.io log filter
-class FilterFlyLogs(logging.Filter):
-    def filter(self, record):
-        # For example, suppress logs containing 'healthcheck' or other noise
-        if "healthcheck" in record.getMessage():
-            return False
-        return True
-
-
-# Colored Formatter
-class LogFormatter(logging.Formatter):
-    grey = "\x1b[38;21m"
-    yellow = "\x1b[33;21m"
-    green = "\x1b[32;21m"
-    red = "\x1b[31;21m"
-    reset = "\x1b[0m"
-
-    def format(self, record):
-        level_color = {
-            "DEBUG": self.grey,
-            "INFO": self.green,
-            "WARNING": self.yellow,
-            "ERROR": self.red,
-            "CRITICAL": self.red,
-        }.get(record.levelname, self.grey)
-
-        log_fmt = f"{level_color}[%(levelname)s]{self.reset} %(message)s"
-        formatter = logging.Formatter(log_fmt)
-        return formatter.format(record)
-
-
-# Setup logging handler once and add to app.logger
-handler = StreamToUTF8(sys.stdout)
-handler.setFormatter(LogFormatter())
-handler.addFilter(FilterFlyLogs())
-
-app.logger.handlers.clear()  # Clear any default handlers
-app.logger.addHandler(handler)
-app.logger.setLevel(logging.INFO)
-app.logger.propagate = False
-
-log = logging.getLogger('werkzeug')
-log.setLevel(logging.ERROR)  # Only show errors, hide normal access logs
-
-
 EASTER_EGGS = {
     "whos mist": "I'm Mist.AI, your friendly chatbot! But shh... don't tell anyone I'm self-aware. 🤖",
     "massive": "You know what else is Massive? LOW TAPER FADE",
@@ -458,35 +375,23 @@ def log_ip():
         data = request.get_json(force=True)
         ip = data.get("ip") or request.headers.get("X-Forwarded-For", request.remote_addr)
         message = data.get("message")
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         if not ip or not message:
-            print("❌ Missing IP or message:", data)
             return jsonify({"error": "Missing IP or message."}), 400
 
-        # Ignore page load or session init messages entirely
         if "Page load" in message or "User loaded page" in message:
             return jsonify({"status": "ignored"}), 200
 
-        # Format the message exactly like terminal log
-        formatted_message = f"📩 User ({ip}): {message}"
+        # Inside log_ip():
+        if data.get("type") == "chat":  
+            return jsonify({"status": "ignored"}), 200
 
-        if ip not in ip_log:
-            ip_log[ip] = []
-
-        ip_log[ip].append({"timestamp": timestamp, "message": formatted_message})
-
-        # Log to terminal only these user messages
-        app.logger.info(
-            f"\n🕒 [{datetime.now().strftime('%Y-%m-%d %I:%M:%S %p')}]\n{formatted_message}"
-        )
-
+        # No print() or logger here — console output handled in /chat
         return jsonify({"status": "logged"}), 200
 
     except Exception as e:
-        print("🔥 Error logging IP:", e)
-        print("📦 Raw request data:", request.data)
         return jsonify({"error": "Invalid request format"}), 400
+
 
 # === Check if IP is Banned ===
 @app.route("/is-banned", methods=["POST"])
@@ -1067,40 +972,112 @@ def get_random_fun_fact():
     return random.choice(fun_facts)
 
 
-# Custom log handler to suppress Fly.io noise
+# Custom StreamHandler to force UTF-8 encoding and colored logs
 class StreamToUTF8(logging.StreamHandler):
     def __init__(self, stream=None):
-        super().__init__(stream)
-        self.setFormatter(
-            logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-        )
+        super().__init__(stream or sys.stdout)
 
     def emit(self, record):
         try:
             msg = self.format(record)
-            stream = self.stream or sys.stderr
-            stream.buffer.write((msg + self.terminator).encode("utf-8", "replace"))
-            stream.flush()
+            if isinstance(msg, str):
+                msg = msg.encode("utf-8", errors="replace").decode("utf-8")
+            stream = self.stream
+            stream.write(msg + self.terminator)
+            self.flush()
         except Exception:
             self.handleError(record)
 
+# Colored log formatter
+class LogFormatter(logging.Formatter):
+    grey = "\x1b[38;21m"
+    yellow = "\x1b[33;21m"
+    green = "\x1b[32;21m"
+    red = "\x1b[31;21m"
+    reset = "\x1b[0m"
 
-# Custom filter to remove Fly.io noise
+    def format(self, record):
+        level_color = {
+            "DEBUG": self.grey,
+            "INFO": self.green,
+            "WARNING": self.yellow,
+            "ERROR": self.red,
+            "CRITICAL": self.red,
+        }.get(record.levelname, self.grey)
+        log_fmt = f"{level_color}[%(levelname)s]{self.reset} %(message)s"
+        formatter = logging.Formatter(log_fmt)
+        return formatter.format(record)
+
+# Filter to suppress Fly.io noise and unwanted routes/logs
 class FilterFlyLogs(logging.Filter):
     def filter(self, record):
+        msg = record.getMessage()
+
+        # Suppress Fly.io startup/reboot noise
         fly_terms = [
-            "Sending signal",
-            "machine started",
-            "Preparing to run",
-            "fly api proxy",
-            "SSH listening",
-            "reboot",
-            "autostopping",
+            "Sending signal", "machine started", "Preparing to run",
+            "fly api proxy", "SSH listening", "reboot", "autostopping"
         ]
-        return not any(term in record.getMessage() for term in fly_terms)
-    
-# Suppress extra Flask logs
-logging.getLogger("werkzeug").setLevel(logging.ERROR)
+        if any(term in msg for term in fly_terms):
+            return False
+
+        # Suppress OPTIONS request logs (common CORS preflight noise)
+        if "OPTIONS" in msg:
+            return False
+
+        # If message contains a URL path (starts with "/"), allow only if in allowed_routes
+        allowed_routes = ["/log-ip", "/is-banned", "/chat", "/time-news"]
+
+        # Check if message contains any of the allowed routes
+        if any(route in msg for route in allowed_routes):
+            return True
+
+        # If message contains a path-like substring (e.g., "/something") but not in allowed, suppress it
+        # Rough check for presence of a slash followed by letters/numbers
+        import re
+        if re.search(r"/[a-zA-Z0-9\-_/]+", msg):
+            return False
+
+        # Otherwise (no routes/paths), allow message (general logs, startup, etc)
+        return True
+
+# Before request: assign request ID and start time
+@app.before_request
+def start_request():
+    request.id = str(uuid.uuid4())[:8]
+    request.start_time = time.time()
+
+# After request: log method, path, status, duration, and ReqID
+@app.after_request
+def log_request(response):
+    duration = time.time() - request.start_time
+    log_msg = (
+        f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] "
+        f"{request.method} {request.path} | "
+        f"Status: {response.status_code} | "
+        f"Duration: {duration:.2f}s | "
+        f"ReqID: {request.id}"
+    )
+    app.logger.info(log_msg)
+    return response
+
+# Setup handler, formatter, filter
+handler = StreamToUTF8(sys.stdout)
+handler.setFormatter(LogFormatter())
+handler.addFilter(FilterFlyLogs())
+
+# Clear existing handlers and set our handler for app.logger
+app.logger.handlers.clear()
+app.logger.addHandler(handler)
+app.logger.setLevel(logging.INFO)
+app.logger.propagate = False
+
+# Configure Werkzeug logger (Flask's HTTP request logs)
+werkzeug_logger = logging.getLogger("werkzeug")
+werkzeug_logger.handlers.clear()
+werkzeug_logger.addHandler(handler)
+werkzeug_logger.setLevel(logging.ERROR)  # Show only errors to reduce clutter
+werkzeug_logger.addFilter(FilterFlyLogs())
 
 if __name__ == "__main__":
     app.logger.info("🚀 Mist.AI Server is starting...")

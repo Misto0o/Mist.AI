@@ -458,7 +458,9 @@ async function sendMessage(userMessage = null) {
 
     try {
         const creatorMode = JSON.parse(localStorage.getItem("creatorMode") || "false");
+
         console.time("API Response Time");
+        // Send userMessage and IP in one request body
         const response = await fetch(getBackendUrl(), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -466,7 +468,8 @@ async function sendMessage(userMessage = null) {
                 message: userMessage,
                 context: chatMemory,
                 model: currentModel,
-                creator: creatorMode  // ✅ Add this
+                creator: creatorMode,
+                ip: userIP  // Include IP here if backend expects it
             })
         });
         console.timeEnd("API Response Time");
@@ -502,23 +505,13 @@ async function sendMessage(userMessage = null) {
     wordCounter.textContent = `0 / ${maxWords}`;
     wordCounter.style.color = 'inherit';
     canSendMessage = true;
-    
+
     const payload = {
         message: userMessage,
         ip: userIP,
         // add other properties if needed (model, context, etc)
     };
 
-    const response =  await fetch(getBackendUrl(), {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify(payload),
-    });
-
-    const data = await response.json();
-    return data.response;
 }
 
 function appendMessage(content, className) {

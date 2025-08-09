@@ -16,6 +16,11 @@ Mist.AI is an advanced AI assistant powered by **Gemini AI**, **Command R AI**, 
 
 ## 🚀 What’s New in V7.5(Mini)?
 
+### 🧠 Added Wikipedia API! 
+- Now Mistai has acess to the wiki to become even smarter!
+- When MistAI needs more information on your claim he fetches from wikipedia api 
+- MLA type links
+
 ### 🛠️ New Ban Features! 
 - Now Mistai is more strict on things and not as gullible 
 - Logs ur IP and you get banned permanatly now for any offenses
