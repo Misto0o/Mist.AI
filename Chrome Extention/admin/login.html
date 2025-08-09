@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Admin Login</title>
+  <style>
+    body { background: #000; color: #fff; font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+    .container { background: #111; padding: 2rem; border-radius: 12px; width: 300px; }
+    input, button { width: 100%; padding: 0.5rem; margin-bottom: 1rem; border-radius: 6px; border: none; }
+    input { background: #222; color: #fff; }
+    button { background: #ff0000; color: white; font-weight: bold; cursor: pointer; }
+    button:hover { background: #cc0000; }
+    .error { color: #ff5555; margin-bottom: 1rem; }
+    .success { color: #55ff55; margin-bottom: 1rem; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Admin Login</h1>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="{{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+    <form method="POST">
+      <input type="text" name="username" placeholder="Username" required autofocus />
+      <input type="password" name="password" placeholder="Password" required />
+      <button type="submit">Login</button>
+    </form>
+  </div>
+</body>
+</html>

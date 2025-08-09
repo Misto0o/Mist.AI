@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Mist.AI IP Ban Panel</title>
+  <style>
+    body {
+      margin: 0;
+      background-color: #000;
+      font-family: Arial, sans-serif;
+      color: #fff;
+      padding: 2rem;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 1.5rem;
+    }
+    label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: bold;
+    }
+    input[type="text"] {
+      width: 100%;
+      padding: 0.5rem;
+      border: none;
+      border-radius: 6px;
+      margin-bottom: 1rem;
+      background-color: #222;
+      color: #fff;
+    }
+    button {
+      width: 100%;
+      padding: 0.75rem;
+      background-color: #ff0000;
+      border: none;
+      border-radius: 6px;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #cc0000;
+    }
+    .flash {
+      text-align: center;
+      margin-bottom: 1rem;
+      font-weight: bold;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 2rem;
+      color: #fff;
+    }
+    th, td {
+      padding: 0.5rem;
+      border: 1px solid #555;
+    }
+    th {
+      background-color: #222;
+    }
+  </style>
+</head>
+<body>
+  <h1>Mist.AI IP Ban Panel</h1>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+        <div class="flash {{ category }}">{{ message }}</div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  <form action="{{ url_for('ban_ip') }}" method="POST">
+    <label for="ip">IP Address to Ban</label>
+    <input type="text" id="ip" name="ip" placeholder="Enter IP address" required />
+    <button type="submit">Ban IP</button>
+  </form>
+
+  <h3>Banned IPs</h3>
+<ul>
+  {% for ip in banned_ips %}
+  <li>
+    {{ ip }}
+    <form method="POST" action="{{ url_for('unban_ip') }}" style="display:inline;">
+      <input type="hidden" name="ip" value="{{ ip }}">
+      <button type="submit" class="btn btn-sm btn-danger">Unban</button>
+    </form>
+  </li>
+  {% else %}
+  <li>No banned IPs</li>
+  {% endfor %}
+</ul>
+
+
+  <h2>Currently Banned IPs</h2>
+  <ul>
+    {% for ip in banned_ips %}
+      <li>{{ ip }}</li>
+    {% else %}
+      <li>No banned IPs</li>
+    {% endfor %}
+  </ul>
+
+  <h2>IP Logs</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>IP Address</th>
+        <th>Timestamp</th>
+        <th>Message</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for ip, logs in ip_log.items() %}
+        {% for entry in logs %}
+          <tr>
+            <td>{{ ip }}</td>
+            <td>{{ entry.timestamp }}</td>
+            <td>{{ entry.message }}</td>
+          </tr>
+        {% endfor %}
+      {% else %}
+        <tr><td colspan="3">No logs available.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <p><a href="{{ url_for('admin_logout') }}" style="color:#f55;">Logout</a></p>
+</body>
+</html>

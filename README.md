@@ -1,10 +1,10 @@
-# ☁️ Mist.AI – V7.0
+# ☁️ Mist.AI – V7.5 (Mini)
 
 Mist.AI is an advanced AI assistant powered by **Gemini AI**, **Command R AI**, **Mistral AI**, and **OCR Vision**. In this major update (V7.0), Mist.AI introduces powerful new features, improved intelligence, a polished UI, and major performance upgrades across all platforms.
 
 ---
 
-🚀 **Current Version:** V7.5
+🚀 **Current Version:** V7.5 (Mini)
 🌐 **Live Domain:** [https://mistai.org](https://mistai.org)  
 📱 **Mobile App / Progressive Web App (PWA)**  
 🧠 **Smarter AI – No Knowledge Cutoff**  
@@ -14,7 +14,13 @@ Mist.AI is an advanced AI assistant powered by **Gemini AI**, **Command R AI**, 
 
 ---
 
-## 🚀 What’s New in V7.5?
+## 🚀 What’s New in V7.5(Mini)?
+
+### 🛠️ New Ban Features! 
+- Now Mistai is more strict on things and not as gullible 
+- Logs ur IP and you get banned permanatly now for any offenses
+- Cleaned up fly.io logs
+- General polish to keep Mist.AI feeling slick and snappy
 
 ### ✨ Smarter Input Box Behavior  
 - 🔥 **Word count limiter** up to 1200 words with a live counter  
@@ -23,12 +29,6 @@ Mist.AI is an advanced AI assistant powered by **Gemini AI**, **Command R AI**, 
 - ↩️ Input height only grows on actual line breaks, stays tight otherwise  
 - 🧹 Clears and resets input styling after you send a message — no stuck disabled or weird sizing  
 - 🚫 Cutoff on paste or typing, so no sneaky overflow
-
-### 🛠️ Bug Fixes & UX Improvements  
-- Fixed mysterious input rise when typing single lines — only expands on real line breaks now  
-- Reset input height and styles properly after each send, so chat feels fresh  
-- Cleaned up popup menu toggle bugs and file upload handlers  
-- General polish to keep Mist.AI feeling slick and snappy
 
 ---
 

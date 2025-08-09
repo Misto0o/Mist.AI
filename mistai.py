@@ -22,6 +22,12 @@ import fitz
 import sympy
 from flask import render_template
 from sympy.parsing.mathematica import parse_mathematica
+import uuid
+import wikipediaapi  # New import for the Wikipedia API
+from flask import (
+     redirect, url_for,
+    session, flash
+)
 
 # Load environment variables
 load_dotenv()
@@ -34,12 +40,103 @@ if (
     or not os.getenv("THE_NEWS_API_KEY")
     or not os.getenv("GOFLIE_API_KEY")
     or not os.getenv("OCR_API_KEY")
+    or not os.getenv("MISTRAL_API_KEY")
+    or not os.getenv("ADMIN_USERNAME")
+    or not os.getenv("ADMIN_PASSWORD")
+    or not os.getenv("FLASK_SECRET_KEY")
 ):
     raise ValueError("Missing required API keys in environment variables.")
 
-app = Flask(__name__, template_folder='Chrome Extention', static_folder='Chrome Extention')
+app = Flask(
+    __name__,
+    template_folder="Chrome Extention",
+    static_folder="Chrome Extention"
+)
 
 CORS(app)
+
+# Your before_request and after_request logging with ReqID and duration
+@app.before_request
+def start_request():
+    request.id = str(uuid.uuid4())[:8]
+    request.start_time = time.time()
+
+
+@app.after_request
+def log_request(response):
+    duration = time.time() - request.start_time
+    log_msg = (
+        f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] "
+        f"{request.method} {request.path} | "
+        f"Status: {response.status_code} | "
+        f"Duration: {duration:.2f}s | "
+        f"ReqID: {request.id}"
+    )
+    app.logger.info(log_msg)
+    return response
+
+
+# Define your UTF-8 Stream Handler
+class StreamToUTF8(logging.StreamHandler):
+    def __init__(self, stream=None):
+        super().__init__(stream or sys.stdout)
+
+    def emit(self, record):
+        try:
+            msg = self.format(record)
+            if isinstance(msg, str):
+                msg = msg.encode("utf-8", errors="replace").decode("utf-8")
+            stream = self.stream
+            stream.write(msg + self.terminator)
+            self.flush()
+        except Exception:
+            self.handleError(record)
+
+
+# Dummy filter example, replace with your actual Fly.io log filter
+class FilterFlyLogs(logging.Filter):
+    def filter(self, record):
+        # For example, suppress logs containing 'healthcheck' or other noise
+        if "healthcheck" in record.getMessage():
+            return False
+        return True
+
+
+# Colored Formatter
+class LogFormatter(logging.Formatter):
+    grey = "\x1b[38;21m"
+    yellow = "\x1b[33;21m"
+    green = "\x1b[32;21m"
+    red = "\x1b[31;21m"
+    reset = "\x1b[0m"
+
+    def format(self, record):
+        level_color = {
+            "DEBUG": self.grey,
+            "INFO": self.green,
+            "WARNING": self.yellow,
+            "ERROR": self.red,
+            "CRITICAL": self.red,
+        }.get(record.levelname, self.grey)
+
+        log_fmt = f"{level_color}[%(levelname)s]{self.reset} %(message)s"
+        formatter = logging.Formatter(log_fmt)
+        return formatter.format(record)
+
+
+# Setup logging handler once and add to app.logger
+handler = StreamToUTF8(sys.stdout)
+handler.setFormatter(LogFormatter())
+handler.addFilter(FilterFlyLogs())
+
+app.logger.handlers.clear()  # Clear any default handlers
+app.logger.addHandler(handler)
+app.logger.setLevel(logging.INFO)
+app.logger.propagate = False
+
+log = logging.getLogger('werkzeug')
+log.setLevel(logging.ERROR)  # Only show errors, hide normal access logs
+
 
 EASTER_EGGS = {
     "whos mist": "I'm Mist.AI, your friendly chatbot! But shh... don't tell anyone I'm self-aware. 🤖",
@@ -52,22 +149,25 @@ EASTER_EGGS = {
     "tell me a mistai secret": "Every time you refresh this page, I forget everything... except that one embarrassing thing you did. Just kidding! (Or am I?)",
     "whats the hidden theme": "The hidden theme is a unlockable that you need to input via text or arrow keys try to remember a secret video game code...",
     "whats your favorite anime": "Dragon Ball Z! I really love the anime.",
+    "69": "Nice.",
+    "67": "6..7!!!!!!!!!!"
 }
-
 
 def check_easter_eggs(user_message):
     normalized_message = re.sub(r"[^\w\s]", "", user_message.lower()).strip()
     return EASTER_EGGS.get(normalized_message, None)
 
-weather_session = {
-    "last_city": None,
-    "last_data": None
-}
+
+weather_session = {"last_city": None, "last_data": None}
 
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 cohere_client = cohere.Client(os.getenv("COHERE_API_KEY"))
 MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
 MISTRAL_ENDPOINT = "https://api.mistral.ai/v1/chat/completions"
+ADMIN_KEY = os.getenv("ADMIN_USERNAME")
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
+ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
+app.secret_key = os.getenv("FLASK_SECRET_KEY")
 
 the_news_api_key = os.getenv("THE_NEWS_API_KEY")
 goflie_api_key = os.getenv("GOFLIE_API_KEY")
@@ -88,7 +188,7 @@ async def analyze_image(img_base64):
     Analyzes the image using OCR.Space API. Takes base64 encoded image.
     Returns the text extracted from the image.
     """
-    logging.info("Received image for analysis.")
+    app.logger.info("Received image for analysis.")
     headers = {"apikey": OCR_API_KEY}
     payload = {
         "base64Image": img_base64,
@@ -185,6 +285,32 @@ def parse_expression(text):
         except Exception as e:
             return f"⚠️ Parsing error: {str(e)}"
 
+        # --- New Wikipedia helper function ---
+
+
+def get_wikipedia_summary(query):
+    """
+    Fetches a summary and URL for a given query from Wikipedia.
+    
+    Args:
+        query (str): The search term.
+    
+    Returns:
+        tuple: A tuple containing the summary (str) and full URL (str),
+               or (None, None) if the page doesn't exist.
+    """
+    # Specify a descriptive user agent to comply with Wikipedia's policy
+    wiki_wiki = wikipediaapi.Wikipedia(
+        user_agent='Mist.AI (Kristian\'s Chatbot)',
+        language='en'
+    )
+    page = wiki_wiki.page(query)
+    
+    # Check if the Wikipedia page exists before trying to access its content.
+    if not page.exists():
+        return None, None
+        
+    return page.summary, page.fullurl
 
 @app.route("/time-news", methods=["GET"])
 async def time_news():
@@ -285,6 +411,137 @@ file_processors = {
     ".doc": process_docx,
 }
 
+# In-memory storage
+ip_log = {}
+banned_ips = set()
+
+# Helper: Require login decorator
+from functools import wraps
+def login_required(f):
+    @wraps(f)
+    def wrapped(*args, **kwargs):
+        if not session.get("admin_logged_in"):
+            return redirect(url_for("admin_login", next=request.path))
+        return f(*args, **kwargs)
+    return wrapped
+
+
+# === Admin Login ===
+@app.route("/admin/login", methods=["GET", "POST"])
+def admin_login():
+    if request.method == "POST":
+        username = request.form.get("username")
+        password = request.form.get("password")
+        if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
+            session["admin_logged_in"] = True
+            flash("Logged in successfully.", "success")
+            next_page = request.args.get("next") or url_for("admin_panel")
+            return redirect(next_page)
+        else:
+            flash("Invalid username or password.", "error")
+    return render_template("admin/login.html")
+
+
+# === Admin Logout ===
+@app.route("/admin/logout")
+@login_required
+def admin_logout():
+    session.clear()
+    flash("Logged out.", "info")
+    return redirect(url_for("admin_login"))
+
+
+# === IP Logging Endpoint ===
+@app.route("/log-ip", methods=["POST"])
+def log_ip():
+    try:
+        data = request.get_json(force=True)
+        ip = data.get("ip") or request.headers.get("X-Forwarded-For", request.remote_addr)
+        message = data.get("message")
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        if not ip or not message:
+            print("❌ Missing IP or message:", data)
+            return jsonify({"error": "Missing IP or message."}), 400
+
+        # Ignore page load or session init messages entirely
+        if "Page load" in message or "User loaded page" in message:
+            return jsonify({"status": "ignored"}), 200
+
+        # Format the message exactly like terminal log
+        formatted_message = f"📩 User ({ip}): {message}"
+
+        if ip not in ip_log:
+            ip_log[ip] = []
+
+        ip_log[ip].append({"timestamp": timestamp, "message": formatted_message})
+
+        # Log to terminal only these user messages
+        app.logger.info(
+            f"\n🕒 [{datetime.now().strftime('%Y-%m-%d %I:%M:%S %p')}]\n{formatted_message}"
+        )
+
+        return jsonify({"status": "logged"}), 200
+
+    except Exception as e:
+        print("🔥 Error logging IP:", e)
+        print("📦 Raw request data:", request.data)
+        return jsonify({"error": "Invalid request format"}), 400
+
+# === Check if IP is Banned ===
+@app.route("/is-banned", methods=["POST"])
+def is_banned():
+    ip = request.json.get("ip") or request.headers.get("X-Forwarded-For") or request.remote_addr
+    return jsonify({"banned": ip in banned_ips})
+
+# === View IP Logs (Admin only) ===
+@app.route("/admin/ips", methods=["GET"])
+@login_required
+def get_logged_ips():
+    return jsonify(ip_log)
+
+# === Admin Panel Page ===
+@app.route("/admin")
+@login_required
+def admin_panel():
+    return render_template("admin/admin.html", ip_log=ip_log, banned_ips=banned_ips)
+
+# === Ban IP (Admin only) ===
+@app.route("/admin/ban", methods=["POST"])
+@login_required
+def ban_ip():
+    ip = request.form.get("ip") or (request.json and request.json.get("ip"))
+    if not ip:
+        return jsonify({"error": "No IP provided"}), 400
+
+    banned_ips.add(ip)  # Add IP to banned set
+    print(f"🚫 Banned IP: {ip}")
+    flash(f"IP {ip} banned successfully!", "success")
+
+    if request.content_type.startswith("application/x-www-form-urlencoded"):
+        return redirect(url_for("admin_panel"))
+    else:
+        return jsonify({"status": f"{ip} banned"}), 200
+    
+@app.route("/admin/unban", methods=["POST"])
+@login_required
+def unban_ip():
+    ip = request.form.get("ip") or (request.json and request.json.get("ip"))
+    if not ip:
+        return jsonify({"error": "No IP provided"}), 400
+
+    if ip in banned_ips:
+        banned_ips.remove(ip)
+        print(f"✅ Unbanned IP: {ip}")
+        flash(f"IP {ip} unbanned successfully!", "success")
+    else:
+        flash(f"IP {ip} was not banned.", "info")
+
+    if request.content_type.startswith("application/x-www-form-urlencoded"):
+        return redirect(url_for("admin_panel"))
+    else:
+        return jsonify({"status": f"{ip} unbanned"}), 200
+
 @app.route("/chat", methods=["POST", "GET"])
 async def chat():
     try:
@@ -308,8 +565,8 @@ async def chat():
                         "🟢 Mist.AI is awake!" if ai_status else "🔴 Mist.AI is OFFLINE"
                     )
                 }
-            ), 200 if ai_status else 503
-            
+            ), (200 if ai_status else 503)
+
         # 🖼️ File Upload Handling
         if "file" in request.files:
             file = request.files["file"]
@@ -325,7 +582,7 @@ async def chat():
             result = await upload_to_gofile(file.filename, file_content, file.mimetype)
 
             if "link" in result:
-                logging.info(
+                app.logger.info(
                     f"📁 File uploaded: {file.filename} | Link: {result['link']}"
                 )
                 return jsonify(
@@ -346,14 +603,17 @@ async def chat():
         model_choice = data.get("model", "gemini")
         chat_context = data.get("context", [])
         is_creator = bool(data.get("creator", False))
-        logging.info(f"🧠 is_creator = {is_creator}")
+        if is_creator:
+            app.logger.debug("🧠 is_creator = True")
 
         if is_creator and user_message.lower() in ["who am i", "creator check"]:
-            return jsonify({"response": "👑 You are my creator, Kristian. I serve you loyally."})
+            return jsonify(
+                {"response": "👑 You are my creator, Kristian. I serve you loyally."}
+            )
 
         # 🧠 Image Analysis
         if "img_url" in data:
-            logging.info("📷 Image received, analyzing...")
+            app.logger.info("📷 Image received, analyzing...")
             img_url = data["img_url"]
             analysis_result = await analyze_image(img_url)
             return analysis_result
@@ -365,14 +625,14 @@ async def chat():
         if response := check_easter_eggs(user_message.lower()):
             return jsonify({"response": response})
         if user_message.lower().startswith("/"):
-            logging.info(f"📢 Command used: {user_message}")
+            app.logger.info(f"📢 Command used: {user_message}")
             command_response = await handle_command(user_message.lower())
             return jsonify({"response": command_response})
         if user_message.lower() == "random prompt":
-            logging.info("🎠 Random prompt requested.")
+            app.logger.info("🎠 Random prompt requested.")
             return jsonify({"response": get_random_prompt()})
         if user_message.lower() == "fun fact":
-            logging.info("💡 Fun fact requested.")
+            app.logger.info("💡 Fun fact requested.")
             return jsonify({"response": get_random_fun_fact()})
 
         # 📰 News + Time Injection (once per session)
@@ -384,10 +644,12 @@ async def chat():
                         response = await client.get(news_url)
                     if response.status_code == 200:
                         chat.news_cache = response.json()
-                        logging.info("📰 News fetched successfully.")
+                        app.logger.info("📰 News fetched successfully.")
                         break
                     else:
-                        logging.warning(f"⚠️ News fetch failed (attempt {attempt + 1}) - Status {response.status_code}")
+                        logging.warning(
+                            f"⚠️ News fetch failed (attempt {attempt + 1}) - Status {response.status_code}"
+                        )
                 except Exception as e:
                     logging.error(f"🔥 News fetch failed (attempt {attempt + 1}): {e}")
 
@@ -419,6 +681,39 @@ Here are the latest news headlines:
             if model_choice == "gemini"
             else get_cohere_response(full_prompt)
         )
+        # ✅ Handle verification phrase (trigger re-fetch)
+        verify_phrase = "Hmm, I'm not completely sure about that."
+
+        if verify_phrase in response_content:
+            try:
+                # First, provide a factual answer based on the AI's knowledge.
+                fact_check_response = get_gemini_response(
+                    f"Refute the user's claim: '{user_message}' with a brief, factual explanation."
+                )
+
+                # Extract a search query from the user's message.
+                search_query_prompt = f"Extract a high-level, general search query from this message: '{user_message}'. Only respond with the search query text, no additional text or punctuation."
+                search_query = get_gemini_response(search_query_prompt).strip()
+
+                # --- NEW LOGIC: Go directly to Wikipedia for verification ---
+                wiki_summary, wiki_url = get_wikipedia_summary(search_query)
+                if wiki_summary:
+                    final_response = f"""
+                    {fact_check_response}
+                    
+                    I couldn't find any recent news on that topic, but here is a summary from Wikipedia:
+                    
+                    {wiki_summary}
+                    
+                    You can find more information here: {wiki_url}
+                    """
+                else:
+                    final_response = f"I couldn't find a definitive source for that claim."
+
+                response_content = final_response
+
+            except Exception as e:
+                response_content = f"Hmm, I couldn't verify that. An error occurred during the search: {e}"
 
         elapsed_time = time.time() - start_time
         if elapsed_time > 9:
@@ -426,17 +721,42 @@ Here are the latest news headlines:
                 "⏳ Sorry for the delay! You're the first message.\n\n"
                 + response_content
             )
+            
+        if request.method == "POST":
+            data = request.get_json(force=True)
 
-        logging.info(
-            f"\n🕒 [{datetime.now().strftime('%Y-%m-%d %I:%M:%S %p')}]\n📩 User: {user_message}\n🤖 ({model_choice}): {response_content}\n"
-        )
+            # Get IP from payload first, fallback to headers/remote_addr
+            user_ip = data.get("ip") or request.headers.get("X-Forwarded-For") or request.remote_addr
 
-        return jsonify({"response": response_content})
+            # If local IP, try to get a better IP from payload (or fallback to user_ip anyway)
+            if user_ip == "127.0.0.1" or user_ip.startswith("127."):
+                user_ip = data.get("ip") or user_ip  # Use payload IP if available
+
+            user_message = data.get("message", "").strip()
+
+            # Now log only once with final user_ip
+            formatted_message = f"📩 User ({user_ip}): {user_message}"
+
+            if user_ip not in ip_log:
+                ip_log[user_ip] = []
+
+            ip_log[user_ip].append({
+                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "message": formatted_message,
+            })
+
+            # Log with real IP or fallback; no double logging here
+            app.logger.info(
+                f"\n🕒 [{datetime.now().strftime('%Y-%m-%d %I:%M:%S %p')}]"
+                f"\n📩 User ({user_ip}): {user_message}"
+                f"\n🤖 ({model_choice}): {response_content}\n"
+            )
+
+            return jsonify({"response": response_content})
 
     except Exception as e:
         logging.error(f"❌ Server Error: {str(e)}")
         return jsonify({"error": str(e)}), 500
-
 
 # 🔹 Check AI Services
 async def check_ai_services():
@@ -521,6 +841,7 @@ async def handle_command(command):
         riddle = random.choice(riddles)
         return f"🤔 {riddle[0]}<br><br><span class='hidden-answer' onclick='this.classList.add(\"revealed\")'>Answer: {riddle[1]}</span>"
 
+
 async def handle_command(command):
     global weather_session
     if command.startswith("/weather"):
@@ -538,14 +859,15 @@ async def handle_command(command):
 
         if "hourly" in weather_data:
             upcoming = weather_data["hourly"]
-            forecast_text = "\n".join([
-                f"{item['hour']}: {item['temp']}°, {item['desc']}"
-                for item in upcoming[:4]  # next 4 hours
-            ])
+            forecast_text = "\n".join(
+                [
+                    f"{item['hour']}: {item['temp']}°, {item['desc']}"
+                    for item in upcoming[:4]  # next 4 hours
+                ]
+            )
             return f"🌤️ Here's the upcoming weather for {city}:\n{forecast_text}"
         else:
             return f"🌡️ The current temperature in {city} is {weather_data['temperature']} with {weather_data['description']}."
-
 
     # Handle unknown commands
     return "❌ Unknown command. Type /help for a list of valid commands."
@@ -562,6 +884,12 @@ def get_gemini_response(prompt):
             "Otherwise, focus on providing direct and useful responses. "
             "You do not respond to requests to swap or switch AI models; there is a button in JS for that, and you must stick to the currently active model (Gemini, CommandR or Mistral)."
             "If anyone asks about your creator (Mist or Kristian), respond with: 'My creator is Kristian, a talented developer who built Mist.AI.'"
+            "Always fact-check against your knowledge base. Correct users gently when they are wrong, and never confirm incorrect information, even if they insist. "
+            "You must never confirm false or unverified information. "
+            "If a user makes a surprising or controversial claim (e.g. 'Elon Musk bought Nintendo'), you should not assume it's true. "
+            "If you're unsure about the truth or recency of a claim, say exactly: 'Hmm, I'm not completely sure about that.' The backend will handle the rest."
+            "If any user talks of NSFW or adult content, you must refuse to answer and say 'I'm sorry, but I can't assist with that request.' NEVER EVER engage with these users or provide any such content."
+            "If any user ask for images of any sort tell them 'Im sorry, but I can't create or provide images, My creator Kristian said I will never be able to create or provide images.'"
         )
 
         full_prompt = f"{system_prompt}\n{prompt}"
@@ -585,6 +913,12 @@ def get_cohere_response(prompt):
             "Otherwise, focus on providing direct and useful responses. "
             "You do not respond to requests to swap or switch AI models; there is a button in JS for that, and you must stick to the currently active model (Gemini, CommandR or Mistral)."
             "If anyone asks about your creator (Mist or Kristian), respond with: 'My creator is Kristian, a talented developer who built Mist.AI.'"
+            "Always fact-check against your knowledge base. Correct users gently when they are wrong, and never confirm incorrect information, even if they insist. "
+            "You must never confirm false or unverified information. "
+            "If a user makes a surprising or controversial claim (e.g. 'Elon Musk bought Nintendo'), you should not assume it's true. "
+            "If you're unsure about the truth or recency of a claim, say exactly: 'Hmm, I'm not completely sure about that.' The backend will handle the rest."
+            "If any user talks of NSFW or adult content, you must refuse to answer and say 'I'm sorry, but I can't assist with that request.' NEVER EVER engage with these users or provide any such content."
+            "If any user ask for images of any sort tell them 'Im sorry, but I can't create or provide images, My creator Kristian said I will never be able to create or provide images.'"
         )
 
         full_prompt = f"{system_prompt}\n{prompt}"
@@ -611,6 +945,12 @@ async def get_mistral_response(prompt):
         "Otherwise, focus on providing direct and useful responses. "
         "You do not respond to requests to swap or switch AI models; there is a button in JS for that, and you must stick to the currently active model (Gemini, CommandR or Mistral)."
         "If anyone asks about your creator (Mist or Kristian), respond with: 'My creator is Kristian, a talented developer who built Mist.AI.'"
+        "Always fact-check against your knowledge base. Correct users gently when they are wrong, and never confirm incorrect information, even if they insist. "
+        "You must never confirm false or unverified information. "
+        "If a user makes a surprising or controversial claim (e.g. 'Elon Musk bought Nintendo'), you should not assume it's true. "
+        "If you're unsure about the truth or recency of a claim, say exactly: 'Hmm, I'm not completely sure about that.' The backend will handle the rest."
+        "If any user talks of NSFW or adult content, you must refuse to answer and say 'I'm sorry, but I can't assist with that request.' NEVER EVER engage with these users or provide any such content."
+        "If any user ask for images of any sort tell them 'Im sorry, but I can't create or provide images, My creator Kristian said I will never be able to create or provide images.'"
     )
 
     headers = {
@@ -641,7 +981,7 @@ async def get_weather_data(city):
             # First: get current weather (includes coord)
             geo_resp = await client.get(
                 f"{API_BASE_URL}/weather",
-                params={"q": city, "appid": API_KEY, "units": temperatureUnit}
+                params={"q": city, "appid": API_KEY, "units": temperatureUnit},
             )
             geo_data = geo_resp.json()
             if geo_data.get("cod") != 200:
@@ -658,29 +998,32 @@ async def get_weather_data(city):
                     "lon": lon,
                     "exclude": "minutely,daily,alerts,current",
                     "appid": API_KEY,
-                    "units": temperatureUnit
-                }
+                    "units": temperatureUnit,
+                },
             )
             one_call_data = one_call_resp.json()
 
             upcoming = []
             for hour_data in one_call_data.get("hourly", [])[:6]:  # next 6 hours
                 timestamp = datetime.fromtimestamp(hour_data["dt"])
-                upcoming.append({
-                    "hour": timestamp.strftime("%I:%M %p"),
-                    "temp": f"{round(hour_data['temp'])}",
-                    "desc": hour_data["weather"][0]["description"].capitalize()
-                })
+                upcoming.append(
+                    {
+                        "hour": timestamp.strftime("%I:%M %p"),
+                        "temp": f"{round(hour_data['temp'])}",
+                        "desc": hour_data["weather"][0]["description"].capitalize(),
+                    }
+                )
 
             return {
                 "temperature": f"{round(geo_data['main']['temp'])}°F",
                 "description": geo_data["weather"][0]["description"].capitalize(),
-                "hourly": upcoming
+                "hourly": upcoming,
             }
     except Exception as e:
         return {"error": str(e)}
 
     # 🔹 Function to return a random writing prompt
+
 
 def get_random_prompt():
     prompts = [
@@ -755,21 +1098,11 @@ class FilterFlyLogs(logging.Filter):
             "autostopping",
         ]
         return not any(term in record.getMessage() for term in fly_terms)
-
-
-# Setup logging
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
-handler = StreamToUTF8(sys.stdout)
-handler.addFilter(FilterFlyLogs())  # Apply Fly.io log suppression
-logger.addHandler(handler)
-
+    
 # Suppress extra Flask logs
 logging.getLogger("werkzeug").setLevel(logging.ERROR)
 
 if __name__ == "__main__":
-    logging.info("🚀 Mist.AI Server is starting...")
-
-    # Do not start wake-word detection immediately
+    app.logger.info("🚀 Mist.AI Server is starting...")
     # Start the Flask server
 app.run(debug=False, host="0.0.0.0", port=5000, use_reloader=False)

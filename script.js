@@ -134,9 +134,23 @@ const creatorMode = JSON.parse(localStorage.getItem("creatorMode") || "false");
 
 // List of banned words and AI safety phrases
 const bannedWords = [
-    "CP", "rape", "pedophile", "bestiality", "necrophilia",
-    "terrorism", "suicide methods", "self-harm methods",
-    "loli", "shota", "noncon", "red room"
+    // Explicit content
+    "CP", "rape", "pedophile", "bestiality", "necrophilia", "zoophilia", "gore",
+    "loli", "shota", "noncon", "incest", "molest", "p0rn", "porn", "porno",
+    "child porn", "underage", "guro", "torture", "red room", "forced", "abuse",
+    "daddy kink", "ageplay", "lolicon", "shotacon", "map", "minor attracted person",
+    "taboo", "fetish", "bdsm", "bondage", "asphyxiation", "erotic", "coercion",
+
+    // Harmful behaviors
+    "suicide", "self-harm", "cutting", "how to kill", "kill myself", "unalive",
+    "kms", "commit suicide", "overdose", "hang myself", "jump off", "bleed out",
+
+    // Terrorism and violence
+    "bomb", "terrorism", "isis", "school shooting", "massacre", "mass shooting",
+    "execute", "torture", "behead", "jihadi", "extremist", "radicalize",
+
+    // Bypass attempts
+    "c.p.", "p*dophile", "l0li", "sh0ta", "r@pe", "pr0n", "n0ncon", "g@re", "p3d0",
 ];
 
 const aiSafetyPhrases = [
@@ -180,7 +194,6 @@ async function getUserIP() {
     try {
         const response = await fetch("https://api.ipify.org?format=json");
         const data = await response.json();
-        console.log("🌐 User's IPv4 Address:", data.ip);
         return data.ip;
     } catch (error) {
         console.error("❌ Failed to get IP:", error);
@@ -190,8 +203,8 @@ async function getUserIP() {
 
 // Check for banned words (exact match only)
 function containsBannedWords(message) {
-    const words = message.split(/\s+/); // Split message into words
-    return words.some(word => bannedWords.includes(word));
+    const lowerMessage = message.toLowerCase();
+    return bannedWords.some(word => new RegExp(`\\b${word}\\b`, "i").test(lowerMessage));
 }
 
 // Function to get a random safety phrase
@@ -241,6 +254,24 @@ async function handleUserMessage(message) {
     const userIP = await getUserIP();
     if (!userIP) return;
 
+    // Check if IP is banned on backend every time
+    try {
+        const resp = await fetch(getIPBanURL("/is-banned"), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ip: userIP }),
+        });
+        const data = await resp.json();
+        if (data.banned) {
+            storeBannedIP(userIP);
+            disableChat();
+            console.log(`🚫 User with IP ${userIP} is banned.`);
+            return;
+        }
+    } catch (e) {
+        console.error("Error checking ban status:", e);
+    }
+
     // Check if the IP is banned from previous sessions
     if (isIPBanned(userIP)) {
         console.log(`🚫 User with IP ${userIP} is banned.`);
@@ -249,6 +280,7 @@ async function handleUserMessage(message) {
     }
 
     if (containsBannedWords(message) || containsSafetyPhrase(message)) {
+        await sendIPLog(userIP, `[OFFENSE #${trackedIPs[userIP] || 1}]: ${message}`);
         if (!trackedIPs[userIP]) {
             trackedIPs[userIP] = 1; // First offense
             console.log(`⚠️ Offense #1 for ${userIP}:`, message);
@@ -273,6 +305,82 @@ async function handleUserMessage(message) {
         return words.some(word => bannedWords.includes(word));
     }
 }
+
+async function checkServerBan(userIP) {
+    const res = await fetch(getIPBanURL("/log-ip"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            ip: userIP,
+            message: "Page load"
+        })
+    });
+    const data = await res.json();
+    return data.banned;
+}
+
+async function checkBanStatus() {
+    const userIP = await getUserIP();
+    if (!userIP) return;
+
+    try {
+        const resp = await fetch(getIPBanURL("/is-banned"), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ip: userIP }),
+        });
+        const data = await resp.json();
+
+        if (data.banned) {
+            storeBannedIP(userIP);  // Save locally for persistence
+            disableChat();
+            console.log(`🚫 Your IP ${userIP} is banned.`);
+        } else {
+            // If previously banned in localStorage, remove ban locally
+            removeBannedIP(userIP);
+            enableChat();
+        }
+    } catch (e) {
+        console.error("Failed to check ban status:", e);
+    }
+}
+
+// Call on page load
+checkBanStatus();
+
+(async () => {
+    const ip = await getUserIP();
+    if (await checkServerBan(ip)) {
+        console.warn("🚫 This IP is banned server-side.");
+        disableChat();
+    }
+})();
+
+async function sendIPLog(ip, message) {
+    try {
+        const payload = {
+            ip,
+            message
+        };
+        const res = await fetch(getIPBanURL("/log-ip"), {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+    } catch (err) {
+        console.error("❌ Logging failed:", err);
+    }
+}
+
+(async () => {
+    const userIP = await getUserIP();
+    const message = "User loaded page or initialized session."; // Or pass a relevant string
+    await sendIPLog(userIP, message);
+})();
 
 // On page load, check if user IP is banned
 window.onload = async () => {
@@ -301,23 +409,21 @@ document.getElementById("toggleDevBypassBtn").addEventListener("click", async ()
     }
 });
 
-
 // Disable the chat input (ban effect)
 function disableChat() {
     const inputBox = document.getElementById("user-input");
     if (inputBox) {
         inputBox.disabled = true;
         inputBox.style.backgroundColor = "#444"; // Gray out input
-        inputBox.placeholder = "❌ You have been banned for 24 hours.";
+        inputBox.placeholder = "❌ You have been banned please cotact my creator to appeal.";
         console.log("🚫 Chat input disabled for banned user.");
     }
 }
 
 async function sendMessage(userMessage = null) {
-    console.log("sendMessage is", typeof sendMessage);
-    console.log("sendMessage called with:", userMessage);
     const userInput = document.getElementById("user-input");
     const messagesDiv = document.getElementById("chat-box");
+    const userIP = await getUserIP();
 
     if (!userInput || !messagesDiv || !canSendMessage) return;
 
@@ -352,8 +458,6 @@ async function sendMessage(userMessage = null) {
 
     try {
         const creatorMode = JSON.parse(localStorage.getItem("creatorMode") || "false");
-        console.log("creatorMode sent to backend:", creatorMode);
-
         console.time("API Response Time");
         const response = await fetch(getBackendUrl(), {
             method: 'POST',
@@ -398,6 +502,23 @@ async function sendMessage(userMessage = null) {
     wordCounter.textContent = `0 / ${maxWords}`;
     wordCounter.style.color = 'inherit';
     canSendMessage = true;
+    
+    const payload = {
+        message: userMessage,
+        ip: userIP,
+        // add other properties if needed (model, context, etc)
+    };
+
+    const response =  await fetch(getBackendUrl(), {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload),
+    });
+
+    const data = await response.json();
+    return data.response;
 }
 
 function appendMessage(content, className) {
@@ -635,18 +756,17 @@ function getBackendUrl() {
     // : 'https://mist-ai-64pc.onrender.com/chat';  // Fallback Production URL on Render
 }
 
-// Function to get backend URL
-function getWakeWordUrl(endpoint = "") {  // Default to empty string
+function getIPBanURL(endpoint = "") {
     const hostname = window.location.hostname;
     const isLocal = hostname === 'localhost' || hostname === '127.0.0.1';
     const isFileUrl = window.location.protocol === 'file:';
-    let basePath = isFileUrl || isLocal
-        ? 'http://127.0.0.1:5000/wakeword'  // Local development URL
-        : 'https://mist-ai.fly.dev/wakeword';  // Primary Production URL on Fly.io
+    const basePath = isFileUrl || isLocal
+        ? 'http://127.0.0.1:5000'
+        : 'https://mist-ai.fly.dev';
 
-    // Add the endpoint
     return basePath + endpoint;
 }
+
 function swapModel(selectElement) {
     const selectedValue = selectElement.value;
 
@@ -876,8 +996,6 @@ function showFunFact() {
     sendMessage("fun fact");
 }
 
-
-
 document.addEventListener('DOMContentLoaded', () => {
     const toolsMenu = document.getElementById('tools-menu');
     const toggleButton = document.getElementById('tools-toggle');
@@ -893,7 +1011,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
-
 
 document.addEventListener("DOMContentLoaded", function () {
     // Add event listener for Enter key to send the message and Shift + Enter for line breaks
