@@ -329,16 +329,15 @@ file_processors = {
     ".docx": process_docx,
     ".doc": process_docx,
 }
-# =========================
-# Database Setup (SQLite)
-# =========================
-# Use Fly.io path if it exists, otherwise local
-if os.path.exists("/app"):
-    DB_FILE = "/app/bans.db"
+
+# Use Fly.io volume path if it exists, otherwise local
+if os.path.exists("/data"):   # <- mounted Fly volume
+    DB_FILE = "/data/bans.db"
 else:
-    DB_FILE = "bans.db"  # local fallback for Windows
+    DB_FILE = "bans.db"       # fallback for local Windows
 
 def init_db():
+    os.makedirs(os.path.dirname(DB_FILE), exist_ok=True)
     if not os.path.exists(DB_FILE):
         print(f"🗄️ Creating database at {DB_FILE}")
         conn = sqlite3.connect(DB_FILE)
