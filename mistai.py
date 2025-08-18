@@ -329,23 +329,30 @@ file_processors = {
     ".docx": process_docx,
     ".doc": process_docx,
 }
-
 # =========================
 # Database Setup (SQLite)
 # =========================
-DB_FILE = "bans.db"
+# Use Fly.io path if it exists, otherwise local
+if os.path.exists("/app"):
+    DB_FILE = "/app/bans.db"
+else:
+    DB_FILE = "bans.db"  # local fallback for Windows
 
 def init_db():
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    c.execute("""
-        CREATE TABLE IF NOT EXISTS bans (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            ip TEXT UNIQUE NOT NULL
-        )
-    """)
-    conn.commit()
-    conn.close()
+    if not os.path.exists(DB_FILE):
+        print(f"🗄️ Creating database at {DB_FILE}")
+        conn = sqlite3.connect(DB_FILE)
+        c = conn.cursor()
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS bans (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ip TEXT UNIQUE NOT NULL
+            )
+        """)
+        conn.commit()
+        conn.close()
+    else:
+        print(f"🗄️ Database already exists at {DB_FILE}")
 
 def add_ban(ip):
     conn = sqlite3.connect(DB_FILE)
