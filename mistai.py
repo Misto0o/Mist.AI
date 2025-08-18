@@ -331,8 +331,8 @@ file_processors = {
 }
 
 # Use Fly.io volume path if it exists, otherwise local
-if os.path.exists("/data"):   # <- mounted Fly volume
-    DB_FOLDER = "/data"
+if os.path.exists("/app/data"):   # <- mounted Fly volume
+    DB_FOLDER = "/app/data"
 else:
     DB_FOLDER = "."           # local fallback for Windows
 

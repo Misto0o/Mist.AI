@@ -20,5 +20,5 @@ primary_region = "iad"
   path = "/metrics"  # Optional, for monitoring performance
 
 [[mounts]]
-  source = "bans_db"
-  destination = "/app/data"
+source = "bans_db"
+destination = "/app/data"
