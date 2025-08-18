@@ -332,12 +332,14 @@ file_processors = {
 
 # Use Fly.io volume path if it exists, otherwise local
 if os.path.exists("/data"):   # <- mounted Fly volume
-    DB_FILE = "/data/bans.db"
+    DB_FOLDER = "/data"
 else:
-    DB_FILE = "bans.db"       # fallback for local Windows
+    DB_FOLDER = "."           # local fallback for Windows
+
+DB_FILE = os.path.join(DB_FOLDER, "bans.db")
 
 def init_db():
-    os.makedirs(os.path.dirname(DB_FILE), exist_ok=True)
+    os.makedirs(DB_FOLDER, exist_ok=True)  # ensure folder exists
     if not os.path.exists(DB_FILE):
         print(f"🗄️ Creating database at {DB_FILE}")
         conn = sqlite3.connect(DB_FILE)
@@ -352,6 +354,7 @@ def init_db():
         conn.close()
     else:
         print(f"🗄️ Database already exists at {DB_FILE}")
+
 
 def add_ban(ip):
     conn = sqlite3.connect(DB_FILE)

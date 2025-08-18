@@ -21,4 +21,4 @@ primary_region = "iad"
 
 [[mounts]]
   source = "bans_db"
-  destination = "/app/bans.db"
+  destination = "/app/data"
