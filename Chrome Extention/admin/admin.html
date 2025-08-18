@@ -1,76 +1,139 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <title>Mist.AI IP Ban Panel</title>
   <style>
     body {
       margin: 0;
-      background-color: #000;
+      background-color: #111;
       font-family: Arial, sans-serif;
-      color: #fff;
+      color: #eee;
+      display: flex;
+      justify-content: center;
       padding: 2rem;
     }
+
+    .panel {
+      width: 700px;
+      background: #1a1a1a;
+      padding: 2rem;
+      border-radius: 12px;
+      box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+    }
+
     h1 {
       text-align: center;
       margin-bottom: 1.5rem;
+      color: #fff;
     }
+
+    h2,
+    h3 {
+      margin-top: 2rem;
+      margin-bottom: 1rem;
+      color: #ff4d4d;
+    }
+
     label {
       display: block;
       margin-bottom: 0.5rem;
       font-weight: bold;
     }
+
     input[type="text"] {
       width: 100%;
-      padding: 0.5rem;
-      border: none;
-      border-radius: 6px;
+      padding: 0.6rem;
+      border: 1px solid #333;
+      border-radius: 8px;
       margin-bottom: 1rem;
       background-color: #222;
       color: #fff;
+      font-size: 1rem;
     }
+
     button {
       width: 100%;
       padding: 0.75rem;
-      background-color: #ff0000;
+      background-color: #ff4d4d;
       border: none;
-      border-radius: 6px;
+      border-radius: 8px;
       color: white;
       font-weight: bold;
       cursor: pointer;
+      transition: background 0.2s;
     }
+
     button:hover {
       background-color: #cc0000;
     }
-    .flash {
-      text-align: center;
-      margin-bottom: 1rem;
-      font-weight: bold;
+
+    ul {
+      list-style: none;
+      padding-left: 0;
     }
+
+    li {
+      margin: 0.4rem 0;
+      background: #222;
+      padding: 0.5rem 0.75rem;
+      border-radius: 6px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    li form {
+      margin: 0;
+    }
+
     table {
       width: 100%;
       border-collapse: collapse;
-      margin-top: 2rem;
-      color: #fff;
+      margin-top: 1rem;
+      font-size: 0.9rem;
     }
-    th, td {
-      padding: 0.5rem;
-      border: 1px solid #555;
+
+    th,
+    td {
+      padding: 0.75rem;
+      border-bottom: 1px solid #333;
     }
+
     th {
       background-color: #222;
+      text-align: left;
+    }
+
+    tr:hover td {
+      background-color: #2a2a2a;
+    }
+
+    a.logout {
+      display: inline-block;
+      margin-top: 2rem;
+      color: #ff4d4d;
+      text-decoration: none;
+      font-weight: bold;
+    }
+
+    a.logout:hover {
+      text-decoration: underline;
     }
   </style>
 </head>
+
 <body>
+  <div class="panel">
   <h1>Mist.AI IP Ban Panel</h1>
 
   {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-      {% for category, message in messages %}
-        <div class="flash {{ category }}">{{ message }}</div>
-      {% endfor %}
-    {% endif %}
+  {% if messages %}
+  {% for category, message in messages %}
+  <div class="flash {{ category }}">{{ message }}</div>
+  {% endfor %}
+  {% endif %}
   {% endwith %}
 
   <form action="{{ url_for('ban_ip') }}" method="POST">
@@ -80,27 +143,27 @@
   </form>
 
   <h3>Banned IPs</h3>
-<ul>
-  {% for ip in banned_ips %}
-  <li>
-    {{ ip }}
-    <form method="POST" action="{{ url_for('unban_ip') }}" style="display:inline;">
-      <input type="hidden" name="ip" value="{{ ip }}">
-      <button type="submit" class="btn btn-sm btn-danger">Unban</button>
-    </form>
-  </li>
-  {% else %}
-  <li>No banned IPs</li>
-  {% endfor %}
-</ul>
+  <ul>
+    {% for ip in banned_ips %}
+    <li>
+      {{ ip }}
+      <form method="POST" action="{{ url_for('unban_ip') }}" style="display:inline;">
+        <input type="hidden" name="ip" value="{{ ip }}">
+        <button type="submit" class="btn btn-sm btn-danger">Unban</button>
+      </form>
+    </li>
+    {% else %}
+    <li>No banned IPs</li>
+    {% endfor %}
+  </ul>
 
 
   <h2>Currently Banned IPs</h2>
   <ul>
     {% for ip in banned_ips %}
-      <li>{{ ip }}</li>
+    <li>{{ ip }}</li>
     {% else %}
-      <li>No banned IPs</li>
+    <li>No banned IPs</li>
     {% endfor %}
   </ul>
 
@@ -115,19 +178,23 @@
     </thead>
     <tbody>
       {% for ip, logs in ip_log.items() %}
-        {% for entry in logs %}
-          <tr>
-            <td>{{ ip }}</td>
-            <td>{{ entry.timestamp }}</td>
-            <td>{{ entry.message }}</td>
-          </tr>
-        {% endfor %}
+      {% for entry in logs %}
+      <tr>
+        <td>{{ ip }}</td>
+        <td>{{ entry.timestamp }}</td>
+        <td>{{ entry.message }}</td>
+      </tr>
+      {% endfor %}
       {% else %}
-        <tr><td colspan="3">No logs available.</td></tr>
+      <tr>
+        <td colspan="3">No logs available.</td>
+      </tr>
       {% endfor %}
     </tbody>
   </table>
 
   <p><a href="{{ url_for('admin_logout') }}" style="color:#f55;">Logout</a></p>
+  </div>
 </body>
+
 </html>
