@@ -466,7 +466,9 @@ def get_logged_ips():
 @app.route("/admin")
 @login_required
 def admin_panel():
-    return render_template("admin/admin.html", ip_log=ip_log, banned_ips=get_bans())
+    # Always fetch bans from the DB
+    banned_ips = get_bans()
+    return render_template("admin/admin.html", ip_log=ip_log, banned_ips=banned_ips)
 
 # === Ban IP (Admin only) ===
 @app.route("/admin/ban", methods=["POST"])
