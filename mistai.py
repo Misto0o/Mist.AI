@@ -28,6 +28,8 @@ from flask import (
      redirect, url_for,
     session, flash
 )
+import sqlite3
+from functools import wraps
 
 # Load environment variables
 load_dotenv()
@@ -328,12 +330,64 @@ file_processors = {
     ".doc": process_docx,
 }
 
-# In-memory storage
-ip_log = {}
-banned_ips = set()
+# =========================
+# Database Setup (SQLite)
+# =========================
+DB_FILE = "bans.db"
 
+def init_db():
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS bans (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ip TEXT UNIQUE NOT NULL
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+def add_ban(ip):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("INSERT OR IGNORE INTO bans (ip) VALUES (?)", (ip,))
+    conn.commit()
+    conn.close()
+
+def remove_ban(ip):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("DELETE FROM bans WHERE ip = ?", (ip,))
+    conn.commit()
+    conn.close()
+
+def get_bans():
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("SELECT ip FROM bans")
+    result = [row[0] for row in c.fetchall()]
+    conn.close()
+    return result
+
+def is_ip_banned(ip):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("SELECT 1 FROM bans WHERE ip = ?", (ip,))
+    result = c.fetchone()
+    conn.close()
+    return result is not None
+
+# Initialize DB on startup
+init_db()
+
+# =========================
+# In-Memory Logs (not bans)
+# =========================
+ip_log = {}
+
+# =========================
 # Helper: Require login decorator
-from functools import wraps
+# =========================
 def login_required(f):
     @wraps(f)
     def wrapped(*args, **kwargs):
@@ -342,14 +396,13 @@ def login_required(f):
         return f(*args, **kwargs)
     return wrapped
 
-
 # === Admin Login ===
 @app.route("/admin/login", methods=["GET", "POST"])
 def admin_login():
     if request.method == "POST":
         username = request.form.get("username")
         password = request.form.get("password")
-        if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
+        if username == os.getenv("ADMIN_USERNAME") and password == os.getenv("ADMIN_PASSWORD"):
             session["admin_logged_in"] = True
             flash("Logged in successfully.", "success")
             next_page = request.args.get("next") or url_for("admin_panel")
@@ -358,7 +411,6 @@ def admin_login():
             flash("Invalid username or password.", "error")
     return render_template("admin/login.html")
 
-
 # === Admin Logout ===
 @app.route("/admin/logout")
 @login_required
@@ -366,7 +418,6 @@ def admin_logout():
     session.clear()
     flash("Logged out.", "info")
     return redirect(url_for("admin_login"))
-
 
 # === IP Logging Endpoint ===
 @app.route("/log-ip", methods=["POST"])
@@ -382,22 +433,19 @@ def log_ip():
         if "Page load" in message or "User loaded page" in message:
             return jsonify({"status": "ignored"}), 200
 
-        # Inside log_ip():
-        if data.get("type") == "chat":  
+        if data.get("type") == "chat":
             return jsonify({"status": "ignored"}), 200
 
-        # No print() or logger here — console output handled in /chat
         return jsonify({"status": "logged"}), 200
 
-    except Exception as e:
+    except Exception:
         return jsonify({"error": "Invalid request format"}), 400
-
 
 # === Check if IP is Banned ===
 @app.route("/is-banned", methods=["POST"])
-def is_banned():
+def check_is_banned():
     ip = request.json.get("ip") or request.headers.get("X-Forwarded-For") or request.remote_addr
-    return jsonify({"banned": ip in banned_ips})
+    return jsonify({"banned": is_ip_banned(ip)})
 
 # === View IP Logs (Admin only) ===
 @app.route("/admin/ips", methods=["GET"])
@@ -409,7 +457,7 @@ def get_logged_ips():
 @app.route("/admin")
 @login_required
 def admin_panel():
-    return render_template("admin/admin.html", ip_log=ip_log, banned_ips=banned_ips)
+    return render_template("admin/admin.html", ip_log=ip_log, banned_ips=get_bans())
 
 # === Ban IP (Admin only) ===
 @app.route("/admin/ban", methods=["POST"])
@@ -419,15 +467,16 @@ def ban_ip():
     if not ip:
         return jsonify({"error": "No IP provided"}), 400
 
-    banned_ips.add(ip)  # Add IP to banned set
+    add_ban(ip)
     print(f"🚫 Banned IP: {ip}")
     flash(f"IP {ip} banned successfully!", "success")
 
-    if request.content_type.startswith("application/x-www-form-urlencoded"):
+    if request.content_type and request.content_type.startswith("application/x-www-form-urlencoded"):
         return redirect(url_for("admin_panel"))
     else:
         return jsonify({"status": f"{ip} banned"}), 200
-    
+
+# === Unban IP (Admin only) ===
 @app.route("/admin/unban", methods=["POST"])
 @login_required
 def unban_ip():
@@ -435,14 +484,14 @@ def unban_ip():
     if not ip:
         return jsonify({"error": "No IP provided"}), 400
 
-    if ip in banned_ips:
-        banned_ips.remove(ip)
+    if is_ip_banned(ip):
+        remove_ban(ip)
         print(f"✅ Unbanned IP: {ip}")
         flash(f"IP {ip} unbanned successfully!", "success")
     else:
         flash(f"IP {ip} was not banned.", "info")
 
-    if request.content_type.startswith("application/x-www-form-urlencoded"):
+    if request.content_type and request.content_type.startswith("application/x-www-form-urlencoded"):
         return redirect(url_for("admin_panel"))
     else:
         return jsonify({"status": f"{ip} unbanned"}), 200
