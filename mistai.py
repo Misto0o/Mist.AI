@@ -335,9 +335,16 @@ else:
     DB_FOLDER = "."
 DB_FILE = os.path.join(DB_FOLDER, "bans.db")
 
+
+def get_db_connection():
+    """Helper: Always return a SQLite connection."""
+    return sqlite3.connect(DB_FILE)
+
+
 def init_db():
+    """Create bans table if missing."""
     os.makedirs(DB_FOLDER, exist_ok=True)
-    conn = sqlite3.connect(DB_FILE)
+    conn = get_db_connection()
     c = conn.cursor()
     c.execute("""
         CREATE TABLE IF NOT EXISTS bans (
@@ -350,81 +357,10 @@ def init_db():
     conn.close()
     print(f"🗄️ Database initialized at {DB_FILE}")
 
-def add_ban(ip=None, token=None):
-    if not ip:
-        print("❌ Cannot add ban without an IP")
-        return  # Reject IP-less rows
-
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-
-    # Check if this IP already exists
-    c.execute("SELECT token FROM bans WHERE ip=?", (ip,))
-    row = c.fetchone()
-    
-    if row:
-        existing_token = row[0]
-        if existing_token:
-            print(f"❌ IP {ip} already has a token ({existing_token}), cannot assign another.")
-            conn.close()
-            return
-        else:
-            # If row exists but token is None, assign the token
-            if token:
-                c.execute("UPDATE bans SET token=? WHERE ip=?", (token, ip))
-                print(f"✅ Assigned token {token} to existing IP {ip}")
-    else:
-        # Insert new row with IP and token
-        c.execute("INSERT INTO bans (ip, token) VALUES (?, ?)", (ip, token))
-        print(f"✅ Added ban: IP {ip}, Token {token}")
-
-    conn.commit()
-    conn.close()
-
-def remove_ban(ip=None, token=None):
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    if ip:
-        c.execute("DELETE FROM bans WHERE ip=?", (ip,))
-    if token:
-        c.execute("DELETE FROM bans WHERE token=?", (token,))
-    conn.commit()
-    conn.close()
-
-def get_bans():
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    c.execute("SELECT ip, token FROM bans")
-    result = c.fetchall()
-    conn.close()
-    return result
-
-def is_banned(ip=None, token=None):
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    c.execute("SELECT 1 FROM bans WHERE ip=? OR token=?", (ip, token))
-    result = c.fetchone() is not None
-    conn.close()
-    return result
-
-# =========================
-# In-Memory Logs
-# =========================
-ip_log = {}
-
-# =========================
-# Helpers
-# =========================
-def login_required(f):
-    @wraps(f)
-    def wrapped(*args, **kwargs):
-        if not session.get("admin_logged_in"):
-            return redirect(url_for("admin_login", next=request.path))
-        return f(*args, **kwargs)
-    return wrapped
 
 def add_token_column():
-    conn = sqlite3.connect(DB_FILE)
+    """Ensure 'token' column exists."""
+    conn = get_db_connection()
     c = conn.cursor()
     c.execute("PRAGMA table_info(bans)")
     columns = [col[1] for col in c.fetchall()]
@@ -436,100 +372,16 @@ def add_token_column():
         print("✅ 'token' column already exists.")
     conn.close()
 
-# =========================
-# Admin Routes
-# =========================
-@app.route("/admin")
-@login_required
-def admin_panel():
-    banned_entries = get_bans()
-    return render_template("admin/admin.html", ip_log=ip_log, banned_entries=banned_entries)
 
-@app.route("/admin/ban", methods=["POST"])
-@login_required
-def admin_ban():
-    if request.content_type.startswith("application/json"):
-        data = request.get_json(force=True)
-        ip = data.get("ip")
-        token = data.get("token")
-    else:
-        ip = request.form.get("ip")
-        token = request.form.get("token")
-
-    if not ip and not token:
-        flash("No IP or Token provided", "error")
-        return redirect(url_for("admin_panel"))
-
-    add_ban(ip, token)
-    flash(f"Banned IP: {ip}, Token: {token}", "success")
-    return redirect(url_for("admin_panel"))
-
-@app.route("/admin/unban", methods=["POST"])
-@login_required
-def admin_unban():
-    if request.content_type.startswith("application/json"):
-        data = request.get_json(force=True)
-        ip = data.get("ip")
-        token = data.get("token")
-    else:
-        ip = request.form.get("ip")
-        token = request.form.get("token")
-
-    if not ip and not token:
-        flash("No IP or Token provided", "error")
-        return redirect(url_for("admin_panel"))
-
-    remove_ban(ip, token)
-    flash(f"Unbanned IP: {ip}, Token: {token}", "success")
-    return redirect(url_for("admin_panel"))
-
-@app.route("/is-banned", methods=["POST"])
-def check_is_banned():
-    data = request.get_json(force=True)
-    ip = data.get("ip")
-    token = data.get("token")
-
-    if not ip or not token:
-        return jsonify({"error": "Missing IP or token"}), 400
-
-    banned = is_banned(ip, token)
-    if banned:
-        add_ban(ip, token)
-
-    return jsonify({"banned": banned})
-
-@app.route("/admin/login", methods=["GET", "POST"])
-def admin_login():
-    if request.method == "POST":
-        username = request.form.get("username")
-        password = request.form.get("password")
-        if username == os.getenv("ADMIN_USERNAME") and password == os.getenv("ADMIN_PASSWORD"):
-            session["admin_logged_in"] = True
-            flash("Logged in successfully.", "success")
-            next_page = request.args.get("next") or url_for("admin_panel")
-            return redirect(next_page)
-        else:
-            flash("Invalid username or password.", "error")
-    return render_template("admin/login.html")
-
-@app.route("/admin/logout")
-@login_required
-def admin_logout():
-    session.clear()
-    flash("Logged out.", "info")
-    return redirect(url_for("admin_login"))
-
-# =========================
-# Token migration & cleanup
-# =========================
 def migrate_to_tokens():
-    conn = sqlite3.connect(DB_FILE)
+    """Migrate device_id to token if legacy schema exists."""
+    conn = get_db_connection()
     c = conn.cursor()
-
-    # Migrate device_id if exists
     c.execute("PRAGMA table_info(bans)")
     columns = [col[1] for col in c.fetchall()]
+
     if "device_id" in columns:
+        print("🔄 Migrating device_id -> token...")
         c.execute("SELECT id, device_id FROM bans WHERE device_id IS NOT NULL")
         rows = c.fetchall()
         for ban_id, device_id in rows:
@@ -550,68 +402,232 @@ def migrate_to_tokens():
         c.execute("INSERT INTO bans (id, ip, token) SELECT id, ip, token FROM bans_old")
         c.execute("DROP TABLE bans_old")
         conn.commit()
+        print("✅ Migration complete.")
     conn.close()
 
-def unify_tokens_by_ip(db_file="bans.db"):
-    conn = sqlite3.connect(db_file)
-    c = conn.cursor()
 
-    # Get all unique IPs
+def unify_tokens_by_ip():
+    """Ensure each IP has one row & one token."""
+    conn = get_db_connection()
+    c = conn.cursor()
     c.execute("SELECT DISTINCT ip FROM bans WHERE ip IS NOT NULL")
     ips = [row[0] for row in c.fetchall()]
 
     for ip in ips:
-        # Get all rows for this IP
         c.execute("SELECT id, token FROM bans WHERE ip=?", (ip,))
         rows = c.fetchall()
-
         if not rows:
             continue
 
-        # Pick first token that is not None
         main_token = next((token for _, token in rows if token), None)
-
-        # If no token exists yet, generate one
         if not main_token:
             main_token = str(uuid.uuid4())
             c.execute("UPDATE bans SET token=? WHERE id=?", (main_token, rows[0][0]))
 
-        # Delete all other rows for this IP except the first one
-        ids_to_keep = [rows[0][0]]  # Keep first row
+        ids_to_keep = [rows[0][0]]
         c.execute(
             f"DELETE FROM bans WHERE ip=? AND id NOT IN ({','.join(['?']*len(ids_to_keep))})",
             [ip, *ids_to_keep]
         )
-
-        # Ensure first row has the token
         c.execute("UPDATE bans SET token=? WHERE id=?", (main_token, rows[0][0]))
 
     conn.commit()
     conn.close()
-    print("✅ Each IP now has exactly one token, duplicates removed")
-    
-    
-DB_FILE = "bans.db"
+    print("✅ Tokens unified by IP")
 
-conn = sqlite3.connect(DB_FILE)
-c = conn.cursor()
 
-# Delete any rows where IP is NULL
-c.execute("DELETE FROM bans WHERE ip IS NULL")
+def safe_cleanup():
+    """Remove bad rows safely."""
+    try:
+        conn = get_db_connection()
+        c = conn.cursor()
+        c.execute("DELETE FROM bans WHERE ip IS NULL")
+        conn.commit()
+        conn.close()
+        print("✅ Cleaned up rows with NULL IP")
+    except sqlite3.OperationalError as e:
+        print(f"⚠️ Cleanup skipped: {e}")
 
-conn.commit()
-conn.close()
-
-print("✅ Removed all IP: None rows")
 
 # =========================
-# Startup
+# Core DB Actions
 # =========================
-init_db()
-add_token_column()
-migrate_to_tokens()
-unify_tokens_by_ip()
+def add_ban(ip=None, token=None):
+    if not ip:
+        print("❌ Cannot add ban without an IP")
+        return
+
+    conn = get_db_connection()
+    c = conn.cursor()
+    c.execute("SELECT token FROM bans WHERE ip=?", (ip,))
+    row = c.fetchone()
+
+    if row:
+        existing_token = row[0]
+        if existing_token:
+            print(f"❌ IP {ip} already has a token ({existing_token})")
+            conn.close()
+            return
+        if token:
+            c.execute("UPDATE bans SET token=? WHERE ip=?", (token, ip))
+            print(f"✅ Assigned token {token} to IP {ip}")
+    else:
+        c.execute("INSERT INTO bans (ip, token) VALUES (?, ?)", (ip, token))
+        print(f"✅ Added ban: IP {ip}, Token {token}")
+
+    conn.commit()
+    conn.close()
+
+
+def remove_ban(ip=None, token=None):
+    conn = get_db_connection()
+    c = conn.cursor()
+    if ip:
+        c.execute("DELETE FROM bans WHERE ip=?", (ip,))
+    if token:
+        c.execute("DELETE FROM bans WHERE token=?", (token,))
+    conn.commit()
+    conn.close()
+
+
+def get_bans():
+    conn = get_db_connection()
+    c = conn.cursor()
+    c.execute("SELECT ip, token FROM bans")
+    result = c.fetchall()
+    conn.close()
+    return result
+
+
+def is_banned(ip=None, token=None):
+    conn = get_db_connection()
+    c = conn.cursor()
+    c.execute("SELECT 1 FROM bans WHERE ip=? OR token=?", (ip, token))
+    result = c.fetchone() is not None
+    conn.close()
+    return result
+
+
 # =========================
+# In-Memory Logs
+# =========================
+ip_log = {}
+
+# =========================
+# Helpers
+# =========================
+def login_required(f):
+    @wraps(f)
+    def wrapped(*args, **kwargs):
+        if not session.get("admin_logged_in"):
+            return redirect(url_for("admin_login", next=request.path))
+        return f(*args, **kwargs)
+    return wrapped
+
+
+# =========================
+# Admin Routes
+# =========================
+@app.route("/admin")
+@login_required
+def admin_panel():
+    banned_entries = get_bans()
+    return render_template("admin/admin.html", ip_log=ip_log, banned_entries=banned_entries)
+
+
+@app.route("/admin/ban", methods=["POST"])
+@login_required
+def admin_ban():
+    if request.content_type.startswith("application/json"):
+        data = request.get_json(force=True)
+        ip = data.get("ip")
+        token = data.get("token")
+    else:
+        ip = request.form.get("ip")
+        token = request.form.get("token")
+
+    if not ip and not token:
+        flash("No IP or Token provided", "error")
+        return redirect(url_for("admin_panel"))
+
+    add_ban(ip, token)
+    flash(f"Banned IP: {ip}, Token: {token}", "success")
+    return redirect(url_for("admin_panel"))
+
+
+@app.route("/admin/unban", methods=["POST"])
+@login_required
+def admin_unban():
+    if request.content_type.startswith("application/json"):
+        data = request.get_json(force=True)
+        ip = data.get("ip")
+        token = data.get("token")
+    else:
+        ip = request.form.get("ip")
+        token = request.form.get("token")
+
+    if not ip and not token:
+        flash("No IP or Token provided", "error")
+        return redirect(url_for("admin_panel"))
+
+    remove_ban(ip, token)
+    flash(f"Unbanned IP: {ip}, Token: {token}", "success")
+    return redirect(url_for("admin_panel"))
+
+
+@app.route("/is-banned", methods=["POST"])
+def check_is_banned():
+    data = request.get_json(force=True)
+    ip = data.get("ip")
+    token = data.get("token")
+
+    if not ip or not token:
+        return jsonify({"error": "Missing IP or token"}), 400
+
+    banned = is_banned(ip, token)
+    if banned:
+        add_ban(ip, token)
+
+    return jsonify({"banned": banned})
+
+
+@app.route("/admin/login", methods=["GET", "POST"])
+def admin_login():
+    if request.method == "POST":
+        username = request.form.get("username")
+        password = request.form.get("password")
+        if username == os.getenv("ADMIN_USERNAME") and password == os.getenv("ADMIN_PASSWORD"):
+            session["admin_logged_in"] = True
+            flash("Logged in successfully.", "success")
+            next_page = request.args.get("next") or url_for("admin_panel")
+            return redirect(next_page)
+        else:
+            flash("Invalid username or password.", "error")
+    return render_template("admin/login.html")
+
+
+@app.route("/admin/logout")
+@login_required
+def admin_logout():
+    session.clear()
+    flash("Logged out.", "info")
+    return redirect(url_for("admin_login"))
+
+
+# =========================
+# Startup sequence
+# =========================
+def startup():
+    print("🚀 Starting up database...")
+    init_db()
+    add_token_column()
+    migrate_to_tokens()
+    unify_tokens_by_ip()
+    safe_cleanup()
+    print("✅ Startup complete.")
+
+
+startup()
 
 @app.route("/chat", methods=["POST", "GET"])
 async def chat():
