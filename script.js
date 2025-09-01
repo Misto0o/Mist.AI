@@ -48,13 +48,22 @@ function renderMessage(message, className) {
     const codeBlocks = extractCodeBlocks(message);
     let processedMessage = message;
 
-    // Replace code blocks with placeholders
+    // Use unique string placeholders (not HTML) to avoid Showdown mangling
+    const codePlaceholders = [];
     codeBlocks.forEach((codeBlock, index) => {
-        processedMessage = processedMessage.replace(codeBlock, `<div id="code-block-${index}"></div>`);
+        const placeholder = `__CODEBLOCK_PLACEHOLDER_${index}__`;
+        codePlaceholders.push(placeholder);
+        processedMessage = processedMessage.replace(codeBlock, placeholder);
     });
 
     // Process non-code parts with Showdown
     processedMessage = converter.makeHtml(processedMessage);
+
+    // Replace placeholders with <div> containers for CodeMirror
+    codePlaceholders.forEach((placeholder, index) => {
+        // Use a unique id for each code block container
+        processedMessage = processedMessage.replace(placeholder, `<div id="code-block-${index}"></div>`);
+    });
 
     // Set the processed message as HTML
     messageElement.innerHTML = processedMessage;
@@ -103,7 +112,7 @@ function renderMessage(message, className) {
             codeContainer.classList.add("codemirror-container");
 
             // Remove the triple backticks or <code> tags from the code block
-            const cleanCode = codeBlock.replace(/```/g, "").replace(/<code>/g, "").replace(/<\/code>/g, "");
+            const cleanCode = codeBlock.replace(/^```[a-zA-Z]*\n?|```$/g, "").replace(/<code>/g, "").replace(/<\/code>/g, "");
 
             // Initialize CodeMirror in the created container
             initializeCodeMirror(codeContainer, cleanCode);
@@ -244,156 +253,179 @@ function removeBannedIP(userIP) {
     localStorage.setItem('bannedIPs', JSON.stringify(bannedIPs));
 }
 
-// Handle user message and track offenses
-async function handleUserMessage(message) {
-    if (devBypass) {
-        console.log("🛠️ Dev mode active: No offense tracking or banning.");
-        return; // Skip the rest of the function
+// =========================
+// Utility Functions
+// =========================
+// Always returns a persistent token for the user
+function getUserToken() {
+    let token = localStorage.getItem("user_token");
+    if (!token) {
+        token = crypto.randomUUID();
+        localStorage.setItem("user_token", token);
+        console.log("🔑 Generated new user token:", token);
     }
+    return token;
+}
 
+// Store banned IPs in localStorage
+function storeBannedIP(userIP) {
+    let bannedIPs = JSON.parse(localStorage.getItem('bannedIPs')) || [];
+    if (!bannedIPs.includes(userIP)) bannedIPs.push(userIP);
+    localStorage.setItem('bannedIPs', JSON.stringify(bannedIPs));
+}
+
+// Remove banned IP from localStorage
+function removeBannedIP(userIP) {
+    let bannedIPs = JSON.parse(localStorage.getItem('bannedIPs')) || [];
+    bannedIPs = bannedIPs.filter(ip => ip !== userIP);
+    localStorage.setItem('bannedIPs', JSON.stringify(bannedIPs));
+}
+
+// Check if IP is locally banned
+function isIPBanned(userIP) {
+    let bannedIPs = JSON.parse(localStorage.getItem('bannedIPs')) || [];
+    return bannedIPs.includes(userIP);
+}
+
+// Disable chat input
+function disableChat() {
+    const inputBox = document.getElementById("user-input");
+    if (inputBox) {
+        inputBox.disabled = true;
+        inputBox.style.backgroundColor = "#444";
+        inputBox.placeholder = "❌ You have been banned.";
+
+        // Add clickable email below input
+        let notice = document.getElementById("ban-contact-notice");
+        if (!notice) {
+            notice = document.createElement("div");
+            notice.id = "ban-contact-notice";
+            notice.style.color = "#ff5555";
+            notice.style.marginTop = "0.3rem";
+            notice.innerHTML = `Contact the <a href="mailto:misttwist@icloud.com" style="color:#ff9999; text-decoration:underline;">creator</a> to appeal.`;
+            inputBox.parentNode.insertBefore(notice, inputBox.nextSibling);
+        }
+        console.log("🚫 Chat input disabled for banned user.");
+    }
+}
+
+// Enable chat input
+function enableChat() {
+    const inputBox = document.getElementById("user-input");
+    if (inputBox) {
+        inputBox.disabled = false;
+        inputBox.style.backgroundColor = "#111";
+        inputBox.placeholder = "Type your message...";
+        console.log("✅ Chat enabled.");
+    }
+}
+
+// =========================
+// Ban Check Functions
+// =========================
+async function checkBanOnLoad() {
     const userIP = await getUserIP();
+    const token = getUserToken(); // Always have a token now
     if (!userIP) return;
 
-    // Check if IP is banned on backend every time
     try {
-        const resp = await fetch(getIPBanURL("/is-banned"), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ip: userIP }),
+        const resp = await fetch(getIPBanURL("/is-banned"), {  // <-- fixed
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ip: userIP, token })
         });
+
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const data = await resp.json();
+
         if (data.banned) {
             storeBannedIP(userIP);
             disableChat();
-            console.log(`🚫 User with IP ${userIP} is banned.`);
-            return;
-        }
-    } catch (e) {
-        console.error("Error checking ban status:", e);
-    }
-
-    // Check if the IP is banned from previous sessions
-    if (isIPBanned(userIP)) {
-        console.log(`🚫 User with IP ${userIP} is banned.`);
-        disableChat();  // Disable chat input
-        return;
-    }
-
-    if (containsBannedWords(message) || containsSafetyPhrase(message)) {
-        await sendIPLog(userIP, `[OFFENSE #${trackedIPs[userIP] || 1}]: ${message}`);
-        if (!trackedIPs[userIP]) {
-            trackedIPs[userIP] = 1; // First offense
-            console.log(`⚠️ Offense #1 for ${userIP}:`, message);
         } else {
-            trackedIPs[userIP]++; // Increase offense count
-            console.log(`⚠️ Offense #${trackedIPs[userIP]} for ${userIP}:`, message);
+            removeBannedIP(userIP);
+            enableChat();
         }
-
-        if (trackedIPs[userIP] === 2) {
-            console.log(`🔍 Storing IP for potential ban: ${userIP}`);
-        }
-
-        if (trackedIPs[userIP] === 3) {
-            console.log(`🚨 BANNING USER: ${userIP} for 24 hours.`);
-            delete trackedIPs[userIP]; // Remove IP after ban
-            storeBannedIP(userIP); // Store IP in localStorage for future page loads
-            disableChat(); // Disable chat input
-        }
-
-        // Split message into words and check for exact match
-        const words = message.split(/\s+/);
-        return words.some(word => bannedWords.includes(word));
+    } catch (err) {
+        console.error("Ban check failed:", err);
+        enableChat();
     }
 }
 
-async function checkServerBan(userIP) {
-    const res = await fetch(getIPBanURL("/log-ip"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            ip: userIP,
-            message: "Page load"
-        })
-    });
-    const data = await res.json();
-    return data.banned;
-}
 
+window.addEventListener("load", async () => {
+    const userIP = await getUserIP();
+    getUserToken(); // 🔥 Ensure token is created immediately
+
+    // Check ban status
+    await checkBanOnLoad();
+});
+
+
+// ✅ Ban check
 async function checkBanStatus() {
     const userIP = await getUserIP();
     if (!userIP) return;
 
+    const token = getUserToken();
+
     try {
         const resp = await fetch(getIPBanURL("/is-banned"), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ip: userIP }),
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ip: userIP, token })
         });
+
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+
         const data = await resp.json();
 
         if (data.banned) {
-            storeBannedIP(userIP);  // Save locally for persistence
+            storeBannedIP(userIP);
             disableChat();
-            console.log(`🚫 Your IP ${userIP} is banned.`);
+            console.warn(`🚫 User is banned (IP or Token).`);
         } else {
-            // If previously banned in localStorage, remove ban locally
             removeBannedIP(userIP);
             enableChat();
         }
-    } catch (e) {
-        console.error("Failed to check ban status:", e);
-    }
-}
-
-// Call on page load
-checkBanStatus();
-
-(async () => {
-    const ip = await getUserIP();
-    if (await checkServerBan(ip)) {
-        console.warn("🚫 This IP is banned server-side.");
-        disableChat();
-    }
-})();
-
-async function sendIPLog(ip, message) {
-    try {
-        const payload = {
-            ip,
-            message
-        };
-        const res = await fetch(getIPBanURL("/log-ip"), {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify(payload)
-        });
-
-        const data = await res.json();
     } catch (err) {
-        console.error("❌ Logging failed:", err);
+        console.error("❌ Ban check failed:", err);
+        enableChat(); // fallback
     }
 }
 
-(async () => {
-    const userIP = await getUserIP();
-    const message = "User loaded page or initialized session."; // Or pass a relevant string
-    await sendIPLog(userIP, message);
-})();
+// =========================
+// Offense Tracking
+// =========================
+async function handleUserMessage(message) {
+    const devBypass = localStorage.getItem("devBypass") === "true";
+    if (devBypass) return console.log("🛠️ Dev mode active: No offense tracking or banning.");
 
-// On page load, check if user IP is banned
-window.onload = async () => {
     const userIP = await getUserIP();
-    if (isIPBanned(userIP)) {
-        console.log(`🚫 User with IP ${userIP} is banned.`);
-        disableChat();  // Disable chat input
+    if (!userIP) return;
+
+    // Skip messages from banned IPs
+    if (isIPBanned(userIP)) return disableChat();
+
+    if (containsBannedWords(message) || containsSafetyPhrase(message)) {
+        trackedIPs[userIP] = (trackedIPs[userIP] || 0) + 1;
+        console.log(`⚠️ Offense #${trackedIPs[userIP]} for ${userIP}: ${message}`);
+
+        if (trackedIPs[userIP] === 3) {
+            console.log(`🚨 BANNING USER: ${userIP}`);
+            storeBannedIP(userIP);
+            delete trackedIPs[userIP];
+            disableChat();
+        }
     }
-};
+}
 
-document.getElementById("toggleDevBypassBtn").addEventListener("click", async () => {
-    const current = localStorage.getItem("devBypass") === "true";
-    if (current) {
+// =========================
+// Dev Bypass Toggle
+// =========================
+
+document.getElementById("toggleDevBypassBtn")?.addEventListener("click", async () => {
+    const enabled = localStorage.getItem("devBypass") === "true";
+    if (enabled) {
         localStorage.removeItem("devBypass");
         console.log("🛑 Dev Bypass Disabled");
         alert("Dev Bypass Disabled");
@@ -402,23 +434,26 @@ document.getElementById("toggleDevBypassBtn").addEventListener("click", async ()
         console.log("🛠️ Dev Bypass Enabled");
         alert("Dev Bypass Enabled");
 
-        // Optional: remove IP ban immediately when enabling bypass
         const ip = await getUserIP();
         removeBannedIP(ip);
         enableChat();
     }
 });
 
-// Disable the chat input (ban effect)
-function disableChat() {
-    const inputBox = document.getElementById("user-input");
-    if (inputBox) {
-        inputBox.disabled = true;
-        inputBox.style.backgroundColor = "#444"; // Gray out input
-        inputBox.placeholder = "❌ You have been banned please cotact my creator to appeal.";
-        console.log("🚫 Chat input disabled for banned user.");
-    }
-}
+// =========================
+// Page Load
+// =========================
+
+window.addEventListener("load", async () => {
+    const userIP = await getUserIP();
+    if (!userIP) return;
+    // Check if banned on backend (IP + Device ID)
+    await checkBanStatus();
+
+    // Also check localStorage ban
+    if (isIPBanned(userIP)) disableChat();
+});
+
 
 async function sendMessage(userMessage = null) {
     const userInput = document.getElementById("user-input");
@@ -427,91 +462,105 @@ async function sendMessage(userMessage = null) {
 
     if (!userInput || !messagesDiv || !canSendMessage) return;
 
-    if (!userMessage) {
-        userMessage = userInput.value.trim();
-        if (!userMessage) return;
-        userInput.value = ''; // Clear input field
-    }
+    if (!userMessage) userMessage = userInput.value.trim();
+    if (!userMessage && !uploadedFile) return; // 🔥 Allow sending if image exists
 
-    await handleUserMessage(userMessage);  // Call the offense tracking function
+    userInput.value = '';
+    await handleUserMessage(userMessage);
     document.body.classList.add("hide-header");
 
-    // If message contains code
-    if (containsCode(userMessage)) {
-        console.log("Code detected in message:", userMessage);
+    // Show message in chat
+    if (uploadedFile) {
+        showMessageWithImage(userMessage, uploadedFile);
+    } else {
+        showMessage(userMessage, "user");
     }
 
-    // Disable input while bot is responding
+    // Disable input
     userInput.disabled = true;
     canSendMessage = false;
 
-    // Append user message to UI
-    renderMessage(userMessage, "user-message");
-
-    // Show "thinking" indicator
+    // Show "thinking"
     thinkingBubble = createThinkingBubble();
     messagesDiv.appendChild(thinkingBubble);
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
 
-    // Store message in memory
-    updateMemory("user", userMessage);
-
     try {
-        const creatorMode = JSON.parse(localStorage.getItem("creatorMode") || "false");
+        // Convert uploaded image to Base64 if exists
+        let imgBase64 = null;
+        if (uploadedFile) {
+            imgBase64 = await fileToBase64(uploadedFile);
+        }
 
-        console.time("API Response Time");
-        // Send userMessage and IP in one request body
+        const creatorValue = JSON.parse(localStorage.getItem("creatorMode") || "false");
+        const payload = {
+            message: userMessage,
+            context: chatMemory,
+            model: currentModel,
+            creator: creatorValue,
+            ip: userIP,
+            ...(imgBase64 && { img_url: imgBase64 }) // 🔥 Attach image
+        };
+
         const response = await fetch(getBackendUrl(), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                message: userMessage,
-                context: chatMemory,
-                model: currentModel,
-                creator: creatorMode,
-                ip: userIP  // Include IP here if backend expects it
-            })
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
         });
-        console.timeEnd("API Response Time");
 
         if (!response.ok) throw new Error(`HTTP Error! Status: ${response.status}`);
-
         const data = await response.json();
         if (!data.response) throw new Error("No response from API");
 
         removeThinkingBubble();
-        renderMessage(`Mist.AI: ${data.response}`, "bot-message"); // Render bot response with Showdown and CodeMirror
-
-        // Store bot response in memory
+        renderMessage(`Mist.AI: ${data.response}`, "bot-message");
         updateMemory("bot", data.response);
 
     } catch (error) {
         console.error("Fetch error:", error);
         removeThinkingBubble();
-
-        alert("An error occurred while sending your message. Please try again.");
+        showMessage("❌ An error occurred while sending your message. Please try again.", "bot");
     }
 
-    // Enable input after cooldown
-    setTimeout(() => {
-        userInput.disabled = false;
-        canSendMessage = true;
-    }, 1800);
-    // Reset input after sending
-    userInput.disabled = false; // enable input again
-    userInput.style.backgroundColor = ''; // remove gray overlay
-    userInput.style.color = ''; // reset color if changed
-    userInput.style.height = `${minHeight}px`; // reset height
-    wordCounter.textContent = `0 / ${maxWords}`;
-    wordCounter.style.color = 'inherit';
+    // Reset
+    uploadedFile = null;
+    const previewContainer = document.getElementById("image-preview");
+    if (previewContainer) previewContainer.innerHTML = "";
+    previewContainer?.classList.remove("active");
+    userInput.disabled = false;
     canSendMessage = true;
+}
 
-    const payload = {
-        message: userMessage,
-        ip: userIP,
-        // add other properties if needed (model, context, etc)
-    };
+// 🔥 Helper to convert file -> Base64
+function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = error => reject(error);
+    });
+}
 
+// Helper to show message with uploaded image
+function showMessageWithImage(text, file, sender = "user") {
+    const messagesDiv = document.getElementById("chat-box");
+    if (!messagesDiv) return;
+
+    const imageUrl = URL.createObjectURL(file);
+    const messageElement = document.createElement("div");
+    messageElement.classList.add("message", sender === "bot" ? "bot-message" : "user-message");
+
+    messageElement.innerHTML = `
+        <div class="image-container">
+            <div class="image-wrapper">
+                <img src="${imageUrl}" alt="Uploaded Image" class="uploaded-image">
+            </div>
+            ${text ? `<div class="user-text">${text}</div>` : ""}
+        </div>
+    `;
+
+    messagesDiv.appendChild(messageElement);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
 }
 
 function appendMessage(content, className) {
@@ -554,6 +603,7 @@ if (!wordCounter) {
     wordCounter.style.fontSize = '12px';
     wordCounter.style.marginTop = '4px';
     wordCounter.style.textAlign = 'right';
+    wordCounter.style.display = 'none'; // 🔥 hidden by default
     input.parentNode.appendChild(wordCounter);
 }
 
@@ -565,35 +615,39 @@ input.addEventListener('input', () => {
     if (words.length > maxWords) {
         words = words.slice(0, maxWords);
         input.value = words.join(' ');
-        input.style.backgroundColor = '#444';  // gray out
-        input.style.color = '#aaa';            // lighter text
-        input.disabled = true;                 // disable typing
+        input.style.backgroundColor = '#444';
+        input.style.color = '#aaa';
+        input.disabled = true;
         wordCounter.textContent = `Word limit reached! (${maxWords}/${maxWords})`;
         wordCounter.style.color = 'red';
+        wordCounter.style.display = 'block'; // show when max reached
     } else {
         input.style.backgroundColor = '';
         input.style.color = '';
         input.disabled = false;
-        wordCounter.textContent = `${words.length} / ${maxWords}`;
-        wordCounter.style.color = words.length >= warningThreshold ? 'red' : 'inherit';
+
+        // 🔥 Only show counter when threshold reached
+        if (words.length >= warningThreshold) {
+            wordCounter.textContent = `${words.length} / ${maxWords}`;
+            wordCounter.style.color = words.length >= maxWords ? 'red' : 'inherit';
+            wordCounter.style.display = 'block';
+        } else {
+            wordCounter.style.display = 'none';
+        }
     }
 
-    // Insert line break after 50 words if missing
+    // Auto line break after 50 words
     if (words.length > 50) {
-        // Find where 50th word ends in the string
         const first50Words = words.slice(0, 50).join(' ');
         const indexAfter50 = first50Words.length;
-
-        // Check if there’s already a line break after 50 words
         const snippet = input.value.slice(indexAfter50, indexAfter50 + 2);
         if (!snippet.includes('\n')) {
-            // Insert line break after 50th word
             words.splice(50, 0, '\n');
             input.value = words.join(' ').replace(' \n ', '\n');
         }
     }
 
-    // Resize based on line breaks only
+    // Resize textarea based on line breaks
     if (input.value.includes('\n')) {
         input.style.height = 'auto';
         const newHeight = Math.min(input.scrollHeight, maxHeight);
@@ -768,13 +822,16 @@ function swapModel(selectElement) {
 
     currentModel = selectedValue;
 
-    showNotification(`Model switched to: ${capitalize(currentModel)}`);
-    sendMessage(`Model switched to: ${currentModel}`);
+    // Grab the display text from the selected option
+    const displayName = selectElement.options[selectElement.selectedIndex].text;
 
+    showNotification(`Model switched to: ${displayName}`); // friendly name for UI
+    sendMessage(`Model switched to: ${selectedValue}`); // raw key for backend logs
     setTimeout(() => {
         isSwapping = false;
     }, 1300); // 1.3s cooldown
 }
+
 
 function showNotification(message) {
     const notification = document.createElement("div");
@@ -1005,6 +1062,22 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
+// ✅ Show message in chat
+function showMessage(message, sender = "user") {
+    let chatBox = document.getElementById("chat-box");
+    if (!chatBox) {
+        console.error("Error: Chat box not found!");
+        return;
+    }
+
+    let messageElement = document.createElement("div");
+    messageElement.classList.add("message", sender === "bot" ? "bot-message" : "user-message");
+    messageElement.innerHTML = message;
+
+    chatBox.appendChild(messageElement);
+    chatBox.scrollTop = chatBox.scrollHeight;
+}
+
 document.addEventListener("DOMContentLoaded", function () {
     // Add event listener for Enter key to send the message and Shift + Enter for line breaks
     document.getElementById("user-input").addEventListener("keydown", function (event) {
@@ -1026,130 +1099,42 @@ document.addEventListener("DOMContentLoaded", function () {
             }
         }
     });
+    // ✅ Preview uploaded image (with remove button)
 
-    // ✅ Make showMessage GLOBAL
-    function showMessage(message, sender = "user") {
-        let chatBox = document.getElementById("chat-box");
-        if (!chatBox) {
-            console.error("Error: Chat box not found!");
-            return;
-        }
-
-        let messageElement = document.createElement("div");
-        messageElement.classList.add("message", sender === "bot" ? "bot-message" : "user-message");
-        messageElement.innerHTML = message;
-
-        chatBox.appendChild(messageElement);
-        chatBox.scrollTop = chatBox.scrollHeight;
-    }
-
-    // Function to analyze the uploaded image
-    async function analyzeUploadedImage() {
-        if (!uploadedFile) {
-            showMessage("⚠️ No image to analyze!", "bot");
-            return;
-        }
-
-        const reader = new FileReader();
-
-        reader.onloadend = async function () {
-            const imageDataUrl = reader.result;
-
-            // Create an image element
-            const img = new Image();
-            img.src = imageDataUrl;
-
-            img.onload = async function () {
-                // Create a canvas and draw the image on it
-                const canvas = document.createElement("canvas");
-                canvas.width = img.width;
-                canvas.height = img.height;
-                const ctx = canvas.getContext("2d");
-                ctx.drawImage(img, 0, 0);
-
-                // Convert canvas to PNG Base64
-                const pngBase64 = canvas.toDataURL("image/png");
-
-                const url = getBackendUrl("analyze");
-                const options = {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ img_url: pngBase64 })
-                };
-
-                try {
-                    showMessage("🔄 Analyzing image...", "bot");
-
-                    const response = await fetch(url, options);
-                    const result = await response.json();
-
-                    console.log("📥 API Response:", result); // Debugging
-
-                    if (result.error) {
-                        showMessage(`❌ I dont like this file SHIFT!: ${result.error}`, "bot");
-                        return;
-                    }
-
-                    showMessage("MistAi has received the image. How can I help?", "bot");
-
-                    chatMemory.push({ role: "user", content: `User uploaded a image and it contained: ${result.result}` });
-
-                    // Save chat memory
-                    sessionStorage.setItem("chatMemory", JSON.stringify(chatMemory));
-
-                } catch (error) {
-                    console.error("❌ Fetch Error:", error);
-                    showMessage("❌ Error analyzing image", "bot");
-                }
-            };
-        };
-
-        reader.readAsDataURL(uploadedFile); // Read file as DataURL (base64)
-    }
-    // Function to preview image before analyzing
-    function previewImageBeforeAnalyze(file) {
+    function previewImage(file) {
         uploadedFile = file;
+        const previewContainer = document.getElementById("image-preview");
         const imageUrl = URL.createObjectURL(file);
-        uploadedImageCount++;
 
-        const html = `
-<div class="image-container">
-    <div class="image-wrapper">
-        <img src="${imageUrl}" alt="Uploaded Image" class="uploaded-image">
-    </div>
-    <div class="button-wrapper">
-        <button class="analyze-button">🔍 Analyze Image</button>
-    </div>
-</div>
-`
-        showMessage(html, "user");
+        previewContainer.innerHTML = `
+        <div class="preview-wrapper">
+            <img src="${imageUrl}" alt="Preview" class="uploaded-preview">
+            <button id="remove-preview" class="remove-btn">✖</button>
+        </div>
+    `;
+        previewContainer.classList.add("active"); // Show and animate
 
-        // 🔍 Get the last message just added
-        const chatBox = document.getElementById("chat-box");
-        const lastMessage = chatBox.lastElementChild;
-
-        // 📌 Find the button *inside* just that message
-        const analyzeButton = lastMessage.querySelector(".analyze-button");
-
-        // ✅ Attach click handler to the correct button
-        if (analyzeButton) {
-            analyzeButton.addEventListener("click", analyzeUploadedImage);
-        }
+        document.getElementById("remove-preview").addEventListener("click", () => {
+            uploadedFile = null;
+            previewContainer.innerHTML = "";
+            previewContainer.classList.remove("active"); // Hide and animate out
+        });
     }
 
-    async function uploadFile(file) {
-        let formData = new FormData();
+    // ✅ Upload file (documents)
+    async function uploadFile(file, text = "") {
+        const formData = new FormData();
         formData.append("file", file);
 
         try {
-            let response = await fetch(getBackendUrl(), {
+            const response = await fetch(getBackendUrl(), {
                 method: "POST",
                 body: formData,
                 headers: { "Accept": "application/json" }
             });
 
-            let result = await response.json();
-            console.log("API Response:", result.response); // Debugging
+            const result = await response.json();
+            console.log("📥 API Response:", result);
 
             if (result.error) {
                 console.error("Upload failed:", result.error);
@@ -1157,14 +1142,14 @@ document.addEventListener("DOMContentLoaded", function () {
                 return;
             }
 
-            // ✅ Extract text and store it in memory
-            let extractedText = result.response?.trim() || "⚠️ No readable text found.";
+            const extractedText = result.response?.trim() || "⚠️ No readable text found.";
+            chatMemory.push({
+                role: "user",
+                content: `User uploaded a document and said: "${text}". Extracted text: ${extractedText}`
+            });
+            sessionStorage.setItem("chatMemory", JSON.stringify(chatMemory));
 
-            // ✅ Store extracted text in Mist.AI memory without showing it
-            chatMemory.push({ role: "user", content: `User uploaded a file and it contained: ${extractedText}` });
-
-            // ✅ Show a simple response to the user
-            showMessage("🧐 Mist.AI has read the file. How can I assist you with it?", "bot");
+            showMessage("📄 Mist.AI has read the document. How can I assist?", "bot");
 
         } catch (error) {
             console.error("Error:", error);
@@ -1172,38 +1157,78 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     }
 
-    // ✅ File upload popup handling
+    // ✅ File input buttons
     const uploadImageBtn = document.getElementById("upload-image-btn");
     const uploadDocumentBtn = document.getElementById("upload-document-btn");
     const fileInputImage = document.getElementById("file-upload-image");
     const fileInputDocument = document.getElementById("file-upload-document");
     const toolsMenu = document.getElementById("tools-menu");
 
-    uploadImageBtn.addEventListener("click", function () {
+    uploadImageBtn.addEventListener("click", () => {
         fileInputImage.click();
-        toolsMenu.style.display = "none"; // Close popup properly
+        toolsMenu.style.display = "none";
     });
 
-    uploadDocumentBtn.addEventListener("click", function () {
+    uploadDocumentBtn.addEventListener("click", () => {
         fileInputDocument.click();
-        toolsMenu.style.display = "none"; // Close popup properly
+        toolsMenu.style.display = "none";
     });
 
-    // Handle file selection
-    fileInputImage.addEventListener("change", function (event) {
-        let file = event.target.files[0];
+    fileInputImage.addEventListener("change", e => {
+        const file = e.target.files[0];
         if (file) {
-            previewImageBeforeAnalyze(file);
+            const userText = document.getElementById("user-input").value.trim();
+            previewImage(file);
         }
     });
 
-    fileInputDocument.addEventListener("change", function (event) {
-        let file = event.target.files[0];
+    fileInputDocument.addEventListener("change", e => {
+        const file = e.target.files[0];
         if (file) {
+            const userText = document.getElementById("user-input").value.trim();
             showMessage(`📤 Uploading document: ${file.name}...`, "bot");
-            uploadFile(file); // Send document immediately
+            uploadFile(file, userText);
         }
     });
+
+    // ✅ Drag & Drop Support
+    const dropZone = document.getElementById("chat-box");
+
+    dropZone.addEventListener("dragover", e => {
+        e.preventDefault();
+        dropZone.classList.add("drag-over");
+    });
+
+    dropZone.addEventListener("dragleave", () => {
+        dropZone.classList.remove("drag-over");
+    });
+
+    dropZone.addEventListener("drop", async e => {
+        e.preventDefault();
+        dropZone.classList.remove("drag-over");
+
+        const file = e.dataTransfer.files[0];
+        if (!file) return;
+
+        const userText = document.getElementById("user-input").value.trim();
+
+        if (file.type.startsWith("image/")) {
+            // Use your existing previewImage function
+            previewImage(file);
+
+            // Also attach the caption to chatMemory (optional)
+            chatMemory.push({
+                role: "user",
+                content: `User uploaded an image and said: "${userText}"`
+            });
+            sessionStorage.setItem("chatMemory", JSON.stringify(chatMemory));
+
+        } else {
+            showMessage(`📤 Uploading document: ${file.name}...`, "bot");
+            await uploadFile(file, userText);
+        }
+    });
+
 
     // Check if service workers are supported
     if ('serviceWorker' in navigator) {

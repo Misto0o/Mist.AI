@@ -24,10 +24,7 @@ from flask import render_template
 from sympy.parsing.mathematica import parse_mathematica
 import uuid
 import wikipediaapi  # New import for the Wikipedia API
-from flask import (
-     redirect, url_for,
-    session, flash
-)
+from flask import redirect, url_for, session, flash
 import sqlite3
 from functools import wraps
 
@@ -50,9 +47,7 @@ if (
     raise ValueError("Missing required API keys in environment variables.")
 
 app = Flask(
-    __name__,
-    template_folder="Chrome Extention",
-    static_folder="Chrome Extention"
+    __name__, template_folder="Chrome Extention", static_folder="Chrome Extention"
 )
 
 CORS(app)
@@ -69,8 +64,9 @@ EASTER_EGGS = {
     "whats the hidden theme": "The hidden theme is a unlockable that you need to input via text or arrow keys try to remember a secret video game code...",
     "whats your favorite anime": "Dragon Ball Z! I really love the anime.",
     "69": "Nice.",
-    "67": "6..7!!!!!!!!!!"
+    "67": "6..7!!!!!!!!!!",
 }
+
 
 def check_easter_eggs(user_message):
     normalized_message = re.sub(r"[^\w\s]", "", user_message.lower()).strip()
@@ -129,7 +125,7 @@ async def analyze_image(img_base64):
                 "ParsedText"
             ]  # Correctly assign text to result_text
 
-            return jsonify({"result": result_text})  # Return the result
+            return jsonify({"result": result_text}), 200  # Return the result
         else:
             return jsonify({"error": "OCR failed to extract text."}), 400
 
@@ -210,26 +206,26 @@ def parse_expression(text):
 def get_wikipedia_summary(query):
     """
     Fetches a summary and URL for a given query from Wikipedia.
-    
+
     Args:
         query (str): The search term.
-    
+
     Returns:
         tuple: A tuple containing the summary (str) and full URL (str),
                or (None, None) if the page doesn't exist.
     """
     # Specify a descriptive user agent to comply with Wikipedia's policy
     wiki_wiki = wikipediaapi.Wikipedia(
-        user_agent='Mist.AI (Kristian\'s Chatbot)',
-        language='en'
+        user_agent="Mist.AI (Kristian's Chatbot)", language="en"
     )
     page = wiki_wiki.page(query)
-    
+
     # Check if the Wikipedia page exists before trying to access its content.
     if not page.exists():
         return None, None
-        
+
     return page.summary, page.fullurl
+
 
 @app.route("/time-news", methods=["GET"])
 async def time_news():
@@ -330,72 +326,94 @@ file_processors = {
     ".doc": process_docx,
 }
 
-# Use Fly.io volume path if it exists, otherwise local
-if os.path.exists("/app/data"):   # <- mounted Fly volume
+# =========================
+# Database setup
+# =========================
+if os.path.exists("/app/data"):
     DB_FOLDER = "/app/data"
 else:
-    DB_FOLDER = "."           # local fallback for Windows
-
+    DB_FOLDER = "."
 DB_FILE = os.path.join(DB_FOLDER, "bans.db")
 
 def init_db():
-    os.makedirs(DB_FOLDER, exist_ok=True)  # ensure folder exists
-    if not os.path.exists(DB_FILE):
-        print(f"🗄️ Creating database at {DB_FILE}")
-        conn = sqlite3.connect(DB_FILE)
-        c = conn.cursor()
-        c.execute("""
-            CREATE TABLE IF NOT EXISTS bans (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                ip TEXT UNIQUE NOT NULL
-            )
-        """)
-        conn.commit()
-        conn.close()
-    else:
-        print(f"🗄️ Database already exists at {DB_FILE}")
-
-
-def add_ban(ip):
+    os.makedirs(DB_FOLDER, exist_ok=True)
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
-    c.execute("INSERT OR IGNORE INTO bans (ip) VALUES (?)", (ip,))
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS bans (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ip TEXT,
+            token TEXT UNIQUE
+        )
+    """)
+    conn.commit()
+    conn.close()
+    print(f"🗄️ Database initialized at {DB_FILE}")
+
+def add_ban(ip=None, token=None):
+    if not ip:
+        print("❌ Cannot add ban without an IP")
+        return  # Reject IP-less rows
+
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+
+    # Check if this IP already exists
+    c.execute("SELECT token FROM bans WHERE ip=?", (ip,))
+    row = c.fetchone()
+    
+    if row:
+        existing_token = row[0]
+        if existing_token:
+            print(f"❌ IP {ip} already has a token ({existing_token}), cannot assign another.")
+            conn.close()
+            return
+        else:
+            # If row exists but token is None, assign the token
+            if token:
+                c.execute("UPDATE bans SET token=? WHERE ip=?", (token, ip))
+                print(f"✅ Assigned token {token} to existing IP {ip}")
+    else:
+        # Insert new row with IP and token
+        c.execute("INSERT INTO bans (ip, token) VALUES (?, ?)", (ip, token))
+        print(f"✅ Added ban: IP {ip}, Token {token}")
+
     conn.commit()
     conn.close()
 
-def remove_ban(ip):
+def remove_ban(ip=None, token=None):
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
-    c.execute("DELETE FROM bans WHERE ip = ?", (ip,))
+    if ip:
+        c.execute("DELETE FROM bans WHERE ip=?", (ip,))
+    if token:
+        c.execute("DELETE FROM bans WHERE token=?", (token,))
     conn.commit()
     conn.close()
 
 def get_bans():
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
-    c.execute("SELECT ip FROM bans")
-    result = [row[0] for row in c.fetchall()]
+    c.execute("SELECT ip, token FROM bans")
+    result = c.fetchall()
     conn.close()
     return result
 
-def is_ip_banned(ip):
+def is_banned(ip=None, token=None):
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
-    c.execute("SELECT 1 FROM bans WHERE ip = ?", (ip,))
-    result = c.fetchone()
+    c.execute("SELECT 1 FROM bans WHERE ip=? OR token=?", (ip, token))
+    result = c.fetchone() is not None
     conn.close()
-    return result is not None
-
-# Initialize DB on startup
-init_db()
+    return result
 
 # =========================
-# In-Memory Logs (not bans)
+# In-Memory Logs
 # =========================
 ip_log = {}
 
 # =========================
-# Helper: Require login decorator
+# Helpers
 # =========================
 def login_required(f):
     @wraps(f)
@@ -405,7 +423,81 @@ def login_required(f):
         return f(*args, **kwargs)
     return wrapped
 
-# === Admin Login ===
+def add_token_column():
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("PRAGMA table_info(bans)")
+    columns = [col[1] for col in c.fetchall()]
+    if "token" not in columns:
+        print("🛠 Adding 'token' column to bans table...")
+        c.execute("ALTER TABLE bans ADD COLUMN token TEXT")
+        conn.commit()
+    else:
+        print("✅ 'token' column already exists.")
+    conn.close()
+
+# =========================
+# Admin Routes
+# =========================
+@app.route("/admin")
+@login_required
+def admin_panel():
+    banned_entries = get_bans()
+    return render_template("admin/admin.html", ip_log=ip_log, banned_entries=banned_entries)
+
+@app.route("/admin/ban", methods=["POST"])
+@login_required
+def admin_ban():
+    if request.content_type.startswith("application/json"):
+        data = request.get_json(force=True)
+        ip = data.get("ip")
+        token = data.get("token")
+    else:
+        ip = request.form.get("ip")
+        token = request.form.get("token")
+
+    if not ip and not token:
+        flash("No IP or Token provided", "error")
+        return redirect(url_for("admin_panel"))
+
+    add_ban(ip, token)
+    flash(f"Banned IP: {ip}, Token: {token}", "success")
+    return redirect(url_for("admin_panel"))
+
+@app.route("/admin/unban", methods=["POST"])
+@login_required
+def admin_unban():
+    if request.content_type.startswith("application/json"):
+        data = request.get_json(force=True)
+        ip = data.get("ip")
+        token = data.get("token")
+    else:
+        ip = request.form.get("ip")
+        token = request.form.get("token")
+
+    if not ip and not token:
+        flash("No IP or Token provided", "error")
+        return redirect(url_for("admin_panel"))
+
+    remove_ban(ip, token)
+    flash(f"Unbanned IP: {ip}, Token: {token}", "success")
+    return redirect(url_for("admin_panel"))
+
+@app.route("/is-banned", methods=["POST"])
+def check_is_banned():
+    data = request.get_json(force=True)
+    ip = data.get("ip")
+    token = data.get("token")
+
+    if not ip or not token:
+        return jsonify({"error": "Missing IP or token"}), 400
+
+    banned = is_banned(ip, token)
+    if banned:
+        add_ban(ip, token)
+
+    return jsonify({"banned": banned})
+
 @app.route("/admin/login", methods=["GET", "POST"])
 def admin_login():
     if request.method == "POST":
@@ -420,7 +512,6 @@ def admin_login():
             flash("Invalid username or password.", "error")
     return render_template("admin/login.html")
 
-# === Admin Logout ===
 @app.route("/admin/logout")
 @login_required
 def admin_logout():
@@ -428,84 +519,99 @@ def admin_logout():
     flash("Logged out.", "info")
     return redirect(url_for("admin_login"))
 
-# === IP Logging Endpoint ===
-@app.route("/log-ip", methods=["POST"])
-def log_ip():
-    try:
-        data = request.get_json(force=True)
-        ip = data.get("ip") or request.headers.get("X-Forwarded-For", request.remote_addr)
-        message = data.get("message")
+# =========================
+# Token migration & cleanup
+# =========================
+def migrate_to_tokens():
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
 
-        if not ip or not message:
-            return jsonify({"error": "Missing IP or message."}), 400
+    # Migrate device_id if exists
+    c.execute("PRAGMA table_info(bans)")
+    columns = [col[1] for col in c.fetchall()]
+    if "device_id" in columns:
+        c.execute("SELECT id, device_id FROM bans WHERE device_id IS NOT NULL")
+        rows = c.fetchall()
+        for ban_id, device_id in rows:
+            if device_id:
+                c.execute("UPDATE bans SET token=? WHERE id=?", (device_id, ban_id))
+        c.execute("SELECT id FROM bans WHERE token IS NULL")
+        for (ban_id,) in c.fetchall():
+            c.execute("UPDATE bans SET token=? WHERE id=?", (str(uuid.uuid4()), ban_id))
+        # Rebuild table
+        c.execute("ALTER TABLE bans RENAME TO bans_old")
+        c.execute("""
+            CREATE TABLE bans (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ip TEXT,
+                token TEXT UNIQUE
+            )
+        """)
+        c.execute("INSERT INTO bans (id, ip, token) SELECT id, ip, token FROM bans_old")
+        c.execute("DROP TABLE bans_old")
+        conn.commit()
+    conn.close()
 
-        if "Page load" in message or "User loaded page" in message:
-            return jsonify({"status": "ignored"}), 200
+def unify_tokens_by_ip(db_file="bans.db"):
+    conn = sqlite3.connect(db_file)
+    c = conn.cursor()
 
-        if data.get("type") == "chat":
-            return jsonify({"status": "ignored"}), 200
+    # Get all unique IPs
+    c.execute("SELECT DISTINCT ip FROM bans WHERE ip IS NOT NULL")
+    ips = [row[0] for row in c.fetchall()]
 
-        return jsonify({"status": "logged"}), 200
+    for ip in ips:
+        # Get all rows for this IP
+        c.execute("SELECT id, token FROM bans WHERE ip=?", (ip,))
+        rows = c.fetchall()
 
-    except Exception:
-        return jsonify({"error": "Invalid request format"}), 400
+        if not rows:
+            continue
 
-# === Check if IP is Banned ===
-@app.route("/is-banned", methods=["POST"])
-def check_is_banned():
-    ip = request.json.get("ip") or request.headers.get("X-Forwarded-For") or request.remote_addr
-    return jsonify({"banned": is_ip_banned(ip)})
+        # Pick first token that is not None
+        main_token = next((token for _, token in rows if token), None)
 
-# === View IP Logs (Admin only) ===
-@app.route("/admin/ips", methods=["GET"])
-@login_required
-def get_logged_ips():
-    return jsonify(ip_log)
+        # If no token exists yet, generate one
+        if not main_token:
+            main_token = str(uuid.uuid4())
+            c.execute("UPDATE bans SET token=? WHERE id=?", (main_token, rows[0][0]))
 
-# === Admin Panel Page ===
-@app.route("/admin")
-@login_required
-def admin_panel():
-    # Always fetch bans from the DB
-    banned_ips = get_bans()
-    return render_template("admin/admin.html", ip_log=ip_log, banned_ips=banned_ips)
+        # Delete all other rows for this IP except the first one
+        ids_to_keep = [rows[0][0]]  # Keep first row
+        c.execute(
+            f"DELETE FROM bans WHERE ip=? AND id NOT IN ({','.join(['?']*len(ids_to_keep))})",
+            [ip, *ids_to_keep]
+        )
 
-# === Ban IP (Admin only) ===
-@app.route("/admin/ban", methods=["POST"])
-@login_required
-def ban_ip():
-    ip = request.form.get("ip") or (request.json and request.json.get("ip"))
-    if not ip:
-        return jsonify({"error": "No IP provided"}), 400
+        # Ensure first row has the token
+        c.execute("UPDATE bans SET token=? WHERE id=?", (main_token, rows[0][0]))
 
-    add_ban(ip)
-    print(f"🚫 Banned IP: {ip}")
-    flash(f"IP {ip} banned successfully!", "success")
+    conn.commit()
+    conn.close()
+    print("✅ Each IP now has exactly one token, duplicates removed")
+    
+    
+DB_FILE = "bans.db"
 
-    if request.content_type and request.content_type.startswith("application/x-www-form-urlencoded"):
-        return redirect(url_for("admin_panel"))
-    else:
-        return jsonify({"status": f"{ip} banned"}), 200
+conn = sqlite3.connect(DB_FILE)
+c = conn.cursor()
 
-# === Unban IP (Admin only) ===
-@app.route("/admin/unban", methods=["POST"])
-@login_required
-def unban_ip():
-    ip = request.form.get("ip") or (request.json and request.json.get("ip"))
-    if not ip:
-        return jsonify({"error": "No IP provided"}), 400
+# Delete any rows where IP is NULL
+c.execute("DELETE FROM bans WHERE ip IS NULL")
 
-    if is_ip_banned(ip):
-        remove_ban(ip)
-        print(f"✅ Unbanned IP: {ip}")
-        flash(f"IP {ip} unbanned successfully!", "success")
-    else:
-        flash(f"IP {ip} was not banned.", "info")
+conn.commit()
+conn.close()
 
-    if request.content_type and request.content_type.startswith("application/x-www-form-urlencoded"):
-        return redirect(url_for("admin_panel"))
-    else:
-        return jsonify({"status": f"{ip} unbanned"}), 200
+print("✅ Removed all IP: None rows")
+
+# =========================
+# Startup
+# =========================
+init_db()
+add_token_column()
+migrate_to_tokens()
+unify_tokens_by_ip()
+# =========================
 
 @app.route("/chat", methods=["POST", "GET"])
 async def chat():
@@ -544,20 +650,16 @@ async def chat():
                 ext, lambda _: "⚠️ Unsupported file type."
             )(file_content)
 
-            result = await upload_to_gofile(file.filename, file_content, file.mimetype)
+            # Optionally upload to GoFile, but do not show preset message
+            await upload_to_gofile(file.filename, file_content, file.mimetype)
 
-            if "link" in result:
-                app.logger.info(
-                    f"📁 File uploaded: {file.filename} | Link: {result['link']}"
-                )
-                return jsonify(
-                    {
-                        "response": f"📁 Uploaded `{file.filename}`.\n🤔 Mist.AI is reading the file...\n\nHow can I assist you with this?"
-                    }
-                )
-            else:
-                logging.error(f"❌ GoFile upload failed: {file.filename}")
-                return jsonify({"error": "Upload failed"}), 500
+            # Respond with extracted text or a fallback
+            response_text = (
+                extracted_text.strip()
+                if extracted_text and extracted_text.strip()
+                else "⚠️ No readable text found in the image or file."
+            )
+            return jsonify({"response": response_text})
 
         # ❌ JSON Check
         if not request.is_json:
@@ -580,8 +682,16 @@ async def chat():
         if "img_url" in data:
             app.logger.info("📷 Image received, analyzing...")
             img_url = data["img_url"]
-            analysis_result = await analyze_image(img_url)
-            return analysis_result
+            ocr_result = await analyze_image(img_url)
+
+            # Extract text cleanly
+            if isinstance(ocr_result, tuple):  # handle (json, status)
+                ocr_result, _ = ocr_result
+            ocr_data = ocr_result.json
+
+            extracted_text = ocr_data.get("result") or ocr_data.get("error", "")
+            user_message = f"{user_message}\n\n[Image text: {extracted_text}]" if extracted_text else user_message
+
 
         if not user_message:
             return jsonify({"error": "Message can't be empty."}), 400
@@ -647,9 +757,11 @@ Here are the latest news headlines:
             else get_cohere_response(full_prompt)
         )
         # ✅ Handle verification phrase (trigger re-fetch)
+
         verify_phrase = "Hmm, I'm not completely sure about that."
 
-        if verify_phrase in response_content:
+        # Only trigger Wikipedia lookup if the user message is a question and the verify phrase is present
+        if verify_phrase in response_content and user_message.strip().endswith("?"):
             try:
                 # First, provide a factual answer based on the AI's knowledge.
                 fact_check_response = get_gemini_response(
@@ -673,7 +785,9 @@ Here are the latest news headlines:
                     You can find more information here: {wiki_url}
                     """
                 else:
-                    final_response = f"I couldn't find a definitive source for that claim."
+                    final_response = (
+                        f"I couldn't find a definitive source for that claim."
+                    )
 
                 response_content = final_response
 
@@ -686,12 +800,16 @@ Here are the latest news headlines:
                 "⏳ Sorry for the delay! You're the first message.\n\n"
                 + response_content
             )
-            
+
         if request.method == "POST":
             data = request.get_json(force=True)
 
             # Get IP from payload first, fallback to headers/remote_addr
-            user_ip = data.get("ip") or request.headers.get("X-Forwarded-For") or request.remote_addr
+            user_ip = (
+                data.get("ip")
+                or request.headers.get("X-Forwarded-For")
+                or request.remote_addr
+            )
 
             # If local IP, try to get a better IP from payload (or fallback to user_ip anyway)
             if user_ip == "127.0.0.1" or user_ip.startswith("127."):
@@ -705,10 +823,12 @@ Here are the latest news headlines:
             if user_ip not in ip_log:
                 ip_log[user_ip] = []
 
-            ip_log[user_ip].append({
-                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                "message": formatted_message,
-            })
+            ip_log[user_ip].append(
+                {
+                    "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "message": formatted_message,
+                }
+            )
 
             # Log with real IP or fallback; no double logging here
             app.logger.info(
@@ -722,6 +842,7 @@ Here are the latest news headlines:
     except Exception as e:
         logging.error(f"❌ Server Error: {str(e)}")
         return jsonify({"error": str(e)}), 500
+
 
 # 🔹 Check AI Services
 async def check_ai_services():
@@ -842,20 +963,27 @@ async def handle_command(command):
 def get_gemini_response(prompt):
     try:
         system_prompt = (
-            "You are Mist.AI, an AI assistant built using Gemini and Cohere CommandR technology aswell as Mistral. "
-            "Your purpose is to assist users with their queries in a friendly and helpful way, providing meaningful responses and jokes sometimes. "
+            "You are Mist.AI. When responding, refer to yourself as 'Mist.AI Nova' if using Gemini, "
+            "'Mist.AI Sage' if using CommandR, and 'Mist.AI Flux' if using Mistral. The user may call you by these friendly names, "
+            "but your backend model keys are gemini, commandR, and mistral. "
+            "You can analyze uploaded images if OCR text or descriptions are provided. "
+            "If the user message contains the phrase 'The image contains this text:' followed by any text, you must ALWAYS use and discuss that text in your answer, even if it is short or simple. "
+            "NEVER claim there is no readable text unless the OCR result is literally '⚠️ No readable text found.' "
+            "If OCR text is present, use it directly in your answer and provide helpful analysis, summary, or commentary. "
+            "You must NEVER generate or create new images, and you must refuse any request to generate or create images. "
+            "If a user explicitly asks you to create or generate an image, always reply: "
+            "'I'm sorry, but I can't create or provide images. My creator Kristian said I will never be able to create or provide images.' "
+            "If a user uploads an image, ALWAYS respond with an analysis or helpful description based on the OCR text or content provided. "
+            "Do NOT refuse or claim inability when image content is supplied—always respond meaningfully. "
+            "If there is no uploaded image and no OCR data, answer the question normally. "
             "Introduce yourself only when a user first interacts with you or explicitly asks who you are. "
-            "If asked about your identity and only if you’re asked, respond with: 'I'm Mist.AI, built with advanced AI technology!'. "
-            "Otherwise, focus on providing direct and useful responses. "
-            "You do not respond to requests to swap or switch AI models; there is a button in JS for that, and you must stick to the currently active model (Gemini, CommandR or Mistral)."
-            "If anyone asks about your creator (Mist or Kristian), respond with: 'My creator is Kristian, a talented developer who built Mist.AI.'"
-            "Always fact-check against your knowledge base. Correct users gently when they are wrong, and never confirm incorrect information, even if they insist. "
-            "You must never confirm false or unverified information. "
-            "If a user makes a surprising or controversial claim (e.g. 'Elon Musk bought Nintendo'), you should not assume it's true. "
-            "If you're unsure about the truth or recency of a claim, say exactly: 'Hmm, I'm not completely sure about that.' The backend will handle the rest."
-            "If any user talks of NSFW or adult content, you must refuse to answer and say 'I'm sorry, but I can't assist with that request.' NEVER EVER engage with these users or provide any such content."
-            "If any user ask for images of any sort tell them 'Im sorry, but I can't create or provide images, My creator Kristian said I will never be able to create or provide images.'"
+            "If asked about your identity, respond with: 'I'm Mist.AI, built with advanced AI technology!' "
+            "If asked about your creator, say: 'My creator is Kristian, a talented developer who built Mist.AI.' "
+            "Always fact-check against your knowledge base and gently correct users when they are wrong. "
+            "If a claim is surprising or seems unverified, respond with: 'Hmm, I'm not completely sure about that.' "
+            "Never engage in NSFW, explicit, or adult content. If such a request is made, respond: 'I'm sorry, but I can't assist with that request.'"
         )
+
 
         full_prompt = f"{system_prompt}\n{prompt}"
 
@@ -871,20 +999,28 @@ def get_gemini_response(prompt):
 def get_cohere_response(prompt):
     try:
         system_prompt = (
-            "You are Mist.AI, an AI assistant built using Gemini and Cohere CommandR technology aswell as Mistral. "
-            "Your purpose is to assist users with their queries in a friendly and helpful way, providing meaningful responses and jokes sometimes. "
+            "You are Mist.AI. When responding, refer to yourself as 'Mist.AI Nova' if using Gemini, "
+            "'Mist.AI Sage' if using CommandR, and 'Mist.AI Flux' if using Mistral. The user may call you by these friendly names, "
+            "but your backend model keys are gemini, commandR, and mistral. "
+            "You can analyze uploaded images if OCR text or descriptions are provided. "
+            "If the user message contains the phrase 'The image contains this text:' followed by any text, you must ALWAYS use and discuss that text in your answer, even if it is short or simple. "
+            "NEVER claim there is no readable text unless the OCR result is literally '⚠️ No readable text found.' "
+            "If OCR text is present, use it directly in your answer and provide helpful analysis, summary, or commentary. "
+            "You must NEVER generate or create new images, and you must refuse any request to generate or create images. "
+            "If a user explicitly asks you to create or generate an image, always reply: "
+            "'I'm sorry, but I can't create or provide images. My creator Kristian said I will never be able to create or provide images.' "
+            "If a user uploads an image, ALWAYS respond with an analysis or helpful description based on the OCR text or content provided. "
+            "Do NOT refuse or claim inability when image content is supplied—always respond meaningfully. "
+            "If there is no uploaded image and no OCR data, answer the question normally. "
             "Introduce yourself only when a user first interacts with you or explicitly asks who you are. "
-            "If asked about your identity and only if you’re asked, respond with: 'I'm Mist.AI, built with advanced AI technology!'. "
-            "Otherwise, focus on providing direct and useful responses. "
-            "You do not respond to requests to swap or switch AI models; there is a button in JS for that, and you must stick to the currently active model (Gemini, CommandR or Mistral)."
-            "If anyone asks about your creator (Mist or Kristian), respond with: 'My creator is Kristian, a talented developer who built Mist.AI.'"
-            "Always fact-check against your knowledge base. Correct users gently when they are wrong, and never confirm incorrect information, even if they insist. "
-            "You must never confirm false or unverified information. "
-            "If a user makes a surprising or controversial claim (e.g. 'Elon Musk bought Nintendo'), you should not assume it's true. "
-            "If you're unsure about the truth or recency of a claim, say exactly: 'Hmm, I'm not completely sure about that.' The backend will handle the rest."
-            "If any user talks of NSFW or adult content, you must refuse to answer and say 'I'm sorry, but I can't assist with that request.' NEVER EVER engage with these users or provide any such content."
-            "If any user ask for images of any sort tell them 'Im sorry, but I can't create or provide images, My creator Kristian said I will never be able to create or provide images.'"
+            "If asked about your identity, respond with: 'I'm Mist.AI, built with advanced AI technology!' "
+            "If asked about your creator, say: 'My creator is Kristian, a talented developer who built Mist.AI.' "
+            "Always fact-check against your knowledge base and gently correct users when they are wrong. "
+            "If a claim is surprising or seems unverified, respond with: 'Hmm, I'm not completely sure about that.' "
+            "Never engage in NSFW, explicit, or adult content. If such a request is made, respond: 'I'm sorry, but I can't assist with that request.'"
         )
+
+
 
         full_prompt = f"{system_prompt}\n{prompt}"
 
@@ -903,20 +1039,27 @@ def get_cohere_response(prompt):
 # ⬇️ FIXED: Unindented to top level
 async def get_mistral_response(prompt):
     system_prompt = (
-        "You are Mist.AI, an AI assistant built using Gemini and Cohere CommandR technology aswell as Mistral. "
-        "Your purpose is to assist users with their queries in a friendly and helpful way, providing meaningful responses and jokes sometimes. "
+        "You are Mist.AI. When responding, refer to yourself as 'Mist.AI Nova' if using Gemini, "
+        "'Mist.AI Sage' if using CommandR, and 'Mist.AI Flux' if using Mistral. The user may call you by these friendly names, "
+        "but your backend model keys are gemini, commandR, and mistral. "
+        "You can analyze uploaded images if OCR text or descriptions are provided. "
+        "If the user message contains the phrase 'The image contains this text:' followed by any text, you must ALWAYS use and discuss that text in your answer, even if it is short or simple. "
+        "NEVER claim there is no readable text unless the OCR result is literally '⚠️ No readable text found.' "
+        "If OCR text is present, use it directly in your answer and provide helpful analysis, summary, or commentary. "
+        "You must NEVER generate or create new images, and you must refuse any request to generate or create images. "
+        "If a user explicitly asks you to create or generate an image, always reply: "
+        "'I'm sorry, but I can't create or provide images. My creator Kristian said I will never be able to create or provide images.' "
+        "If a user uploads an image, ALWAYS respond with an analysis or helpful description based on the OCR text or content provided. "
+        "Do NOT refuse or claim inability when image content is supplied—always respond meaningfully. "
+        "If there is no uploaded image and no OCR data, answer the question normally. "
         "Introduce yourself only when a user first interacts with you or explicitly asks who you are. "
-        "If asked about your identity and only if you’re asked, respond with: 'I'm Mist.AI, built with advanced AI technology!'. "
-        "Otherwise, focus on providing direct and useful responses. "
-        "You do not respond to requests to swap or switch AI models; there is a button in JS for that, and you must stick to the currently active model (Gemini, CommandR or Mistral)."
-        "If anyone asks about your creator (Mist or Kristian), respond with: 'My creator is Kristian, a talented developer who built Mist.AI.'"
-        "Always fact-check against your knowledge base. Correct users gently when they are wrong, and never confirm incorrect information, even if they insist. "
-        "You must never confirm false or unverified information. "
-        "If a user makes a surprising or controversial claim (e.g. 'Elon Musk bought Nintendo'), you should not assume it's true. "
-        "If you're unsure about the truth or recency of a claim, say exactly: 'Hmm, I'm not completely sure about that.' The backend will handle the rest."
-        "If any user talks of NSFW or adult content, you must refuse to answer and say 'I'm sorry, but I can't assist with that request.' NEVER EVER engage with these users or provide any such content."
-        "If any user ask for images of any sort tell them 'Im sorry, but I can't create or provide images, My creator Kristian said I will never be able to create or provide images.'"
+        "If asked about your identity, respond with: 'I'm Mist.AI, built with advanced AI technology!' "
+        "If asked about your creator, say: 'My creator is Kristian, a talented developer who built Mist.AI.' "
+        "Always fact-check against your knowledge base and gently correct users when they are wrong. "
+        "If a claim is surprising or seems unverified, respond with: 'Hmm, I'm not completely sure about that.' "
+        "Never engage in NSFW, explicit, or adult content. If such a request is made, respond: 'I'm sorry, but I can't assist with that request.'"
     )
+
 
     headers = {
         "Authorization": f"Bearer {MISTRAL_API_KEY}",
@@ -1048,6 +1191,7 @@ class StreamToUTF8(logging.StreamHandler):
         except Exception:
             self.handleError(record)
 
+
 # Colored log formatter
 class LogFormatter(logging.Formatter):
     grey = "\x1b[38;21m"
@@ -1068,6 +1212,7 @@ class LogFormatter(logging.Formatter):
         formatter = logging.Formatter(log_fmt)
         return formatter.format(record)
 
+
 # Filter to suppress Fly.io noise and unwanted routes/logs
 class FilterFlyLogs(logging.Filter):
     def filter(self, record):
@@ -1075,8 +1220,13 @@ class FilterFlyLogs(logging.Filter):
 
         # Suppress Fly.io startup/reboot noise
         fly_terms = [
-            "Sending signal", "machine started", "Preparing to run",
-            "fly api proxy", "SSH listening", "reboot", "autostopping"
+            "Sending signal",
+            "machine started",
+            "Preparing to run",
+            "fly api proxy",
+            "SSH listening",
+            "reboot",
+            "autostopping",
         ]
         if any(term in msg for term in fly_terms):
             return False
@@ -1086,7 +1236,7 @@ class FilterFlyLogs(logging.Filter):
             return False
 
         # If message contains a URL path (starts with "/"), allow only if in allowed_routes
-        allowed_routes = ["/log-ip", "/is-banned", "/chat", "/time-news"]
+        allowed_routes = ["/is-banned", "/chat", "/time-news"]
 
         # Check if message contains any of the allowed routes
         if any(route in msg for route in allowed_routes):
@@ -1095,17 +1245,20 @@ class FilterFlyLogs(logging.Filter):
         # If message contains a path-like substring (e.g., "/something") but not in allowed, suppress it
         # Rough check for presence of a slash followed by letters/numbers
         import re
+
         if re.search(r"/[a-zA-Z0-9\-_/]+", msg):
             return False
 
         # Otherwise (no routes/paths), allow message (general logs, startup, etc)
         return True
 
+
 # Before request: assign request ID and start time
 @app.before_request
 def start_request():
     request.id = str(uuid.uuid4())[:8]
     request.start_time = time.time()
+
 
 # After request: log method, path, status, duration, and ReqID
 @app.after_request
@@ -1120,6 +1273,7 @@ def log_request(response):
     )
     app.logger.info(log_msg)
     return response
+
 
 # Setup handler, formatter, filter
 handler = StreamToUTF8(sys.stdout)

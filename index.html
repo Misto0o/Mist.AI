@@ -19,7 +19,7 @@
     <!-- Open Graph for link previews -->
     <meta property="og:title" content="Mist.AI Chat - Smart chatbot at your fingertips." />
     <meta property="og:type" content="website" />
-
+    <meta name="poweredby" content="Mist.AI models (Gemini, CommandR, Mistral)">
     <!-- Canonical URL -->
     <link rel="canonical" href="https://mistai.org" />
 
@@ -40,8 +40,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.9.4/css/bulma.min.css" />
 
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="/styles.css?v=15" />
-    <link rel="stylesheet" href="/themes.css?v=15" />
+    <link rel="stylesheet" href="/styles.css?v=16" />
+    <link rel="stylesheet" href="/themes.css?v=16" />
 
     <!-- Font Awesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
@@ -121,6 +121,8 @@
     <!-- INPUT SECTION OUTSIDE MAIN CONTAINER -->
     <div class="input-section">
         <div class="chat-input-container">
+            <div id="image-preview" class="image-preview"></div>
+
             <!-- Slash Command Button -->
             <button id="slash-button" class="slash-button">/</button>
 
@@ -128,41 +130,38 @@
             <textarea class="input is-dark" id="user-input" placeholder="Type a message..."
                 autocomplete="off"></textarea>
 
+            <!-- Word Counter -->
+            <div id="word-counter">0 / 1200</div>
+
             <!-- Tools Button and Menu -->
             <div class="tools-wrapper">
                 <button class="icon-button" id="tools-toggle">
                     <i class="fa-solid fa-gear"></i>
                 </button>
-
-                <!-- Hidden Tools Menu -->
                 <div id="tools-menu" class="tools-popup">
                     <button class="tool-option" id="upload-image-btn">🖼️ Upload Image</button>
                     <button class="tool-option" id="upload-document-btn">📄 Upload Document</button>
-
-                    <!-- Hidden Inputs for File Upload -->
                     <input type="file" id="file-upload-image" class="upload-input" accept=".png,.jpg,.jpeg,.bmp,.gif"
                         style="display: none;" />
                     <input type="file" id="file-upload-document" class="upload-input" accept=".pdf,.doc,.docx,.txt"
                         style="display: none;" />
-
                     <hr />
-
                     <label class="tool-option model-label">Model:
                         <select id="model-select" class="model-select" onchange="swapModel(this)">
-                            <option value="gemini" selected>Gemini ⭐</option>
-                            <option value="commandR">CommandR 🤖</option>
-                            <option value="mistral">Mistral 🌬️</option>
+                            <option value="Gemini" selected>Mist.AI Nova ⭐</option>
+                            <option value="CommandR">Mist.AI Sage 🤖</option>
+                            <option value="Mistral">Mist.AI Flux 🌬️</option>
                         </select>
                     </label>
                 </div>
             </div>
-
 
             <!-- Send Button -->
             <button class="icon-button" onclick="sendMessage()">
                 <i class="fa-solid fa-paper-plane"></i>
             </button>
         </div>
+    </div>
 
     <p class="disclaimer-text">
         MistAI may display inaccurate info, including about people, so double-check its responses.
@@ -210,8 +209,8 @@
         </div>
     </div>
 
-    <script src="/script.js?v=15" defer></script>
-    <script src="/service-worker.js?v=15" defer></script>
+    <script src="/script.js?v=16" defer></script>
+    <script src="/service-worker.js?v=16" defer></script>
 </body>
 
 </html>
