@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mistai-cache-v15';  // 🔁 Update this on every deploy
+const CACHE_NAME = 'mistai-cache-v16';  // 🔁 Update this on every deploy
 
 const ASSETS_TO_CACHE = [
   '/',
