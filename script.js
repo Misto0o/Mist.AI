@@ -1046,21 +1046,39 @@ function showFunFact() {
     sendMessage("fun fact");
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    const toolsMenu = document.getElementById('tools-menu');
-    const toggleButton = document.getElementById('tools-toggle');
+const toolsToggle = document.getElementById("tools-toggle");
+const toolsMenu = document.getElementById("tools-menu");
+const fileInputs = document.querySelectorAll(".upload-input");
 
-    toggleButton.addEventListener('click', (e) => {
-        e.stopPropagation();
-        toolsMenu.classList.toggle('show');
-    });
+let menuOpen = false; // Track menu state
 
-    document.addEventListener('click', (e) => {
-        if (!toolsMenu.contains(e.target) && !toggleButton.contains(e.target)) {
-            toolsMenu.classList.remove('show');
-        }
+// Toggle tools menu
+toolsToggle.addEventListener("click", () => {
+    menuOpen = !menuOpen;
+    toolsMenu.style.display = menuOpen ? "block" : "none";
+});
+
+// Close menu if user clicks outside
+document.addEventListener("click", (event) => {
+    if (!toolsMenu.contains(event.target) && !toolsToggle.contains(event.target)) {
+        toolsMenu.style.display = "none";
+        menuOpen = false;
+    }
+});
+
+// Reset state if file dialog is closed without selecting a file
+fileInputs.forEach((input) => {
+    input.addEventListener("click", () => {
+        setTimeout(() => {
+            // Reset menu if user cancels file dialog
+            if (!input.value) {
+                toolsMenu.style.display = "none";
+                menuOpen = false;
+            }
+        }, 500);
     });
 });
+
 
 // ✅ Show message in chat
 function showMessage(message, sender = "user") {

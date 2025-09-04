@@ -346,13 +346,15 @@ def init_db():
     os.makedirs(DB_FOLDER, exist_ok=True)
     conn = get_db_connection()
     c = conn.cursor()
-    c.execute("""
+    c.execute(
+        """
         CREATE TABLE IF NOT EXISTS bans (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             ip TEXT,
             token TEXT UNIQUE
         )
-    """)
+    """
+    )
     conn.commit()
     conn.close()
     print(f"🗄️ Database initialized at {DB_FILE}")
@@ -392,13 +394,15 @@ def migrate_to_tokens():
             c.execute("UPDATE bans SET token=? WHERE id=?", (str(uuid.uuid4()), ban_id))
         # Rebuild table
         c.execute("ALTER TABLE bans RENAME TO bans_old")
-        c.execute("""
+        c.execute(
+            """
             CREATE TABLE bans (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 ip TEXT,
                 token TEXT UNIQUE
             )
-        """)
+        """
+        )
         c.execute("INSERT INTO bans (id, ip, token) SELECT id, ip, token FROM bans_old")
         c.execute("DROP TABLE bans_old")
         conn.commit()
@@ -427,7 +431,7 @@ def unify_tokens_by_ip():
         ids_to_keep = [rows[0][0]]
         c.execute(
             f"DELETE FROM bans WHERE ip=? AND id NOT IN ({','.join(['?']*len(ids_to_keep))})",
-            [ip, *ids_to_keep]
+            [ip, *ids_to_keep],
         )
         c.execute("UPDATE bans SET token=? WHERE id=?", (main_token, rows[0][0]))
 
@@ -513,6 +517,7 @@ def is_banned(ip=None, token=None):
 # =========================
 ip_log = {}
 
+
 # =========================
 # Helpers
 # =========================
@@ -522,6 +527,7 @@ def login_required(f):
         if not session.get("admin_logged_in"):
             return redirect(url_for("admin_login", next=request.path))
         return f(*args, **kwargs)
+
     return wrapped
 
 
@@ -532,7 +538,9 @@ def login_required(f):
 @login_required
 def admin_panel():
     banned_entries = get_bans()
-    return render_template("admin/admin.html", ip_log=ip_log, banned_entries=banned_entries)
+    return render_template(
+        "admin/admin.html", ip_log=ip_log, banned_entries=banned_entries
+    )
 
 
 @app.route("/admin/ban", methods=["POST"])
@@ -596,7 +604,9 @@ def admin_login():
     if request.method == "POST":
         username = request.form.get("username")
         password = request.form.get("password")
-        if username == os.getenv("ADMIN_USERNAME") and password == os.getenv("ADMIN_PASSWORD"):
+        if username == os.getenv("ADMIN_USERNAME") and password == os.getenv(
+            "ADMIN_PASSWORD"
+        ):
             session["admin_logged_in"] = True
             flash("Logged in successfully.", "success")
             next_page = request.args.get("next") or url_for("admin_panel")
@@ -628,6 +638,7 @@ def startup():
 
 
 startup()
+
 
 @app.route("/chat", methods=["POST", "GET"])
 async def chat():
@@ -706,8 +717,11 @@ async def chat():
             ocr_data = ocr_result.json
 
             extracted_text = ocr_data.get("result") or ocr_data.get("error", "")
-            user_message = f"{user_message}\n\n[Image text: {extracted_text}]" if extracted_text else user_message
-
+            user_message = (
+                f"{user_message}\n\n[Image text: {extracted_text}]"
+                if extracted_text
+                else user_message
+            )
 
         if not user_message:
             return jsonify({"error": "Message can't be empty."}), 400
@@ -943,8 +957,6 @@ async def handle_command(command):
         riddle = random.choice(riddles)
         return f"🤔 {riddle[0]}<br><br><span class='hidden-answer' onclick='this.classList.add(\"revealed\")'>Answer: {riddle[1]}</span>"
 
-
-async def handle_command(command):
     global weather_session
     if command.startswith("/weather"):
         parts = command.split(" ", 1)
@@ -1000,7 +1012,6 @@ def get_gemini_response(prompt):
             "Never engage in NSFW, explicit, or adult content. If such a request is made, respond: 'I'm sorry, but I can't assist with that request.'"
         )
 
-
         full_prompt = f"{system_prompt}\n{prompt}"
 
         model = genai.GenerativeModel("gemini-2.0-flash")
@@ -1035,8 +1046,6 @@ def get_cohere_response(prompt):
             "If a claim is surprising or seems unverified, respond with: 'Hmm, I'm not completely sure about that.' "
             "Never engage in NSFW, explicit, or adult content. If such a request is made, respond: 'I'm sorry, but I can't assist with that request.'"
         )
-
-
 
         full_prompt = f"{system_prompt}\n{prompt}"
 
@@ -1075,7 +1084,6 @@ async def get_mistral_response(prompt):
         "If a claim is surprising or seems unverified, respond with: 'Hmm, I'm not completely sure about that.' "
         "Never engage in NSFW, explicit, or adult content. If such a request is made, respond: 'I'm sorry, but I can't assist with that request.'"
     )
-
 
     headers = {
         "Authorization": f"Bearer {MISTRAL_API_KEY}",
@@ -1304,10 +1312,32 @@ app.logger.propagate = False
 
 # Configure Werkzeug logger (Flask's HTTP request logs)
 werkzeug_logger = logging.getLogger("werkzeug")
-werkzeug_logger.handlers.clear()
-werkzeug_logger.addHandler(handler)
-werkzeug_logger.setLevel(logging.ERROR)  # Show only errors to reduce clutter
-werkzeug_logger.addFilter(FilterFlyLogs())
+werkzeug_logger.disabled = True
+
+# After request: log method, path, status, duration, and ReqID
+@app.after_request
+def log_request(response):
+    duration = time.time() - request.start_time
+    log_msg = (
+        f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] "
+        f"{request.method} {request.path} | "
+        f"Status: {response.status_code} | "
+        f"Duration: {duration:.2f}s | "
+        f"ReqID: {request.id}"
+    )
+    app.logger.info(log_msg)
+    return response
+
+
+# Setup handler, formatter, filter
+handler = StreamToUTF8(sys.stdout)
+handler.setFormatter(LogFormatter())
+handler.addFilter(FilterFlyLogs())
+
+app.logger.handlers.clear()
+app.logger.addHandler(handler)
+app.logger.setLevel(logging.INFO)
+app.logger.propagate = False
 
 if __name__ == "__main__":
     app.logger.info("🚀 Mist.AI Server is starting...")
