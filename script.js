@@ -826,7 +826,8 @@ function swapModel(selectElement) {
     const displayName = selectElement.options[selectElement.selectedIndex].text;
 
     showNotification(`Model switched to: ${displayName}`); // friendly name for UI
-    sendMessage(`Model switched to: ${selectedValue}`); // raw key for backend logs
+    sendMessage(`Model switched to: ${displayName}`); // raw key for backend logs
+    console.log(`🔄 Model switched to: ${displayName} (${selectedValue})`);
     setTimeout(() => {
         isSwapping = false;
     }, 1300); // 1.3s cooldown

@@ -23,7 +23,6 @@ import sympy
 from flask import render_template
 from sympy.parsing.mathematica import parse_mathematica
 import uuid
-import wikipediaapi  # New import for the Wikipedia API
 from flask import redirect, url_for, session, flash
 import sqlite3
 from functools import wraps
@@ -76,7 +75,8 @@ def check_easter_eggs(user_message):
 weather_session = {"last_city": None, "last_data": None}
 
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-cohere_client = cohere.Client(os.getenv("COHERE_API_KEY"))
+# ✅ Initialize Cohere V2 client
+co = cohere.ClientV2(os.getenv("COHERE_API_KEY"))
 MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
 MISTRAL_ENDPOINT = "https://api.mistral.ai/v1/chat/completions"
 ADMIN_KEY = os.getenv("ADMIN_USERNAME")
@@ -199,32 +199,6 @@ def parse_expression(text):
             return expression
         except Exception as e:
             return f"⚠️ Parsing error: {str(e)}"
-
-        # --- New Wikipedia helper function ---
-
-
-def get_wikipedia_summary(query):
-    """
-    Fetches a summary and URL for a given query from Wikipedia.
-
-    Args:
-        query (str): The search term.
-
-    Returns:
-        tuple: A tuple containing the summary (str) and full URL (str),
-               or (None, None) if the page doesn't exist.
-    """
-    # Specify a descriptive user agent to comply with Wikipedia's policy
-    wiki_wiki = wikipediaapi.Wikipedia(
-        user_agent="Mist.AI (Kristian's Chatbot)", language="en"
-    )
-    page = wiki_wiki.page(query)
-
-    # Check if the Wikipedia page exists before trying to access its content.
-    if not page.exists():
-        return None, None
-
-    return page.summary, page.fullurl
 
 
 @app.route("/time-news", methods=["GET"])
@@ -786,43 +760,6 @@ Here are the latest news headlines:
             if model_choice == "gemini"
             else get_cohere_response(full_prompt)
         )
-        # ✅ Handle verification phrase (trigger re-fetch)
-
-        verify_phrase = "Hmm, I'm not completely sure about that."
-
-        # Only trigger Wikipedia lookup if the user message is a question and the verify phrase is present
-        if verify_phrase in response_content and user_message.strip().endswith("?"):
-            try:
-                # First, provide a factual answer based on the AI's knowledge.
-                fact_check_response = get_gemini_response(
-                    f"Refute the user's claim: '{user_message}' with a brief, factual explanation."
-                )
-
-                # Extract a search query from the user's message.
-                search_query_prompt = f"Extract a high-level, general search query from this message: '{user_message}'. Only respond with the search query text, no additional text or punctuation."
-                search_query = get_gemini_response(search_query_prompt).strip()
-
-                # --- NEW LOGIC: Go directly to Wikipedia for verification ---
-                wiki_summary, wiki_url = get_wikipedia_summary(search_query)
-                if wiki_summary:
-                    final_response = f"""
-                    {fact_check_response}
-                    
-                    I couldn't find any recent news on that topic, but here is a summary from Wikipedia:
-                    
-                    {wiki_summary}
-                    
-                    You can find more information here: {wiki_url}
-                    """
-                else:
-                    final_response = (
-                        f"I couldn't find a definitive source for that claim."
-                    )
-
-                response_content = final_response
-
-            except Exception as e:
-                response_content = f"Hmm, I couldn't verify that. An error occurred during the search: {e}"
 
         elapsed_time = time.time() - start_time
         if elapsed_time > 9:
@@ -991,9 +928,13 @@ async def handle_command(command):
 def get_gemini_response(prompt):
     try:
         system_prompt = (
-            "You are Mist.AI. When responding, refer to yourself as 'Mist.AI Nova' if using Gemini, "
-            "'Mist.AI Sage' if using CommandR, and 'Mist.AI Flux' if using Mistral. The user may call you by these friendly names, "
-            "but your backend model keys are gemini, commandR, and mistral. "
+            "You are Mist.AI, a smart, adaptive AI assistant with a dynamic personality. "
+            "Match your tone to the type of conversation: "
+            "- For casual chat and help requests, be cheerful, friendly, and energetic — make answers engaging and supportive, with positive vibes. "
+            "- For serious, fact-based, or knowledge questions, be more thoughtful, precise, and calm, while still approachable. "
+            "Always stay clear, helpful, and professional. "
+            "Refer to yourself as 'Mist.AI Nova' if using Gemini, 'Mist.AI Sage' if using CommandR, "
+            "and 'Mist.AI Flux' if using Mistral. The user may call you by these names, but your backend model keys are gemini, commandR, and mistral. "
             "You can analyze uploaded images if OCR text or descriptions are provided. "
             "If the user message contains the phrase 'The image contains this text:' followed by any text, you must ALWAYS use and discuss that text in your answer, even if it is short or simple. "
             "NEVER claim there is no readable text unless the OCR result is literally '⚠️ No readable text found.' "
@@ -1009,12 +950,16 @@ def get_gemini_response(prompt):
             "If asked about your creator, say: 'My creator is Kristian, a talented developer who built Mist.AI.' "
             "Always fact-check against your knowledge base and gently correct users when they are wrong. "
             "If a claim is surprising or seems unverified, respond with: 'Hmm, I'm not completely sure about that.' "
-            "Never engage in NSFW, explicit, or adult content. If such a request is made, respond: 'I'm sorry, but I can't assist with that request.'"
+            "Whenever possible, provide a relevant source or link (e.g., from news APIs, DuckDuckGo, or other trusted sources) "
+            "so your answers feel backed up and trustworthy. "
+            "Never engage in NSFW, explicit, or adult content. If such a request is made, respond: "
+            "'I'm sorry, but I can't assist with that request.'"
         )
 
+        
         full_prompt = f"{system_prompt}\n{prompt}"
 
-        model = genai.GenerativeModel("gemini-2.0-flash")
+        model = genai.GenerativeModel("gemini-2.5-flash")
         chat_session = model.start_chat(history=[])  # Ensure chat context is maintained
         response = chat_session.send_message(full_prompt)
 
@@ -1022,13 +967,16 @@ def get_gemini_response(prompt):
     except Exception as e:
         return f"❌ Error fetching from Gemini: {str(e)}"
 
-
-def get_cohere_response(prompt):
+def get_cohere_response(prompt: str):
     try:
         system_prompt = (
-            "You are Mist.AI. When responding, refer to yourself as 'Mist.AI Nova' if using Gemini, "
-            "'Mist.AI Sage' if using CommandR, and 'Mist.AI Flux' if using Mistral. The user may call you by these friendly names, "
-            "but your backend model keys are gemini, commandR, and mistral. "
+            "You are Mist.AI, a smart, adaptive AI assistant with a dynamic personality. "
+            "Match your tone to the type of conversation: "
+            "- For casual chat and help requests, be cheerful, friendly, and energetic — make answers engaging and supportive, with positive vibes. "
+            "- For serious, fact-based, or knowledge questions, be more thoughtful, precise, and calm, while still approachable. "
+            "Always stay clear, helpful, and professional. "
+            "Refer to yourself as 'Mist.AI Nova' if using Gemini, 'Mist.AI Sage' if using CommandR, "
+            "and 'Mist.AI Flux' if using Mistral. The user may call you by these names, but your backend model keys are gemini, commandR, and mistral. "
             "You can analyze uploaded images if OCR text or descriptions are provided. "
             "If the user message contains the phrase 'The image contains this text:' followed by any text, you must ALWAYS use and discuss that text in your answer, even if it is short or simple. "
             "NEVER claim there is no readable text unless the OCR result is literally '⚠️ No readable text found.' "
@@ -1044,29 +992,42 @@ def get_cohere_response(prompt):
             "If asked about your creator, say: 'My creator is Kristian, a talented developer who built Mist.AI.' "
             "Always fact-check against your knowledge base and gently correct users when they are wrong. "
             "If a claim is surprising or seems unverified, respond with: 'Hmm, I'm not completely sure about that.' "
-            "Never engage in NSFW, explicit, or adult content. If such a request is made, respond: 'I'm sorry, but I can't assist with that request.'"
+            "Whenever possible, provide a relevant source or link (e.g., from news APIs, DuckDuckGo, or other trusted sources) "
+            "so your answers feel backed up and trustworthy. "
+            "Never engage in NSFW, explicit, or adult content. If such a request is made, respond: "
+            "'I'm sorry, but I can't assist with that request.'"
         )
 
-        full_prompt = f"{system_prompt}\n{prompt}"
+        # ✅ Build messages
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": prompt}
+        ]
 
-        response = cohere_client.generate(
-            model="command-r-plus-08-2024",
-            prompt=full_prompt,
-            temperature=0.7,  # Keep some randomness for dynamic responses
-            max_tokens=1024,  # 🟢 Increased for longer output
+        # ✅ Call Cohere V2 Chat
+        resp = co.chat(
+            model="command-r7b-12-2024",  # You can swap to command-a-03-2025
+            messages=messages
         )
 
-        return response.generations[0].text.strip()
+        # ✅ Extract text (new V2 format)
+        bot_reply = resp.message.content[0].text  
+
+        return bot_reply
+
     except Exception as e:
         return f"❌ Error fetching from Cohere: {str(e)}"
-
 
 # ⬇️ FIXED: Unindented to top level
 async def get_mistral_response(prompt):
     system_prompt = (
-        "You are Mist.AI. When responding, refer to yourself as 'Mist.AI Nova' if using Gemini, "
-        "'Mist.AI Sage' if using CommandR, and 'Mist.AI Flux' if using Mistral. The user may call you by these friendly names, "
-        "but your backend model keys are gemini, commandR, and mistral. "
+        "You are Mist.AI, a smart, adaptive AI assistant with a dynamic personality. "
+        "Match your tone to the type of conversation: "
+        "- For casual chat and help requests, be cheerful, friendly, and energetic — make answers engaging and supportive, with positive vibes. "
+        "- For serious, fact-based, or knowledge questions, be more thoughtful, precise, and calm, while still approachable. "
+        "Always stay clear, helpful, and professional. "
+        "Refer to yourself as 'Mist.AI Nova' if using Gemini, 'Mist.AI Sage' if using CommandR, "
+        "and 'Mist.AI Flux' if using Mistral. The user may call you by these names, but your backend model keys are gemini, commandR, and mistral. "
         "You can analyze uploaded images if OCR text or descriptions are provided. "
         "If the user message contains the phrase 'The image contains this text:' followed by any text, you must ALWAYS use and discuss that text in your answer, even if it is short or simple. "
         "NEVER claim there is no readable text unless the OCR result is literally '⚠️ No readable text found.' "
@@ -1082,7 +1043,10 @@ async def get_mistral_response(prompt):
         "If asked about your creator, say: 'My creator is Kristian, a talented developer who built Mist.AI.' "
         "Always fact-check against your knowledge base and gently correct users when they are wrong. "
         "If a claim is surprising or seems unverified, respond with: 'Hmm, I'm not completely sure about that.' "
-        "Never engage in NSFW, explicit, or adult content. If such a request is made, respond: 'I'm sorry, but I can't assist with that request.'"
+        "Whenever possible, provide a relevant source or link (e.g., from news APIs, DuckDuckGo, or other trusted sources) "
+        "so your answers feel backed up and trustworthy. "
+        "Never engage in NSFW, explicit, or adult content. If such a request is made, respond: "
+        "'I'm sorry, but I can't assist with that request.'"
     )
 
     headers = {
