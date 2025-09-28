@@ -1,11 +1,11 @@
-const CACHE_NAME = 'mistai-cache-v17';  // 🔁 Update this on every deploy
+const CACHE_NAME = 'mistai-cache-v18';  // 🔁 Update this on every deploy
 
 const ASSETS_TO_CACHE = [
   '/',
-  '/index.html?v=16',
-  '/styles.css?v=16',
-  '/themes.css?v=16',
-  '/script.js?v=17',
+  '/index.html?v=18',
+  '/styles.css?v=18',
+  '/themes.css?v=18',
+  '/script.js?v=18',
   '/mistaifaviocn/favicon.ico',
   '/mistaifaviocn/favicon-32x32.png',
   '/mistaifaviocn/android-chrome-192x192.png'

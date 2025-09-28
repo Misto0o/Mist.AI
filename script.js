@@ -315,7 +315,7 @@ function enableChat() {
     if (inputBox) {
         inputBox.disabled = false;
         inputBox.style.backgroundColor = "#111";
-        inputBox.placeholder = "Type your message...";
+        inputBox.placeholder = "Type a message...";
         console.log("✅ Chat enabled.");
     }
 }
@@ -454,6 +454,80 @@ window.addEventListener("load", async () => {
     if (isIPBanned(userIP)) disableChat();
 });
 
+function shouldUseGrounding(message) {
+    const msg = message.toLowerCase().trim();
+
+    // Ignore super short stuff or just emojis
+    if (msg.length < 4 || /^[^\w]+$/.test(msg)) return false;
+
+    // Detect questions (usually need grounding)
+    const questionWords = ["who", "what", "when", "where", "why", "how"];
+    if (questionWords.some(q => msg.startsWith(q + " "))) return true;
+
+    // Detect fact-based queries or news/time queries
+    const factKeywords = ["latest", "current", "today", "update", "news", "weather", "temperature"];
+    if (factKeywords.some(k => msg.includes(k))) return true;
+
+    // Detect numbers or years (might need grounding)
+    if (/\d{2,4}/.test(msg)) return true;
+
+    // Detect URLs (probably wants info about a site)
+    if (/https?:\/\//.test(msg)) return true;
+
+    // For everything else (casual chat, small talk), skip Tavily
+    return false;
+}
+
+async function typeBotMessage(message, containerClass = "bot-message") {
+    const messagesDiv = document.getElementById("chat-box");
+
+    // Temporary element to "type into"
+    const tempElement = document.createElement("div");
+    tempElement.classList.add("message", containerClass);
+    messagesDiv.appendChild(tempElement);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+    const words = message.split(/\s+/).length;
+
+    // 🚀 If the message is over 100 words → just paste it instantly
+    if (words > 100) {
+        tempElement.textContent = message;
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        await new Promise(res => setTimeout(res, 50)); // small delay to mimic "drop-in"
+        messagesDiv.removeChild(tempElement);
+        renderMessage(message, containerClass);
+        return message;
+    }
+
+    const totalLength = message.length;
+    let i = 0;
+
+    while (i < totalLength) {
+        tempElement.textContent += message[i];
+        i++;
+
+        let delay;
+        if (words > 90) {
+            delay = 8; // super fast
+        } else if (i < totalLength * 0.3) {
+            delay = 45; // first 30% slower
+        } else if (i < totalLength * 0.7) {
+            delay = 35; // middle 40% medium speed
+        } else {
+            delay = 10; // last 30% blazing fast
+        }
+
+        await new Promise(res => setTimeout(res, delay));
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+
+    // ✅ After typing finishes, replace tempElement with rendered version
+    messagesDiv.removeChild(tempElement);
+    renderMessage(message, containerClass);
+
+    return message;
+}
+
 
 async function sendMessage(userMessage = null) {
     const userInput = document.getElementById("user-input");
@@ -498,6 +572,7 @@ async function sendMessage(userMessage = null) {
             context: chatMemory,
             model: currentModel,
             creator: creatorValue,
+            ground: shouldUseGrounding(userMessage),
             ip: userIP,
             ...(imgBase64 && { img_url: imgBase64 }) // 🔥 Attach image
         };
@@ -513,7 +588,7 @@ async function sendMessage(userMessage = null) {
         if (!data.response) throw new Error("No response from API");
 
         removeThinkingBubble();
-        renderMessage(`Mist.AI: ${data.response}`, "bot-message");
+        await typeBotMessage(`Mist.AI: ${data.response}`);
         updateMemory("bot", data.response);
 
     } catch (error) {
@@ -558,6 +633,15 @@ function showMessageWithImage(text, file, sender = "user") {
             ${text ? `<div class="user-text">${text}</div>` : ""}
         </div>
     `;
+
+    // Add edit button for user messages (so image captions can be edited)
+    if (sender !== "bot") {
+        const editButton = document.createElement("i");
+        editButton.classList.add("fas", "fa-pen", "edit-button");
+        editButton.title = "Edit";
+        editButton.onclick = () => enableEditMode(messageElement, text || "");
+        messageElement.appendChild(editButton);
+    }
 
     messagesDiv.appendChild(messageElement);
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
@@ -782,6 +866,60 @@ function getRandomDelayMessage() {
     ];
     return messages[Math.floor(Math.random() * messages.length)];
 }
+
+const capabilities = [
+    "Version 8.5 - Launched September 2025  🚀",
+    "Ask for the latest headlines 📰",
+    "Summarize your long texts ✂️",
+    "Translate messages instantly 🌐",
+    "Explain coding concepts 💻",
+    "Check your grammar effortlessly ✏️",
+    "Upload images via drag & drop 🖼️",
+    "Analyze text + images in one go 🔍",
+    "Detect text in images with OCR 🧾",
+    "Fetch concise Wikipedia summaries 📚",
+    "Show real-time weather & news 🌦️",
+    "Use slash commands like /joke, /rps, /flipcoin 🎲",
+    "Remembers session context 🧠",
+    "Customizable themes & sidebar layouts 🎨",
+    "Built-in cooldown logic to prevent spam ⚡",
+    "Supports PDF, DOCX, TXT, JSON uploads 📄",
+    "Friendly AI model names: Nova, Sage, Flux 🤖",
+    "No knowledge cutoff – up-to-date info 🌐",
+    "IP + Token ban system blocks abuse 🚫",
+    "Chrome/Firefox extension integration 🖱️",
+    "Offline PWA mode for chatting anywhere 🌍",
+    "Auto-resizing input box with live word count ↩️",
+    "Smarter Markdown & codeblock handling 🛠️",
+    "Future-ready AI personas & voice styles 🎙️"
+];
+
+
+let i = 0;
+const subtitleEl = document.getElementById("micro-subtitle");
+
+function typeText(text, callback) {
+    let j = 0;
+    subtitleEl.textContent = "";
+    const interval = setInterval(() => {
+        subtitleEl.textContent += text[j];
+        j++;
+        if (j === text.length) {
+            clearInterval(interval);
+            setTimeout(callback, 1500); // pause before next
+        }
+    }, 50); // typing speed
+}
+
+function loopCapabilities() {
+    typeText(capabilities[i], () => {
+        i = (i + 1) % capabilities.length;
+        loopCapabilities();
+    });
+}
+
+loopCapabilities();
+
 
 // Function to update chat memory
 function updateMemory(role, content) {
@@ -1092,6 +1230,15 @@ function showMessage(message, sender = "user") {
     let messageElement = document.createElement("div");
     messageElement.classList.add("message", sender === "bot" ? "bot-message" : "user-message");
     messageElement.innerHTML = message;
+
+    // Add edit button for user messages so messages created via showMessage() are editable
+    if (sender !== "bot") {
+        const editButton = document.createElement("i");
+        editButton.classList.add("fas", "fa-pen", "edit-button");
+        editButton.title = "Edit";
+        editButton.onclick = () => enableEditMode(messageElement, message);
+        messageElement.appendChild(editButton);
+    }
 
     chatBox.appendChild(messageElement);
     chatBox.scrollTop = chatBox.scrollHeight;

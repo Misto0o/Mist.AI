@@ -1,31 +1,31 @@
-# ☁️ Mist.AI – V8
+# ☁️ Mist.AI – V8.5
 
-Mist.AI is an advanced AI assistant powered by **Gemini AI**, **Command R AI**, **Mistral AI**, and **OCR Vision**. In this major update (V8), Mist.AI introduces a **tighter ban system**, smarter image handling, drag-and-drop uploads, combined text+image sending, and fixes to Wikipedia outputs — all without the extra “Analyze” step.  
+Mist.AI is an advanced AI assistant powered by **Gemini AI**, **Command R AI**, **Mistral AI**, **OCR Vision**, and **Tavily Google Searching**. In this major update (V8.5), Mist.AI introduces **Tavily** Google searching API where MistAI will no longer hallucinate and gets real time information, and now there is 2 **new** LLM models **Gemini 2.5 Flash, and Command-R7B-12-2024** 
 
 ---
 
-🚀 **Current Version:** V8  
+🚀 **Current Version:** V8.5 
 🌐 **Live Domain:** [https://mistai.org](https://mistai.org)  
 📱 **Mobile App / Progressive Web App (PWA)**  
 🧠 **Smarter AI – No Knowledge Cutoff**  
-⚡ **Improved Cache & Performance**  
-🖼️ **Drag & Drop Image Uploads + Text Integration**  
+⚡ **New LLM Models**  
+🖼️ **Google Searching**
+🐱 **New and Improved CSS**  
 
 ---
 
-## 🚀 What’s New in V8?
+## 🚀 What’s New in V8.5?
 
-### 🛠️ Tighter Ban System
-- Persistent bans tied to **IP + device token**, preventing VPN workarounds.  
-- Banned users cannot bypass by changing IP or clearing local storage.  
-- Fly.io logs cleaned and unified for better monitoring.  
-- Admin panel automatically logs **user token** on ban — no need for manual entry.  
+### 🛠️ Grounding & Real-Time Search
+- Tavily AI grounding provides context-aware references for user queries. 
+- Real-time Google/online search integration supplements AI answers with current events, factual updates, and relevant sources.
+- Ensures Mist’s answers are accurate, up-to-date, and grounded in real information.
 
-### 🤖 New Friendly Model Names!
-Mist.AI now shows **friendly frontend names** while keeping the backend keys intact.  
+### 🤖 New Friendly Model Names and New Models!!
+Mist.AI now shows **friendly frontend names** while keeping the backend keys intact, he also got a model update fresh new models and better capibilities 
 
-- ⭐ **Mist.AI Nova** → (Gemini)  
-- 🤖 **Mist.AI Sage** → (CommandR)  
+- ⭐ **Mist.AI Nova** → (Gemini Now 2.5 Flash)
+- 🤖 **Mist.AI Sage** → (CommandR Now Command-R7B-12-2024)
 - 🌬️ **Mist.AI Flux** → (Mistral)  
 
 - These names appear in notifications, the model selector, and chat logs for a more user-friendly experience!
@@ -40,10 +40,11 @@ Mist.AI now shows **friendly frontend names** while keeping the backend keys int
 - Images can now be sent **with text**, all in one step.  
 - OCR detection improved for text, equations, and clean previews.  
 
-### 📚 Wikipedia Fix
-- Mist.AI no longer outputs overly long or random facts.  
-- Smarter fetching and formatting of Wikipedia summaries.  
-- Provides concise and relevant MLA-style references.
+### 📚 Improved CSS and HTML
+- Mist.AI has a micro sub title showing off MistAI`s capabilities
+- Redid chat input container so its fully grey
+- Fixed chatbox so your able to scroll to the tip top again!
+- Added a *Typing* animation to MistAI! 
 
 ### ✨ Input Box Enhancements
 - 🔥 **Word count limiter** up to 1200 words with live counter.  
@@ -65,6 +66,7 @@ Mist.AI now shows **friendly frontend names** while keeping the backend keys int
 - ✔ **Chrome/Firefox Extension** – Chat instantly from your browser  
 - ✔ **Gemini AI, Command R AI, & Mistral AI Powered**  
 - ✔ **No Knowledge Cutoff** – Real-time news & events included  
+- ✔ **Google Searching** – Real-time google searching  
 - ✔ **Customizable Themes** – 8+ including secret ones  
 - ✔ **Real-Time Weather & News** – Ask for updates anytime  
 - ✔ **Session Memory** – Remembers context while chatting  

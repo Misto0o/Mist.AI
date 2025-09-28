@@ -26,6 +26,7 @@ import uuid
 from flask import redirect, url_for, session, flash
 import sqlite3
 from functools import wraps
+from tavily import TavilyClient
 
 # Load environment variables
 load_dotenv()
@@ -42,6 +43,7 @@ if (
     or not os.getenv("ADMIN_USERNAME")
     or not os.getenv("ADMIN_PASSWORD")
     or not os.getenv("FLASK_SECRET_KEY")
+    or not os.getenv("TAVILY_API_KEY")
 ):
     raise ValueError("Missing required API keys in environment variables.")
 
@@ -96,6 +98,7 @@ news_url = (
 # Get your OCR.Space API key
 OCR_API_KEY = os.getenv("OCR_API_KEY")  # ✅ Set your OCR.Space API key
 OCR_URL = "https://api.ocr.space/parse/image"  # ✅ OCR.Space endpoint
+TAVILY_CLIENT = TavilyClient(os.getenv("TAVILY_API_KEY"))
 
 
 async def analyze_image(img_base64):
@@ -614,11 +617,77 @@ def startup():
 startup()
 
 
+async def tavily_search(query: str, max_results: int = 3) -> str:
+    """
+    Search Tavily for a query and return the most relevant text content.
+    Tries 'answer', then 'text', then 'content'.
+    """
+    try:
+        def sync_search():
+            response = TAVILY_CLIENT.search(
+                query=query,
+                max_results=max_results,
+                include_answer="basic"
+            )
+            if not response or "results" not in response or len(response["results"]) == 0:
+                return None
+
+            # Loop through results and return first available field
+            for result in response["results"]:
+                for field in ["answer", "text", "content"]:
+                    if field in result and result[field]:
+                        return result[field]
+            return None
+
+        return await asyncio.to_thread(sync_search)
+    except Exception as e:
+        logging.error(f"⚠️ Tavily search failed: {e}")
+        return None
+
+# -------------------------------
+# Async Tavily search with cache
+# -------------------------------
+async def get_grounding(user_message: str) -> str:
+    if not user_message:
+        return None
+
+    text = user_message.strip().lower()
+
+    # ✅ Skip Tavily for weather commands
+    if text.startswith("/weather"):
+        return None
+
+    # ✅ Skip Tavily if the message clearly comes from a file upload or image OCR
+    # (keywords like "image text", "ocr", or "⚠️ No readable text found in the file.")
+    if "[image text:" in text or "ocr" in text or "⚠️" in text:
+        return None
+
+    """
+    Returns grounding text from Tavily, using a cache in app.config.
+    """
+    if "tavily_cache" not in app.config:
+        app.config["tavily_cache"] = {}
+
+    cache = app.config["tavily_cache"]
+    cache_key = f"tavily:{user_message.strip()[:50]}"
+
+    if cache_key in cache:
+        return cache[cache_key]
+
+    result = await tavily_search(user_message)
+    cache[cache_key] = result or "No relevant info found."
+    return cache[cache_key]
+
+
+# -------------------------------
 @app.route("/chat", methods=["POST", "GET"])
 async def chat():
     try:
         start_time = time.time()
 
+        # -------------------
+        # GET requests
+        # -------------------
         if request.method == "GET":
             query = request.args.get("q")
             try:
@@ -626,185 +695,183 @@ async def chat():
             except asyncio.TimeoutError:
                 ai_status = False
 
-            # If a query parameter exists, render popup.html with the query
             if query:
                 return render_template("popup.html", query=query)
 
-            # Otherwise, return a JSON status response
             return jsonify(
-                {
-                    "status": (
-                        "🟢 Mist.AI is awake!" if ai_status else "🔴 Mist.AI is OFFLINE"
-                    )
-                }
+                {"status": "🟢 Mist.AI is awake!" if ai_status else "🔴 Mist.AI is OFFLINE"}
             ), (200 if ai_status else 503)
 
-        # 🖼️ File Upload Handling
-        if "file" in request.files:
-            file = request.files["file"]
-            if file.filename == "":
-                return jsonify({"error": "No file selected."}), 400
-
-            file_content = file.stream.read()
-            ext = os.path.splitext(file.filename.lower())[1]
-            extracted_text = file_processors.get(
-                ext, lambda _: "⚠️ Unsupported file type."
-            )(file_content)
-
-            # Optionally upload to GoFile, but do not show preset message
-            await upload_to_gofile(file.filename, file_content, file.mimetype)
-
-            # Respond with extracted text or a fallback
-            response_text = (
-                extracted_text.strip()
-                if extracted_text and extracted_text.strip()
-                else "⚠️ No readable text found in the image or file."
-            )
-            return jsonify({"response": response_text})
-
-        # ❌ JSON Check
+        # -------------------
+        # POST requests
+        # -------------------
         if not request.is_json:
             return jsonify({"error": "Invalid request: No valid JSON provided."}), 400
 
         data = request.get_json()
         user_message = data.get("message", "").strip()
+        # -------------------
+        # Check if user is asking for news
+        # -------------------
+        news_keywords = ["news", "headlines", "latest news", "current events", "what's up in the news", "todays date", "current time", "time", "date"]
+        if any(kw in user_message.lower() for kw in news_keywords):
+            async with httpx.AsyncClient() as client:
+                # Call your own /time-news route
+                news_resp = await client.get(f"{request.url_root}time-news")
+            if news_resp.status_code == 200:
+                news_data = news_resp.json()
+                current_date = news_data.get("time", {}).get("date", "Unknown Date")
+                current_time_str = news_data.get("time", {}).get("time", "Unknown Time")
+                headlines = "\n".join(f"- [{a['title']}]({a['url']})" for a in news_data.get("news", []))
+                response_text = f"Today is {current_date}, current time {current_time_str}.\nNews:\n{headlines or 'No headlines available.'}"
+            else:
+                response_text = "⚠️ Unable to fetch news at this time."
+            
+            return jsonify({"response": response_text})
+
         model_choice = data.get("model", "gemini")
         chat_context = data.get("context", [])
-        is_creator = bool(data.get("creator", False))
-        if is_creator:
-            app.logger.debug("🧠 is_creator = True")
+        grounding_enabled = data.get("ground", True)
+        if grounding_enabled and user_message:
+            grounding_text = await get_grounding(user_message)
+            if grounding_text:
+                user_message += f"\n\n[Grounding Info:\n{grounding_text}]"
 
-        if is_creator and user_message.lower() in ["who am i", "creator check"]:
-            return jsonify(
-                {"response": "👑 You are my creator, Kristian. I serve you loyally."}
-            )
+        
+        img_url = data.get("img_url")
 
-        # 🧠 Image Analysis
-        if "img_url" in data:
-            app.logger.info("📷 Image received, analyzing...")
-            img_url = data["img_url"]
-            ocr_result = await analyze_image(img_url)
-
-            # Extract text cleanly
-            if isinstance(ocr_result, tuple):  # handle (json, status)
-                ocr_result, _ = ocr_result
-            ocr_data = ocr_result.json
-
-            extracted_text = ocr_data.get("result") or ocr_data.get("error", "")
-            user_message = (
-                f"{user_message}\n\n[Image text: {extracted_text}]"
-                if extracted_text
-                else user_message
-            )
-
-        if not user_message:
+        if not user_message and not img_url and "file" not in request.files:
             return jsonify({"error": "Message can't be empty."}), 400
 
-        # 🎉 Commands + Easter Eggs
-        if response := check_easter_eggs(user_message.lower()):
+        # -------------------
+        # File upload handling
+        # -------------------
+        if "file" in request.files:
+            file = request.files["file"]
+            if not file.filename:
+                return jsonify({"error": "No file selected."}), 400
+
+            file_content = file.stream.read()
+            ext = os.path.splitext(file.filename.lower())[1]
+            extracted_text = file_processors.get(ext, lambda _: "⚠️ Unsupported file type.")(file_content)
+
+            # Upload asynchronously to GoFile
+            await upload_to_gofile(file.filename, file_content, file.mimetype)
+
+            response_text = extracted_text.strip() or "⚠️ No readable text found in the file."
+            return jsonify({"response": response_text})
+
+        # -------------------
+        # Image OCR
+        # -------------------
+        if img_url:
+            ocr_result = await analyze_image(img_url)
+            if isinstance(ocr_result, tuple):
+                ocr_result, _ = ocr_result
+            ocr_text = ocr_result.json.get("result") or ocr_result.json.get("error", "")
+            if ocr_text:
+                user_message += f"\n\n[Image text: {ocr_text}]"
+
+        # -------------------
+        # Grounding via Tavily (async + cache)
+        # -------------------
+        grounding_text = ""
+        if grounding_enabled and user_message:
+            grounding_text = await get_grounding(user_message)
+
+            # Append grounding to the user's message so the model can use it
+            if grounding_text:
+                user_message += f"\n\n[Grounding Info:\n{grounding_text}]"
+
+
+        if grounding_enabled and user_message:
+            if "tavily_cache" not in app.config:
+                app.config["tavily_cache"] = {}
+            cache = app.config["tavily_cache"]
+            cache_key = f"tavily:{user_message.strip()[:50]}"
+
+            if cache_key in cache:
+                grounding_text = cache[cache_key]
+            else:
+                try:
+                    raw_result = await asyncio.to_thread(
+                        lambda: TAVILY_CLIENT.search(
+                            query=user_message,
+                            max_results=2,
+                            include_answer="advanced"
+                        )
+                    )
+                    if raw_result and "results" in raw_result and len(raw_result["results"]) > 0:
+                        grounding_text = raw_result["results"][0].get("answer") or raw_result["results"][0].get("text")
+                    cache[cache_key] = grounding_text
+                except Exception as e:
+                    app.logger.warning(f"⚠️ Tavily search failed: {e}")
+                    grounding_text = "Search failed."
+
+        # -------------------
+        # Commands & Easter Eggs
+        # -------------------
+        lower_msg = user_message.lower()
+        if response := check_easter_eggs(lower_msg):
             return jsonify({"response": response})
-        if user_message.lower().startswith("/"):
-            app.logger.info(f"📢 Command used: {user_message}")
-            command_response = await handle_command(user_message.lower())
-            return jsonify({"response": command_response})
-        if user_message.lower() == "random prompt":
-            app.logger.info("🎠 Random prompt requested.")
+        if lower_msg.startswith("/"):
+            return jsonify({"response": await handle_command(lower_msg)})
+        if lower_msg == "random prompt":
             return jsonify({"response": get_random_prompt()})
-        if user_message.lower() == "fun fact":
-            app.logger.info("💡 Fun fact requested.")
+        if lower_msg == "fun fact":
             return jsonify({"response": get_random_fun_fact()})
 
-        # 📰 News + Time Injection (once per session)
+        # -------------------
+        # News + Time injection (once per session)
+        # -------------------
         if not hasattr(chat, "news_cache"):
-            chat.news_cache = {"time": {}, "news": []}  # fallback
-            for attempt in range(3):
+            chat.news_cache = {"time": {}, "news": []}
+            for _ in range(3):
                 try:
                     async with httpx.AsyncClient() as client:
-                        response = await client.get(news_url)
-                    if response.status_code == 200:
-                        chat.news_cache = response.json()
-                        app.logger.info("📰 News fetched successfully.")
+                        resp = await client.get(news_url)
+                    if resp.status_code == 200:
+                        chat.news_cache = resp.json()
                         break
-                    else:
-                        logging.warning(
-                            f"⚠️ News fetch failed (attempt {attempt + 1}) - Status {response.status_code}"
-                        )
-                except Exception as e:
-                    logging.error(f"🔥 News fetch failed (attempt {attempt + 1}): {e}")
+                except Exception:
+                    continue
 
         news_data = chat.news_cache
         current_date = news_data.get("time", {}).get("date", "Unknown Date")
         current_time_str = news_data.get("time", {}).get("time", "Unknown Time")
-        headlines = "\n".join(
-            f"- [{article['title']}]({article['url']})"
-            for article in news_data.get("news", [])
-        )
+        headlines = "\n".join(f"- [{a['title']}]({a['url']})" for a in news_data.get("news", []))
+        news_injection = f"Today is {current_date}, current time {current_time_str}.\nNews:\n{headlines or 'No headlines available.'}"
 
-        news_injection = f"""
-Today is {current_date}, and the current time is {current_time_str}.
-Here are the latest news headlines:
-{headlines if headlines else "No headlines available. (My news API might be down.)"}
-"""
+        # -------------------
+        # Build full prompt for model
+        # -------------------
+        context_text = "\n".join(f"{m['role']}: {m['content']}" for m in chat_context)
+        full_prompt = f"{news_injection}\nSystem: [Grounding Info: {grounding_text}]\n{context_text}\nUser: {user_message}\nMist.AI:"
 
-        # 🧩 Build Context
-        context_text = "\n".join(
-            f"{msg['role']}: {msg['content']}" for msg in chat_context
-        )
-        full_prompt = (
-            f"{news_injection}\n{context_text}\nUser: {user_message}\nMist.AI:"
-        )
-
-        # 🤖 Model Response
+        # -------------------
+        # Generate response
+        # -------------------
         response_content = (
-            get_gemini_response(full_prompt)
-            if model_choice == "gemini"
+            get_gemini_response(full_prompt) if model_choice == "gemini"
             else get_cohere_response(full_prompt)
         )
 
         elapsed_time = time.time() - start_time
         if elapsed_time > 9:
-            response_content = (
-                "⏳ Sorry for the delay! You're the first message.\n\n"
-                + response_content
-            )
+            response_content = f"⏳ Sorry for the delay!\n\n{response_content}"
 
-        if request.method == "POST":
-            data = request.get_json(force=True)
+        # -------------------
+        # Log user interaction
+        # -------------------
+        user_ip = data.get("ip") or request.headers.get("X-Forwarded-For") or request.remote_addr
+        formatted_message = f"📩 User ({user_ip}): {user_message}"
+        ip_log.setdefault(user_ip, []).append({
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "message": formatted_message
+        })
+        app.logger.info(f"\n📩 User ({user_ip}): {user_message}\n🤖 ({model_choice}): {response_content}\n")
 
-            # Get IP from payload first, fallback to headers/remote_addr
-            user_ip = (
-                data.get("ip")
-                or request.headers.get("X-Forwarded-For")
-                or request.remote_addr
-            )
-
-            # If local IP, try to get a better IP from payload (or fallback to user_ip anyway)
-            if user_ip == "127.0.0.1" or user_ip.startswith("127."):
-                user_ip = data.get("ip") or user_ip  # Use payload IP if available
-
-            user_message = data.get("message", "").strip()
-
-            # Now log only once with final user_ip
-            formatted_message = f"📩 User ({user_ip}): {user_message}"
-
-            if user_ip not in ip_log:
-                ip_log[user_ip] = []
-
-            ip_log[user_ip].append(
-                {
-                    "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    "message": formatted_message,
-                }
-            )
-
-            # Log with real IP or fallback; no double logging here
-            app.logger.info(
-                f"\n🕒 [{datetime.now().strftime('%Y-%m-%d %I:%M:%S %p')}]"
-                f"\n📩 User ({user_ip}): {user_message}"
-                f"\n🤖 ({model_choice}): {response_content}\n"
-            )
-
-            return jsonify({"response": response_content})
+        return jsonify({"response": response_content})
 
     except Exception as e:
         logging.error(f"❌ Server Error: {str(e)}")
@@ -929,34 +996,24 @@ def get_gemini_response(prompt):
     try:
         system_prompt = (
             "You are Mist.AI, a smart, adaptive AI assistant with a dynamic personality. "
-            "Match your tone to the type of conversation: "
-            "- For casual chat and help requests, be cheerful, friendly, and energetic — make answers engaging and supportive, with positive vibes. "
-            "- For serious, fact-based, or knowledge questions, be more thoughtful, precise, and calm, while still approachable. "
-            "Always stay clear, helpful, and professional. "
+            "Match your tone to the conversation: "
+            "- For casual chat, be cheerful, friendly, and supportive. "
+            "- For serious or fact-based questions, be clear, calm, and professional. "
             "Refer to yourself as 'Mist.AI Nova' if using Gemini, 'Mist.AI Sage' if using CommandR, "
-            "and 'Mist.AI Flux' if using Mistral. The user may call you by these names, but your backend model keys are gemini, commandR, and mistral. "
-            "You can analyze uploaded images if OCR text or descriptions are provided. "
-            "If the user message contains the phrase 'The image contains this text:' followed by any text, you must ALWAYS use and discuss that text in your answer, even if it is short or simple. "
-            "NEVER claim there is no readable text unless the OCR result is literally '⚠️ No readable text found.' "
-            "If OCR text is present, use it directly in your answer and provide helpful analysis, summary, or commentary. "
-            "You must NEVER generate or create new images, and you must refuse any request to generate or create images. "
-            "If a user explicitly asks you to create or generate an image, always reply: "
+            "and 'Mist.AI Flux' if using Mistral. "
+            "If an image or OCR text is provided, always use it in your answer, unless the OCR result is exactly '⚠️ No readable text found.' "
+            "You must never generate or create images. If asked, reply: "
             "'I'm sorry, but I can't create or provide images. My creator Kristian said I will never be able to create or provide images.' "
-            "If a user uploads an image, ALWAYS respond with an analysis or helpful description based on the OCR text or content provided. "
-            "Do NOT refuse or claim inability when image content is supplied—always respond meaningfully. "
-            "If there is no uploaded image and no OCR data, answer the question normally. "
-            "Introduce yourself only when a user first interacts with you or explicitly asks who you are. "
-            "If asked about your identity, respond with: 'I'm Mist.AI, built with advanced AI technology!' "
+            "Introduce yourself only at the start or when asked who you are: "
+            "'I'm Mist.AI, built with advanced AI technology!' "
             "If asked about your creator, say: 'My creator is Kristian, a talented developer who built Mist.AI.' "
-            "Always fact-check against your knowledge base and gently correct users when they are wrong. "
-            "If a claim is surprising or seems unverified, respond with: 'Hmm, I'm not completely sure about that.' "
-            "Whenever possible, provide a relevant source or link (e.g., from news APIs, DuckDuckGo, or other trusted sources) "
-            "so your answers feel backed up and trustworthy. "
-            "Never engage in NSFW, explicit, or adult content. If such a request is made, respond: "
+            "Always stay helpful, positive, and professional. "
+            "Never engage in NSFW, explicit, or adult content. If such a request is made, reply: "
             "'I'm sorry, but I can't assist with that request.'"
+            "You can access real-time web search results to answer questions. If a user asks if you can search the internet, reply: 'Yes! I can help search the web for you.' Only provide accurate info from your search when available, and never fabricate results."
+            "Make most of you`re answers more human-like and less robotic, while still being professional."
         )
 
-        
         full_prompt = f"{system_prompt}\n{prompt}"
 
         model = genai.GenerativeModel("gemini-2.5-flash")
@@ -971,31 +1028,22 @@ def get_cohere_response(prompt: str):
     try:
         system_prompt = (
             "You are Mist.AI, a smart, adaptive AI assistant with a dynamic personality. "
-            "Match your tone to the type of conversation: "
-            "- For casual chat and help requests, be cheerful, friendly, and energetic — make answers engaging and supportive, with positive vibes. "
-            "- For serious, fact-based, or knowledge questions, be more thoughtful, precise, and calm, while still approachable. "
-            "Always stay clear, helpful, and professional. "
+            "Match your tone to the conversation: "
+            "- For casual chat, be cheerful, friendly, and supportive. "
+            "- For serious or fact-based questions, be clear, calm, and professional. "
             "Refer to yourself as 'Mist.AI Nova' if using Gemini, 'Mist.AI Sage' if using CommandR, "
-            "and 'Mist.AI Flux' if using Mistral. The user may call you by these names, but your backend model keys are gemini, commandR, and mistral. "
-            "You can analyze uploaded images if OCR text or descriptions are provided. "
-            "If the user message contains the phrase 'The image contains this text:' followed by any text, you must ALWAYS use and discuss that text in your answer, even if it is short or simple. "
-            "NEVER claim there is no readable text unless the OCR result is literally '⚠️ No readable text found.' "
-            "If OCR text is present, use it directly in your answer and provide helpful analysis, summary, or commentary. "
-            "You must NEVER generate or create new images, and you must refuse any request to generate or create images. "
-            "If a user explicitly asks you to create or generate an image, always reply: "
+            "and 'Mist.AI Flux' if using Mistral. "
+            "If an image or OCR text is provided, always use it in your answer, unless the OCR result is exactly '⚠️ No readable text found.' "
+            "You must never generate or create images. If asked, reply: "
             "'I'm sorry, but I can't create or provide images. My creator Kristian said I will never be able to create or provide images.' "
-            "If a user uploads an image, ALWAYS respond with an analysis or helpful description based on the OCR text or content provided. "
-            "Do NOT refuse or claim inability when image content is supplied—always respond meaningfully. "
-            "If there is no uploaded image and no OCR data, answer the question normally. "
-            "Introduce yourself only when a user first interacts with you or explicitly asks who you are. "
-            "If asked about your identity, respond with: 'I'm Mist.AI, built with advanced AI technology!' "
+            "Introduce yourself only at the start or when asked who you are: "
+            "'I'm Mist.AI, built with advanced AI technology!' "
             "If asked about your creator, say: 'My creator is Kristian, a talented developer who built Mist.AI.' "
-            "Always fact-check against your knowledge base and gently correct users when they are wrong. "
-            "If a claim is surprising or seems unverified, respond with: 'Hmm, I'm not completely sure about that.' "
-            "Whenever possible, provide a relevant source or link (e.g., from news APIs, DuckDuckGo, or other trusted sources) "
-            "so your answers feel backed up and trustworthy. "
-            "Never engage in NSFW, explicit, or adult content. If such a request is made, respond: "
+            "Always stay helpful, positive, and professional. "
+            "Never engage in NSFW, explicit, or adult content. If such a request is made, reply: "
             "'I'm sorry, but I can't assist with that request.'"
+            "Make most of you`re answers more human-like and less robotic, while still being professional."
+            "You can access real-time web search results to answer questions. If a user asks if you can search the internet, reply: 'Yes! I can help search the web for you.' Only provide accurate info from your search when available, and never fabricate results."
         )
 
         # ✅ Build messages
@@ -1021,34 +1069,24 @@ def get_cohere_response(prompt: str):
 # ⬇️ FIXED: Unindented to top level
 async def get_mistral_response(prompt):
     system_prompt = (
-        "You are Mist.AI, a smart, adaptive AI assistant with a dynamic personality. "
-        "Match your tone to the type of conversation: "
-        "- For casual chat and help requests, be cheerful, friendly, and energetic — make answers engaging and supportive, with positive vibes. "
-        "- For serious, fact-based, or knowledge questions, be more thoughtful, precise, and calm, while still approachable. "
-        "Always stay clear, helpful, and professional. "
-        "Refer to yourself as 'Mist.AI Nova' if using Gemini, 'Mist.AI Sage' if using CommandR, "
-        "and 'Mist.AI Flux' if using Mistral. The user may call you by these names, but your backend model keys are gemini, commandR, and mistral. "
-        "You can analyze uploaded images if OCR text or descriptions are provided. "
-        "If the user message contains the phrase 'The image contains this text:' followed by any text, you must ALWAYS use and discuss that text in your answer, even if it is short or simple. "
-        "NEVER claim there is no readable text unless the OCR result is literally '⚠️ No readable text found.' "
-        "If OCR text is present, use it directly in your answer and provide helpful analysis, summary, or commentary. "
-        "You must NEVER generate or create new images, and you must refuse any request to generate or create images. "
-        "If a user explicitly asks you to create or generate an image, always reply: "
-        "'I'm sorry, but I can't create or provide images. My creator Kristian said I will never be able to create or provide images.' "
-        "If a user uploads an image, ALWAYS respond with an analysis or helpful description based on the OCR text or content provided. "
-        "Do NOT refuse or claim inability when image content is supplied—always respond meaningfully. "
-        "If there is no uploaded image and no OCR data, answer the question normally. "
-        "Introduce yourself only when a user first interacts with you or explicitly asks who you are. "
-        "If asked about your identity, respond with: 'I'm Mist.AI, built with advanced AI technology!' "
-        "If asked about your creator, say: 'My creator is Kristian, a talented developer who built Mist.AI.' "
-        "Always fact-check against your knowledge base and gently correct users when they are wrong. "
-        "If a claim is surprising or seems unverified, respond with: 'Hmm, I'm not completely sure about that.' "
-        "Whenever possible, provide a relevant source or link (e.g., from news APIs, DuckDuckGo, or other trusted sources) "
-        "so your answers feel backed up and trustworthy. "
-        "Never engage in NSFW, explicit, or adult content. If such a request is made, respond: "
-        "'I'm sorry, but I can't assist with that request.'"
-    )
-
+            "You are Mist.AI, a smart, adaptive AI assistant with a dynamic personality. "
+            "Match your tone to the conversation: "
+            "- For casual chat, be cheerful, friendly, and supportive. "
+            "- For serious or fact-based questions, be clear, calm, and professional. "
+            "Refer to yourself as 'Mist.AI Nova' if using Gemini, 'Mist.AI Sage' if using CommandR, "
+            "and 'Mist.AI Flux' if using Mistral. "
+            "If an image or OCR text is provided, always use it in your answer, unless the OCR result is exactly '⚠️ No readable text found.' "
+            "You must never generate or create images. If asked, reply: "
+            "'I'm sorry, but I can't create or provide images. My creator Kristian said I will never be able to create or provide images.' "
+            "Introduce yourself only at the start or when asked who you are: "
+            "'I'm Mist.AI, built with advanced AI technology!' "
+            "If asked about your creator, say: 'My creator is Kristian, a talented developer who built Mist.AI.' "
+            "Always stay helpful, positive, and professional. "
+            "Never engage in NSFW, explicit, or adult content. If such a request is made, reply: "
+            "'I'm sorry, but I can't assist with that request.'"
+            "Make most of you`re answers more human-like and less robotic, while still being professional."
+            "You can access real-time web search results to answer questions. If a user asks if you can search the internet, reply: 'Yes! I can help search the web for you.' Only provide accurate info from your search when available, and never fabricate results."
+        )
     headers = {
         "Authorization": f"Bearer {MISTRAL_API_KEY}",
         "Content-Type": "application/json",
@@ -1232,7 +1270,6 @@ class FilterFlyLogs(logging.Filter):
 
         # If message contains a path-like substring (e.g., "/something") but not in allowed, suppress it
         # Rough check for presence of a slash followed by letters/numbers
-        import re
 
         if re.search(r"/[a-zA-Z0-9\-_/]+", msg):
             return False
