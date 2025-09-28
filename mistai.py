@@ -27,6 +27,7 @@ from flask import redirect, url_for, session, flash
 import sqlite3
 from functools import wraps
 from tavily import TavilyClient
+from flask import Response
 
 # Load environment variables
 load_dotenv()
@@ -715,18 +716,25 @@ async def chat():
         # -------------------
         news_keywords = ["news", "headlines", "latest news", "current events", "what's up in the news", "todays date", "current time", "time", "date"]
         if any(kw in user_message.lower() for kw in news_keywords):
-            async with httpx.AsyncClient() as client:
-                # Call your own /time-news route
-                news_resp = await client.get(f"{request.url_root}time-news")
-            if news_resp.status_code == 200:
-                news_data = news_resp.json()
-                current_date = news_data.get("time", {}).get("date", "Unknown Date")
-                current_time_str = news_data.get("time", {}).get("time", "Unknown Time")
-                headlines = "\n".join(f"- [{a['title']}]({a['url']})" for a in news_data.get("news", []))
-                response_text = f"Today is {current_date}, current time {current_time_str}.\nNews:\n{headlines or 'No headlines available.'}"
-            else:
-                response_text = "⚠️ Unable to fetch news at this time."
+            # Directly call the function
+            news_response = await time_news()
             
+            # Flask route returns a Response object
+            if isinstance(news_response, Response):
+                news_data = news_response.get_json()
+            else:
+                news_data = news_response[0].get_json() if isinstance(news_response, tuple) else {}
+            
+            current_date = news_data.get("time", {}).get("date", "Unknown Date")
+            current_time_str = news_data.get("time", {}).get("time", "Unknown Time")
+            headlines = "\n".join(
+                f"- [{a['title']}]({a['url']})"
+                for a in news_data.get("news", [])
+            )
+            response_text = (
+                f"Today is {current_date}, current time {current_time_str}.\n"
+                f"News:\n{headlines or 'No headlines available.'}"
+            )
             return jsonify({"response": response_text})
 
         model_choice = data.get("model", "gemini")
