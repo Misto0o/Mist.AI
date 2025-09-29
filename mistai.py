@@ -163,7 +163,7 @@ handler.addFilter(FilterFlyLogs())
 # Clear existing handlers and set our handler for app.logger
 app.logger.handlers.clear()
 app.logger.addHandler(handler)
-app.logger.setLevel(logging.INFO)
+app.logger.setLevel(logging.WARNING)
 app.logger.propagate = False
 
 # Configure Werkzeug logger (Flask's HTTP request logs)
