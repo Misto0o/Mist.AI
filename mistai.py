@@ -53,25 +53,21 @@ app = Flask(
 )
 
 # =========================
-# Logging setup
+# Logging setup (cleaned)
 # =========================
+import logging, sys, re
 
 # Custom StreamHandler to force UTF-8 encoding and colored logs
 class StreamToUTF8(logging.StreamHandler):
-    def __init__(self, stream=None):
-        super().__init__(stream or sys.stdout)
-
     def emit(self, record):
         try:
             msg = self.format(record)
             if isinstance(msg, str):
                 msg = msg.encode("utf-8", errors="replace").decode("utf-8")
-            stream = self.stream
-            stream.write(msg + self.terminator)
+            self.stream.write(msg + self.terminator)
             self.flush()
         except Exception:
             self.handleError(record)
-
 
 # Colored log formatter
 class LogFormatter(logging.Formatter):
@@ -90,110 +86,36 @@ class LogFormatter(logging.Formatter):
             "CRITICAL": self.red,
         }.get(record.levelname, self.grey)
         log_fmt = f"{level_color}[%(levelname)s]{self.reset} %(message)s"
-        formatter = logging.Formatter(log_fmt)
-        return formatter.format(record)
+        return logging.Formatter(log_fmt).format(record)
 
-
-# Filter to suppress Fly.io noise and unwanted routes/logs
+# Filter to suppress Fly.io startup/noise logs
 class FilterFlyLogs(logging.Filter):
     def filter(self, record):
         msg = record.getMessage()
-
-        # Suppress Fly.io startup/reboot noise
         fly_terms = [
-            "Sending signal",
-            "machine started",
-            "Preparing to run",
-            "fly api proxy",
-            "SSH listening",
-            "reboot",
-            "autostopping",
+            "Sending signal", "machine started", "Preparing to run",
+            "fly api proxy", "SSH listening", "reboot", "autostopping"
         ]
         if any(term in msg for term in fly_terms):
             return False
-
-        # Suppress OPTIONS request logs (common CORS preflight noise)
+        # suppress OPTIONS preflight logs
         if "OPTIONS" in msg:
             return False
+        return True  # allow all other logs (like your user/bot messages)
 
-        # If message contains a URL path (starts with "/"), allow only if in allowed_routes
-        allowed_routes = ["/is-banned", "/chat", "/time-news"]
-
-        # Check if message contains any of the allowed routes
-        if any(route in msg for route in allowed_routes):
-            return True
-
-        # If message contains a path-like substring (e.g., "/something") but not in allowed, suppress it
-        # Rough check for presence of a slash followed by letters/numbers
-
-        if re.search(r"/[a-zA-Z0-9\-_/]+", msg):
-            return False
-
-        # Otherwise (no routes/paths), allow message (general logs, startup, etc)
-        return True
-
-
-# Before request: assign request ID and start time
-@app.before_request
-def start_request():
-    request.id = str(uuid.uuid4())[:8]
-    request.start_time = time.time()
-
-
-# After request: log method, path, status, duration, and ReqID
-@app.after_request
-def log_request(response):
-    duration = time.time() - request.start_time
-    log_msg = (
-        f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] "
-        f"{request.method} {request.path} | "
-        f"Status: {response.status_code} | "
-        f"Duration: {duration:.2f}s | "
-        f"ReqID: {request.id}"
-    )
-    app.logger.info(log_msg)
-    return response
-
-
-# Setup handler, formatter, filter
-handler = StreamToUTF8(sys.stdout)
-handler.setFormatter(LogFormatter())
-handler.addFilter(FilterFlyLogs())
-
-# Clear existing handlers and set our handler for app.logger
-app.logger.handlers.clear()
-app.logger.addHandler(handler)
-app.logger.setLevel(logging.WARNING)
-app.logger.propagate = False
-
-# Configure Werkzeug logger (Flask's HTTP request logs)
-werkzeug_logger = logging.getLogger("werkzeug")
-werkzeug_logger.disabled = True
-
-# After request: log method, path, status, duration, and ReqID
-@app.after_request
-def log_request(response):
-    duration = time.time() - request.start_time
-    log_msg = (
-        f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] "
-        f"{request.method} {request.path} | "
-        f"Status: {response.status_code} | "
-        f"Duration: {duration:.2f}s | "
-        f"ReqID: {request.id}"
-    )
-    app.logger.info(log_msg)
-    return response
-
-
-# Setup handler, formatter, filter
+# Setup logging handler
 handler = StreamToUTF8(sys.stdout)
 handler.setFormatter(LogFormatter())
 handler.addFilter(FilterFlyLogs())
 
 app.logger.handlers.clear()
 app.logger.addHandler(handler)
-app.logger.setLevel(logging.WARNING)
+app.logger.setLevel(logging.INFO)  # keep INFO for user/bot logs
 app.logger.propagate = False
+
+# Disable Werkzeug request logs
+logging.getLogger("werkzeug").disabled = True
+
 
 CORS(app)
 
