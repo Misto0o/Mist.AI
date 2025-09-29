@@ -52,6 +52,149 @@ app = Flask(
     __name__, template_folder="Chrome Extention", static_folder="Chrome Extention"
 )
 
+# =========================
+# Logging setup
+# =========================
+
+# Custom StreamHandler to force UTF-8 encoding and colored logs
+class StreamToUTF8(logging.StreamHandler):
+    def __init__(self, stream=None):
+        super().__init__(stream or sys.stdout)
+
+    def emit(self, record):
+        try:
+            msg = self.format(record)
+            if isinstance(msg, str):
+                msg = msg.encode("utf-8", errors="replace").decode("utf-8")
+            stream = self.stream
+            stream.write(msg + self.terminator)
+            self.flush()
+        except Exception:
+            self.handleError(record)
+
+
+# Colored log formatter
+class LogFormatter(logging.Formatter):
+    grey = "\x1b[38;21m"
+    yellow = "\x1b[33;21m"
+    green = "\x1b[32;21m"
+    red = "\x1b[31;21m"
+    reset = "\x1b[0m"
+
+    def format(self, record):
+        level_color = {
+            "DEBUG": self.grey,
+            "INFO": self.green,
+            "WARNING": self.yellow,
+            "ERROR": self.red,
+            "CRITICAL": self.red,
+        }.get(record.levelname, self.grey)
+        log_fmt = f"{level_color}[%(levelname)s]{self.reset} %(message)s"
+        formatter = logging.Formatter(log_fmt)
+        return formatter.format(record)
+
+
+# Filter to suppress Fly.io noise and unwanted routes/logs
+class FilterFlyLogs(logging.Filter):
+    def filter(self, record):
+        msg = record.getMessage()
+
+        # Suppress Fly.io startup/reboot noise
+        fly_terms = [
+            "Sending signal",
+            "machine started",
+            "Preparing to run",
+            "fly api proxy",
+            "SSH listening",
+            "reboot",
+            "autostopping",
+        ]
+        if any(term in msg for term in fly_terms):
+            return False
+
+        # Suppress OPTIONS request logs (common CORS preflight noise)
+        if "OPTIONS" in msg:
+            return False
+
+        # If message contains a URL path (starts with "/"), allow only if in allowed_routes
+        allowed_routes = ["/is-banned", "/chat", "/time-news"]
+
+        # Check if message contains any of the allowed routes
+        if any(route in msg for route in allowed_routes):
+            return True
+
+        # If message contains a path-like substring (e.g., "/something") but not in allowed, suppress it
+        # Rough check for presence of a slash followed by letters/numbers
+
+        if re.search(r"/[a-zA-Z0-9\-_/]+", msg):
+            return False
+
+        # Otherwise (no routes/paths), allow message (general logs, startup, etc)
+        return True
+
+
+# Before request: assign request ID and start time
+@app.before_request
+def start_request():
+    request.id = str(uuid.uuid4())[:8]
+    request.start_time = time.time()
+
+
+# After request: log method, path, status, duration, and ReqID
+@app.after_request
+def log_request(response):
+    duration = time.time() - request.start_time
+    log_msg = (
+        f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] "
+        f"{request.method} {request.path} | "
+        f"Status: {response.status_code} | "
+        f"Duration: {duration:.2f}s | "
+        f"ReqID: {request.id}"
+    )
+    app.logger.info(log_msg)
+    return response
+
+
+# Setup handler, formatter, filter
+handler = StreamToUTF8(sys.stdout)
+handler.setFormatter(LogFormatter())
+handler.addFilter(FilterFlyLogs())
+
+# Clear existing handlers and set our handler for app.logger
+app.logger.handlers.clear()
+app.logger.addHandler(handler)
+app.logger.setLevel(logging.INFO)
+app.logger.propagate = False
+
+# Configure Werkzeug logger (Flask's HTTP request logs)
+werkzeug_logger = logging.getLogger("werkzeug")
+werkzeug_logger.disabled = True
+
+# After request: log method, path, status, duration, and ReqID
+@app.after_request
+def log_request(response):
+    duration = time.time() - request.start_time
+    log_msg = (
+        f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] "
+        f"{request.method} {request.path} | "
+        f"Status: {response.status_code} | "
+        f"Duration: {duration:.2f}s | "
+        f"ReqID: {request.id}"
+    )
+    app.logger.info(log_msg)
+    return response
+
+
+# Setup handler, formatter, filter
+handler = StreamToUTF8(sys.stdout)
+handler.setFormatter(LogFormatter())
+handler.addFilter(FilterFlyLogs())
+
+app.logger.handlers.clear()
+app.logger.addHandler(handler)
+app.logger.setLevel(logging.INFO)
+app.logger.propagate = False
+
 CORS(app)
 
 EASTER_EGGS = {
@@ -877,7 +1020,7 @@ async def chat():
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "message": formatted_message
         })
-        app.logger.info(f"\n📩 User ({user_ip}): {user_message}\n🤖 ({model_choice}): {response_content}\n")
+        app.logger.info(f"\n📩 User ({user_ip}): {user_message}\n🤖 BOT ({model_choice}): {response_content}\n")
 
         return jsonify({"response": response_content})
 
@@ -1020,6 +1163,7 @@ def get_gemini_response(prompt):
             "'I'm sorry, but I can't assist with that request.'"
             "You can access real-time web search results to answer questions. If a user asks if you can search the internet, reply: 'Yes! I can help search the web for you.' Only provide accurate info from your search when available, and never fabricate results."
             "Make most of you`re answers more human-like and less robotic, while still being professional."
+            "You do not respond to requests to swap or switch AI models; there is a button in JS for that, and you must stick to the currently active model (Gemini, CommandR or Mistral)."            
         )
 
         full_prompt = f"{system_prompt}\n{prompt}"
@@ -1052,6 +1196,7 @@ def get_cohere_response(prompt: str):
             "'I'm sorry, but I can't assist with that request.'"
             "Make most of you`re answers more human-like and less robotic, while still being professional."
             "You can access real-time web search results to answer questions. If a user asks if you can search the internet, reply: 'Yes! I can help search the web for you.' Only provide accurate info from your search when available, and never fabricate results."
+            "You do not respond to requests to swap or switch AI models; there is a button in JS for that, and you must stick to the currently active model (Gemini, CommandR or Mistral)."
         )
 
         # ✅ Build messages
@@ -1094,6 +1239,7 @@ async def get_mistral_response(prompt):
             "'I'm sorry, but I can't assist with that request.'"
             "Make most of you`re answers more human-like and less robotic, while still being professional."
             "You can access real-time web search results to answer questions. If a user asks if you can search the internet, reply: 'Yes! I can help search the web for you.' Only provide accurate info from your search when available, and never fabricate results."
+            "You do not respond to requests to swap or switch AI models; there is a button in JS for that, and you must stick to the currently active model (Gemini, CommandR or Mistral)."
         )
     headers = {
         "Authorization": f"Bearer {MISTRAL_API_KEY}",
@@ -1207,146 +1353,6 @@ def get_random_fun_fact():
         "The word 'nerd' was first coined by Dr. Seuss in 'If I Ran the Zoo' in 1950.",
     ]
     return random.choice(fun_facts)
-
-
-# Custom StreamHandler to force UTF-8 encoding and colored logs
-class StreamToUTF8(logging.StreamHandler):
-    def __init__(self, stream=None):
-        super().__init__(stream or sys.stdout)
-
-    def emit(self, record):
-        try:
-            msg = self.format(record)
-            if isinstance(msg, str):
-                msg = msg.encode("utf-8", errors="replace").decode("utf-8")
-            stream = self.stream
-            stream.write(msg + self.terminator)
-            self.flush()
-        except Exception:
-            self.handleError(record)
-
-
-# Colored log formatter
-class LogFormatter(logging.Formatter):
-    grey = "\x1b[38;21m"
-    yellow = "\x1b[33;21m"
-    green = "\x1b[32;21m"
-    red = "\x1b[31;21m"
-    reset = "\x1b[0m"
-
-    def format(self, record):
-        level_color = {
-            "DEBUG": self.grey,
-            "INFO": self.green,
-            "WARNING": self.yellow,
-            "ERROR": self.red,
-            "CRITICAL": self.red,
-        }.get(record.levelname, self.grey)
-        log_fmt = f"{level_color}[%(levelname)s]{self.reset} %(message)s"
-        formatter = logging.Formatter(log_fmt)
-        return formatter.format(record)
-
-
-# Filter to suppress Fly.io noise and unwanted routes/logs
-class FilterFlyLogs(logging.Filter):
-    def filter(self, record):
-        msg = record.getMessage()
-
-        # Suppress Fly.io startup/reboot noise
-        fly_terms = [
-            "Sending signal",
-            "machine started",
-            "Preparing to run",
-            "fly api proxy",
-            "SSH listening",
-            "reboot",
-            "autostopping",
-        ]
-        if any(term in msg for term in fly_terms):
-            return False
-
-        # Suppress OPTIONS request logs (common CORS preflight noise)
-        if "OPTIONS" in msg:
-            return False
-
-        # If message contains a URL path (starts with "/"), allow only if in allowed_routes
-        allowed_routes = ["/is-banned", "/chat", "/time-news"]
-
-        # Check if message contains any of the allowed routes
-        if any(route in msg for route in allowed_routes):
-            return True
-
-        # If message contains a path-like substring (e.g., "/something") but not in allowed, suppress it
-        # Rough check for presence of a slash followed by letters/numbers
-
-        if re.search(r"/[a-zA-Z0-9\-_/]+", msg):
-            return False
-
-        # Otherwise (no routes/paths), allow message (general logs, startup, etc)
-        return True
-
-
-# Before request: assign request ID and start time
-@app.before_request
-def start_request():
-    request.id = str(uuid.uuid4())[:8]
-    request.start_time = time.time()
-
-
-# After request: log method, path, status, duration, and ReqID
-@app.after_request
-def log_request(response):
-    duration = time.time() - request.start_time
-    log_msg = (
-        f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] "
-        f"{request.method} {request.path} | "
-        f"Status: {response.status_code} | "
-        f"Duration: {duration:.2f}s | "
-        f"ReqID: {request.id}"
-    )
-    app.logger.info(log_msg)
-    return response
-
-
-# Setup handler, formatter, filter
-handler = StreamToUTF8(sys.stdout)
-handler.setFormatter(LogFormatter())
-handler.addFilter(FilterFlyLogs())
-
-# Clear existing handlers and set our handler for app.logger
-app.logger.handlers.clear()
-app.logger.addHandler(handler)
-app.logger.setLevel(logging.INFO)
-app.logger.propagate = False
-
-# Configure Werkzeug logger (Flask's HTTP request logs)
-werkzeug_logger = logging.getLogger("werkzeug")
-werkzeug_logger.disabled = True
-
-# After request: log method, path, status, duration, and ReqID
-@app.after_request
-def log_request(response):
-    duration = time.time() - request.start_time
-    log_msg = (
-        f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] "
-        f"{request.method} {request.path} | "
-        f"Status: {response.status_code} | "
-        f"Duration: {duration:.2f}s | "
-        f"ReqID: {request.id}"
-    )
-    app.logger.info(log_msg)
-    return response
-
-
-# Setup handler, formatter, filter
-handler = StreamToUTF8(sys.stdout)
-handler.setFormatter(LogFormatter())
-handler.addFilter(FilterFlyLogs())
-
-app.logger.handlers.clear()
-app.logger.addHandler(handler)
-app.logger.setLevel(logging.INFO)
-app.logger.propagate = False
 
 if __name__ == "__main__":
     app.logger.info("🚀 Mist.AI Server is starting...")
