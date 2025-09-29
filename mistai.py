@@ -192,7 +192,7 @@ handler.addFilter(FilterFlyLogs())
 
 app.logger.handlers.clear()
 app.logger.addHandler(handler)
-app.logger.setLevel(logging.INFO)
+app.logger.setLevel(logging.WARNING)
 app.logger.propagate = False
 
 CORS(app)
