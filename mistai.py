@@ -744,7 +744,6 @@ async def get_grounding(user_message: str) -> str:
     cache[cache_key] = result or "No relevant info found."
     return cache[cache_key]
 
-
 # -------------------------------
 @app.route("/chat", methods=["POST", "GET"])
 async def chat():
@@ -776,20 +775,35 @@ async def chat():
 
         data = request.get_json()
         user_message = data.get("message", "").strip()
+        img_url = data.get("img_url")
+        chat_context = data.get("context", [])
+        grounding_enabled = data.get("ground", True)
+        model_choice = data.get("model", "gemini")
+
+        if not user_message and not img_url and "file" not in request.files:
+            return jsonify({"error": "Message can't be empty."}), 400
+
         # -------------------
-        # Check if user is asking for news
+        # Determine if this is a content creation task
         # -------------------
-        news_keywords = ["news", "headlines", "latest news", "current events", "what's up in the news", "todays date", "current time", "time", "date"]
-        if any(kw in user_message.lower() for kw in news_keywords):
-            # Directly call the function
+        content_creation_keywords = ["write", "draft", "compose", "letter", "essay", "story"]
+        is_content_task = any(kw in user_message.lower() for kw in content_creation_keywords)
+
+        # -------------------
+        # Handle news/time requests (skip if content creation)
+        # -------------------
+        news_keywords = [
+            "news", "headlines", "latest news", "current events",
+            "what's up in the news", "todays date", "current time",
+            "time", "date"
+        ]
+        if any(kw in user_message.lower() for kw in news_keywords) and not is_content_task:
             news_response = await time_news()
-            
-            # Flask route returns a Response object
             if isinstance(news_response, Response):
                 news_data = news_response.get_json()
             else:
                 news_data = news_response[0].get_json() if isinstance(news_response, tuple) else {}
-            
+
             current_date = news_data.get("time", {}).get("date", "Unknown Date")
             current_time_str = news_data.get("time", {}).get("time", "Unknown Time")
             headlines = "\n".join(
@@ -801,20 +815,6 @@ async def chat():
                 f"News:\n{headlines or 'No headlines available.'}"
             )
             return jsonify({"response": response_text})
-
-        model_choice = data.get("model", "gemini")
-        chat_context = data.get("context", [])
-        grounding_enabled = data.get("ground", True)
-        if grounding_enabled and user_message:
-            grounding_text = await get_grounding(user_message)
-            if grounding_text:
-                user_message += f"\n\n[Grounding Info:\n{grounding_text}]"
-
-        
-        img_url = data.get("img_url")
-
-        if not user_message and not img_url and "file" not in request.files:
-            return jsonify({"error": "Message can't be empty."}), 400
 
         # -------------------
         # File upload handling
@@ -828,11 +828,9 @@ async def chat():
             ext = os.path.splitext(file.filename.lower())[1]
             extracted_text = file_processors.get(ext, lambda _: "⚠️ Unsupported file type.")(file_content)
 
-            # Upload asynchronously to GoFile
             await upload_to_gofile(file.filename, file_content, file.mimetype)
 
-            response_text = extracted_text.strip() or "⚠️ No readable text found in the file."
-            return jsonify({"response": response_text})
+            return jsonify({"response": extracted_text.strip() or "⚠️ No readable text found in the file."})
 
         # -------------------
         # Image OCR
@@ -846,40 +844,11 @@ async def chat():
                 user_message += f"\n\n[Image text: {ocr_text}]"
 
         # -------------------
-        # Grounding via Tavily (async + cache)
+        # Grounding via Tavily
         # -------------------
         grounding_text = ""
-        if grounding_enabled and user_message:
+        if grounding_enabled and user_message and not is_content_task:
             grounding_text = await get_grounding(user_message)
-
-            # Append grounding to the user's message so the model can use it
-            if grounding_text:
-                user_message += f"\n\n[Grounding Info:\n{grounding_text}]"
-
-
-        if grounding_enabled and user_message:
-            if "tavily_cache" not in app.config:
-                app.config["tavily_cache"] = {}
-            cache = app.config["tavily_cache"]
-            cache_key = f"tavily:{user_message.strip()[:50]}"
-
-            if cache_key in cache:
-                grounding_text = cache[cache_key]
-            else:
-                try:
-                    raw_result = await asyncio.to_thread(
-                        lambda: TAVILY_CLIENT.search(
-                            query=user_message,
-                            max_results=2,
-                            include_answer="advanced"
-                        )
-                    )
-                    if raw_result and "results" in raw_result and len(raw_result["results"]) > 0:
-                        grounding_text = raw_result["results"][0].get("answer") or raw_result["results"][0].get("text")
-                    cache[cache_key] = grounding_text
-                except Exception as e:
-                    app.logger.warning(f"⚠️ Tavily search failed: {e}")
-                    grounding_text = "Search failed."
 
         # -------------------
         # Commands & Easter Eggs
@@ -895,31 +864,20 @@ async def chat():
             return jsonify({"response": get_random_fun_fact()})
 
         # -------------------
-        # News + Time injection (once per session)
-        # -------------------
-        if not hasattr(chat, "news_cache"):
-            chat.news_cache = {"time": {}, "news": []}
-            for _ in range(3):
-                try:
-                    async with httpx.AsyncClient() as client:
-                        resp = await client.get(news_url)
-                    if resp.status_code == 200:
-                        chat.news_cache = resp.json()
-                        break
-                except Exception:
-                    continue
-
-        news_data = chat.news_cache
-        current_date = news_data.get("time", {}).get("date", "Unknown Date")
-        current_time_str = news_data.get("time", {}).get("time", "Unknown Time")
-        headlines = "\n".join(f"- [{a['title']}]({a['url']})" for a in news_data.get("news", []))
-        news_injection = f"Today is {current_date}, current time {current_time_str}.\nNews:\n{headlines or 'No headlines available.'}"
-
-        # -------------------
-        # Build full prompt for model
+        # Build prompt for model
         # -------------------
         context_text = "\n".join(f"{m['role']}: {m['content']}" for m in chat_context)
-        full_prompt = f"{news_injection}\nSystem: [Grounding Info: {grounding_text}]\n{context_text}\nUser: {user_message}\nMist.AI:"
+
+        if is_content_task:
+            # Content creation → skip news & grounding
+            full_prompt = f"User: {user_message}\nMist.AI:"
+        else:
+            # General chat → include grounding
+            full_prompt = (
+                f"System: [Grounding Info: {grounding_text}]\n"
+                f"{context_text}\n"
+                f"User: {user_message}\nMist.AI:"
+            )
 
         # -------------------
         # Generate response
@@ -929,6 +887,9 @@ async def chat():
             else get_cohere_response(full_prompt)
         )
 
+        # -------------------
+        # Add delay warning if needed
+        # -------------------
         elapsed_time = time.time() - start_time
         if elapsed_time > 9:
             response_content = f"⏳ Sorry for the delay!\n\n{response_content}"
@@ -949,6 +910,7 @@ async def chat():
     except Exception as e:
         logging.error(f"❌ Server Error: {str(e)}")
         return jsonify({"error": str(e)}), 500
+
 
 
 # 🔹 Check AI Services
