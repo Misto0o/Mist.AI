@@ -1,11 +1,11 @@
-const CACHE_NAME = 'mistai-cache-v18';  // 🔁 Update this on every deploy
+const CACHE_NAME = 'mistai-cache-v19';  // 🔁 Update this on every deploy
 
 const ASSETS_TO_CACHE = [
   '/',
-  '/index.html?v=18',
-  '/styles.css?v=18',
-  '/themes.css?v=18',
-  '/script.js?v=18',
+  '/index.html?v=19',
+  '/styles.css?v=19',
+  '/themes.css?v=19',
+  '/script.js?v=19',
   '/mistaifaviocn/favicon.ico',
   '/mistaifaviocn/favicon-32x32.png',
   '/mistaifaviocn/android-chrome-192x192.png'
@@ -42,11 +42,10 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(
     caches.match(event.request).then(cached => {
       const fetchPromise = fetch(event.request)
-        .then(networkRes => {
-          return caches.open(CACHE_NAME).then(cache => {
-            cache.put(event.request, networkRes.clone());
-            return networkRes;
-          });
+        .then(async networkRes => {
+          const cache = await caches.open(CACHE_NAME);
+          cache.put(event.request, networkRes.clone());
+          return networkRes;
         }).catch(() => {});
 
       // Serve cached, update in background

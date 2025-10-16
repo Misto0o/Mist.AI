@@ -48,7 +48,7 @@ body {
     left: 0;
     top: 0;
     display: flex;
-    justify-content: flex-start;
+    justify-content: space-evenly;
     box-shadow: 4px 0 10px rgba(0, 0, 0, 0.2);
     border-right: 2px solid var(--border-color);
     overflow: hidden;
@@ -63,7 +63,7 @@ body {
 .sidebar-icons {
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: 3px;
     padding-top: 45px;
     align-items: center !important;
 }
@@ -77,6 +77,7 @@ body {
     transition: color 0.2s;
     margin-bottom: 20px;
 }
+
 
 .sidebar.expanded .sidebar-icons {
     display: none;
@@ -113,6 +114,10 @@ body {
 .sidebar.expanded .sidebar-content {
     opacity: 1;
     pointer-events: auto;
+}
+
+#chat-thread-label {
+    color: var(--accent-color);
 }
 
 .menu-label {
@@ -913,6 +918,80 @@ body.hide-header #chat-box {
     display: inline-block;
 }
 
+
+/* Sidebar thread button */
+.thread-link {
+    background: rgba(255, 255, 255, 0.05);
+    border: none;
+    color: #e6e6e6;
+    text-align: left;
+    font-size: 0.95rem;
+    font-weight: 500;
+    border-radius: 10px;
+    padding: 10px 14px;
+    width: 100%;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+/* Hover effect: subtle glow & slide */
+.thread-link:hover {
+    background: rgba(255, 255, 255, 0.1);
+    transform: translateX(3px);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+/* Active chat highlight */
+.active-thread .thread-link {
+    background: linear-gradient(135deg, #43ed8d, #38ecb0);
+    color: #fff;
+    font-weight: 600;
+    box-shadow: 0 0 10px rgba(255, 97, 97, 0);
+    transform: translateX(3px);
+}
+
+/* Delete button next to thread */
+.delete-btn {
+    background: transparent;
+    border: none;
+    color: #ff7070;
+    font-size: 1.3rem;
+    cursor: pointer;
+    opacity: 0.7;
+    margin-left: 8px;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.delete-btn:hover {
+    opacity: 1;
+    transform: scale(1.2);
+}
+
+/* Sidebar container styling */
+#chat-threads-list {
+    list-style: none;
+    padding: 10px;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 85vh;
+    overflow-y: auto;
+}
+
+/* Optional: Scrollbar styling */
+#chat-threads-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+#chat-threads-list::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 10px;
+}
+
 /* ========================== */
 /*     TYSM CLAUDE 😭  */
 /* ========================== */
@@ -980,11 +1059,19 @@ body.hide-header #chat-box {
     }
 
     /* Expanded state - shows all styling */
+    /* When expanded on mobile, take full width */
     .sidebar.expanded {
-        width: 65px;
-        box-shadow: 4px 0 10px rgba(0, 0, 0, 0.2) !important;
-        border-right: 2px solid var(--border-color) !important;
+        width: 80%;
+        max-width: 240px;
+        box-shadow: 4px 0 10px rgba(0, 0, 0, 0.4);
+        border-right: 2px solid var(--border-color);
         background: linear-gradient(135deg, #1c1c1c 30%, #292929 100%) !important;
+    }
+
+    /* Show full content */
+    .sidebar.expanded .sidebar-content {
+        display: block;
+        padding: 15px;
     }
 
     /* Toggle button styling */
@@ -1011,39 +1098,24 @@ body.hide-header #chat-box {
         transform: scale(1.1);
     }
 
-    /* Hide all sidebar content by default */
-    .sidebar-icons,
-    #closeSidebar,
-    .sidebar-content {
-        display: none;
-    }
-
-    /* Show only when expanded */
-    .sidebar.expanded .sidebar-icons,
+    /* Show close button */
     .sidebar.expanded #closeSidebar {
-        display: flex;
-    }
-
-    /* Style the visible icons */
-    .sidebar-icons {
-        flex-direction: column;
-        align-items: center;
-        gap: 25px;
-        padding-top: 50px;
-    }
-
-    .sidebar-icon {
+        display: block;
+        position: absolute;
+        top: 10px;
+        left: 15px;
         background: none;
         border: none;
-        color: #aaa;
-        font-size: 22px;
+        font-size: 28px;
+        color: #fff;
         cursor: pointer;
-        transition: all 0.2s ease;
     }
 
-    .sidebar-icon:hover {
-        color: #4dbf00;
-        transform: scale(1.2);
+    /* Hide icons fully when sidebar is closed */
+    .sidebar:not(.expanded) .sidebar-icons {
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
     }
 
     /* ===== CHAT CONTAINER ===== */
@@ -1066,25 +1138,36 @@ body.hide-header #chat-box {
     /* ===== MESSAGE BUBBLES (FIXED) ===== */
     .message {
         position: relative;
-        /* allow absolutely positioned children (edit button) to align to the message */
-        max-width: 55%;
-        line-height: 1.3;
-        border-radius: 5px;
-        margin: 4px 0;
+        width: 55%;
+        /* fixed width for uniform size */
+        line-height: 1.4;
+        border-radius: 10px;
+        margin: 6px 0;
+        padding: 10px 14px;
         word-wrap: break-word;
         word-break: break-word;
-        overflow-wrap: break-word;
-        hyphens: auto;
         white-space: pre-wrap;
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
         clear: both;
-        /* Prevent floating issues */
+        display: inline-block;
+    }
+
+    .message a {
+        display: inline !important;
+        /* ensures links don't stretch the bubble */
+        text-decoration: underline !important;
+        word-break: break-all !important;
+        /* breaks long URLs to prevent overflow */
+        font-weight: bold !important;
+        font-size: 15px !important;
+        /* keeps link text same size as message text */
     }
 
     .user-message {
         align-self: flex-end;
+        background-color: #30b35a;
         color: #fff;
-        margin-left: 15%;
+        margin-left: 45%;
         border-bottom-right-radius: 6px;
     }
 
@@ -1092,7 +1175,7 @@ body.hide-header #chat-box {
         align-self: flex-start;
         background: linear-gradient(135deg, #2c2c2c 0%, #383838 100%);
         color: #fff;
-        margin-right: 15%;
+        margin-right: 45%;
         border-bottom-left-radius: 6px;
         border: 1px solid rgba(255, 255, 255, 0.1);
     }

@@ -11,19 +11,45 @@ function initializeCodeMirror(container, code) {
         return;
     }
 
-    console.log("Initializing CodeMirror in container:", container);
+    // Set styles for better readability
+    container.style.fontSize = "14px";
+    container.style.maxWidth = "100%";
+    container.style.overflowX = "auto";
+    container.style.background = "#282a36"; // Dracula theme background
+    container.style.borderRadius = "6px";
+    container.style.margin = "8px 0";
+    container.style.padding = "8px";
 
     const editor = CodeMirror(container, {
         value: code,
         mode: "javascript",
         theme: "dracula",
-        readOnly: true
+        readOnly: true,
+        lineNumbers: true,
+        viewportMargin: Infinity // Show all lines, no vertical scroll
     });
 
-    // Optionally, adjust editor settings, e.g., set an initial cursor position:
-    editor.setCursor(0, 0); // Place the cursor at the start
+    editor.setCursor(0, 0);
+    editor.getWrapperElement().style.fontSize = "14px";
+    editor.getWrapperElement().style.lineHeight = "1.5";
+    editor.getWrapperElement().style.maxWidth = "100%";
+    editor.getWrapperElement().style.overflowX = "auto";
+    editor.getWrapperElement().style.background = "#282a36";
+    editor.getWrapperElement().style.borderRadius = "6px";
+    editor.getWrapperElement().style.margin = "8px 0";
+    editor.getWrapperElement().style.padding = "8px";
 
     console.log("CodeMirror initialized successfully.");
+    // Ensure codemirror-container is always visible
+    const style = document.createElement('style');
+    style.innerHTML = `
+.codemirror-container {
+  display: block !important;
+  cursor: auto !important;
+  pointer-events: auto !important;
+}
+`;
+    document.head.appendChild(style);
 }
 
 // Function to check if the message contains code
@@ -48,22 +74,13 @@ function renderMessage(message, className) {
     const codeBlocks = extractCodeBlocks(message);
     let processedMessage = message;
 
-    // Use unique string placeholders (not HTML) to avoid Showdown mangling
-    const codePlaceholders = [];
+    // Replace code blocks with placeholders
     codeBlocks.forEach((codeBlock, index) => {
-        const placeholder = `__CODEBLOCK_PLACEHOLDER_${index}__`;
-        codePlaceholders.push(placeholder);
-        processedMessage = processedMessage.replace(codeBlock, placeholder);
+        processedMessage = processedMessage.replace(codeBlock, `<div id="code-block-${index}"></div>`);
     });
 
     // Process non-code parts with Showdown
     processedMessage = converter.makeHtml(processedMessage);
-
-    // Replace placeholders with <div> containers for CodeMirror
-    codePlaceholders.forEach((placeholder, index) => {
-        // Use a unique id for each code block container
-        processedMessage = processedMessage.replace(placeholder, `<div id="code-block-${index}"></div>`);
-    });
 
     // Set the processed message as HTML
     messageElement.innerHTML = processedMessage;
@@ -112,7 +129,7 @@ function renderMessage(message, className) {
             codeContainer.classList.add("codemirror-container");
 
             // Remove the triple backticks or <code> tags from the code block
-            const cleanCode = codeBlock.replace(/^```[a-zA-Z]*\n?|```$/g, "").replace(/<code>/g, "").replace(/<\/code>/g, "");
+            const cleanCode = codeBlock.replace(/```/g, "").replace(/<code>/g, "").replace(/<\/code>/g, "");
 
             // Initialize CodeMirror in the created container
             initializeCodeMirror(codeContainer, cleanCode);
@@ -360,7 +377,6 @@ window.addEventListener("load", async () => {
     await checkBanOnLoad();
 });
 
-
 // ✅ Ban check
 async function checkBanStatus() {
     const userIP = await getUserIP();
@@ -528,7 +544,6 @@ async function typeBotMessage(message, containerClass = "bot-message") {
     return message;
 }
 
-
 async function sendMessage(userMessage = null) {
     const userInput = document.getElementById("user-input");
     const messagesDiv = document.getElementById("chat-box");
@@ -539,16 +554,11 @@ async function sendMessage(userMessage = null) {
     if (!userMessage) userMessage = userInput.value.trim();
     if (!userMessage && !uploadedFile) return; // 🔥 Allow sending if image exists
 
+    // 🔥 Save + render the user message properly
+    handleNewMessage(userMessage, "user", uploadedFile);
     userInput.value = '';
     await handleUserMessage(userMessage);
     document.body.classList.add("hide-header");
-
-    // Show message in chat
-    if (uploadedFile) {
-        showMessageWithImage(userMessage, uploadedFile);
-    } else {
-        showMessage(userMessage, "user");
-    }
 
     // Disable input
     userInput.disabled = true;
@@ -587,9 +597,17 @@ async function sendMessage(userMessage = null) {
         const data = await response.json();
         if (!data.response) throw new Error("No response from API");
 
+        const botText = `Mist.AI: ${data.response}`;
         removeThinkingBubble();
-        await typeBotMessage(`Mist.AI: ${data.response}`);
+        await typeBotMessage(botText); // ✅ animation
+
         updateMemory("bot", data.response);
+
+        // Save to thread WITHOUT rendering again
+        const state = loadState();
+        const threadId = state.currentThread;
+        addMessage(threadId, { text: botText, sender: "bot" });
+
 
     } catch (error) {
         console.error("Fetch error:", error);
@@ -598,11 +616,11 @@ async function sendMessage(userMessage = null) {
     }
 
     // Reset
-    uploadedFile = null;
+    userInput.value = "";
     const previewContainer = document.getElementById("image-preview");
-    if (previewContainer) previewContainer.innerHTML = "";
-    previewContainer?.classList.remove("active");
-    userInput.disabled = false;
+    previewContainer.innerHTML = "";
+    previewContainer.classList.remove("active");
+    uploadedFile = null;
     canSendMessage = true;
 }
 
@@ -621,7 +639,21 @@ function showMessageWithImage(text, file, sender = "user") {
     const messagesDiv = document.getElementById("chat-box");
     if (!messagesDiv) return;
 
-    const imageUrl = URL.createObjectURL(file);
+    let imageUrl = "";
+
+    // ✅ Only create object URL if 'file' is actually a Blob or File
+    if (file instanceof Blob) {
+        imageUrl = URL.createObjectURL(file);
+    }
+    // ✅ If file is already a URL string (from saved threads), just use it
+    else if (typeof file === "string") {
+        imageUrl = file;
+    }
+    else {
+        console.warn("⚠️ showMessageWithImage called with invalid file:", file);
+        return; // stop execution if file is invalid
+    }
+
     const messageElement = document.createElement("div");
     messageElement.classList.add("message", sender === "bot" ? "bot-message" : "user-message");
 
@@ -634,7 +666,6 @@ function showMessageWithImage(text, file, sender = "user") {
         </div>
     `;
 
-    // Add edit button for user messages (so image captions can be edited)
     if (sender !== "bot") {
         const editButton = document.createElement("i");
         editButton.classList.add("fas", "fa-pen", "edit-button");
@@ -646,6 +677,7 @@ function showMessageWithImage(text, file, sender = "user") {
     messagesDiv.appendChild(messageElement);
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
 }
+
 
 function appendMessage(content, className) {
     const messagesDiv = document.getElementById("chat-box");
@@ -671,6 +703,312 @@ function appendMessage(content, className) {
     // Add animation
     gsap.fromTo(messageElement, { opacity: 0, y: className === "user-message" ? -10 : 10 }, { opacity: 1, y: 0, duration: 0.3 });
 }
+
+window.debugChats = () => {
+    const state = JSON.parse(localStorage.getItem("mistai-state") || "{}");
+    console.log("Full state:", state);
+    console.log("Threads:", state.threads);
+    console.log("Current thread:", state.currentThread);
+    if (state.chats) {
+        Object.entries(state.chats).forEach(([id, msgs]) => {
+            console.log(`Thread ${id}:`, msgs);
+        });
+    }
+};
+
+// ----------------------
+// Single-key storage system
+// ----------------------
+const STORAGE_KEY = "mistai-state";
+const DEBUG = false;
+
+function generateUUID() {
+    if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
+    return "id-" + Math.random().toString(36).slice(2) + "-" + Date.now().toString(36);
+}
+
+function loadState() {
+    try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return { threads: [], chats: {}, currentThread: null };
+        return JSON.parse(raw);
+    } catch (err) {
+        console.error("Failed to parse stored state:", err);
+        return { threads: [], chats: {}, currentThread: null };
+    }
+}
+
+function saveState(state) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    if (DEBUG) console.log("Saved state:", state);
+}
+
+// ----------------------
+// Chat CRUD
+// ----------------------
+function getThreads() {
+    return loadState().threads;
+}
+
+function saveChat(threadId, messages) {
+    const state = loadState();
+    state.chats[threadId] = messages;
+    saveState(state);
+}
+
+function loadChat(threadId) {
+    const state = loadState();
+    return state.chats[threadId] ? [...state.chats[threadId]] : [];
+}
+
+function addMessage(threadId, message) {
+    const state = loadState();
+
+    if (!state.chats[threadId]) state.chats[threadId] = [];
+
+    const msg = { ...message, ts: Date.now() };
+
+    // ✅ If file exists, store as Base64 so it persists
+    if (msg.file instanceof Blob) {
+        msg.fileType = msg.file.type;
+        const reader = new FileReader();
+        reader.onload = () => {
+            msg.file = reader.result; // convert Blob -> Base64
+            state.chats[threadId].push(msg);
+            saveState(state);
+            if (DEBUG) console.log("Added message (with Base64):", msg, "to thread", threadId);
+        };
+        reader.readAsDataURL(msg.file);
+        return;
+    }
+
+    // ✅ Already Base64 or text only
+    state.chats[threadId].push(msg);
+    saveState(state);
+
+    if (DEBUG) console.log("Added message:", msg, "to thread", threadId);
+}
+
+// ----------------------
+// Thread CRUD
+// ----------------------
+function createThread(name) {
+    const state = loadState();
+    const id = generateUUID();
+    const thread = {
+        id,
+        name: name || `New Chat ${state.threads.length + 1}`,
+        hideHeader: false // show header for new thread
+    };
+
+    state.threads.push(thread);
+    state.chats[id] = [];
+    state.currentThread = id;
+    saveState(state);
+
+    renderThreads();
+    switchThread(id);
+
+    // Prompt for thread name after creation
+    setTimeout(() => {
+        const newName = prompt("Enter a name for this chat thread:", thread.name);
+        if (newName && newName.trim()) {
+            thread.name = newName.trim();
+            saveState(state);
+            renderThreads();
+        }
+    }, 50);
+
+    return thread;
+}
+
+function switchThread(threadId) {
+    const state = loadState();
+    if (!threadId || !state.chats[threadId]) return;
+
+    currentThread = threadId;
+    chatMemory = JSON.parse(sessionStorage.getItem(`chatMemory-${threadId}`)) || [];
+    state.currentThread = threadId;
+
+    const chatContainer = document.getElementById("chat-box");
+    if (!chatContainer) return;
+
+    chatContainer.innerHTML = "";
+    const messages = loadChat(threadId);
+    messages.forEach(msg => {
+        if (msg.file) {
+            // ✅ If file is Base64 (starts with "data:"), just display it
+            if (typeof msg.file === "string" && msg.file.startsWith("data:")) {
+                showMessageWithImage(msg.text, msg.file, msg.sender);
+            }
+            // ✅ If it’s a URL (from previous runs or threads)
+            else if (typeof msg.file === "string") {
+                showMessageWithImage(msg.text, msg.file, msg.sender);
+            }
+        } else {
+            renderMessage(msg.text, msg.sender === "user" ? "user-message" : "bot-message");
+        }
+    });
+
+
+    renderThreads();
+
+    // ✅ Highlight active thread immediately
+    setTimeout(() => {
+        const list = document.getElementById("chat-threads-list");
+        const active = list?.querySelector(`[data-thread-id="${threadId}"]`)?.closest("li");
+        if (active) {
+            list.querySelectorAll("li").forEach(li => li.classList.remove("active-thread"));
+            active.classList.add("active-thread");
+        }
+    }, 10);
+
+    // Handle header visibility
+    const thread = state.threads.find(t => t.id === threadId);
+    if (!thread) return;
+
+    const headerEl = document.querySelector("header.header");
+    if (!headerEl) return;
+
+    if (messages.length === 0) {
+        headerEl.style.display = "block"; // show header
+        thread.hideHeader = false;
+    } else {
+        headerEl.style.display = "none"; // hide header
+        thread.hideHeader = true;
+    }
+
+    saveState(state);
+}
+
+function deleteChat(threadId) {
+    const state = loadState();
+    state.threads = state.threads.filter(t => t.id !== threadId);
+    delete state.chats[threadId];
+
+    if (state.currentThread === threadId)
+        state.currentThread = state.threads.length ? state.threads[state.threads.length - 1].id : null;
+
+    saveState(state);
+    renderThreads();
+
+    if (state.currentThread) switchThread(state.currentThread);
+    else document.getElementById("chat-box").innerHTML = "";
+}
+
+// ----------------------
+// UI Handling
+// ----------------------
+let currentThread = null;
+
+function renderThreads() {
+    const threads = getThreads();
+    const list = document.getElementById("chat-threads-list");
+    if (!list) return;
+
+    list.innerHTML = "";
+
+    if (threads.length === 0) {
+        list.innerHTML = "<li><em>No chats yet</em></li>";
+        return;
+    }
+
+    const state = loadState();
+    threads.forEach(thread => {
+        const li = document.createElement("li");
+        li.className = thread.id === state.currentThread ? "active-thread" : "";
+
+        const link = document.createElement("button");
+        link.className = "thread-link";
+        link.dataset.threadId = thread.id; // ✅ Needed for highlight fix
+        link.textContent = thread.name;
+        link.addEventListener("click", () => switchThread(thread.id));
+
+        const del = document.createElement("button");
+        del.className = "delete-btn";
+        del.textContent = "×";
+        del.addEventListener("click", e => {
+            e.stopPropagation();
+            deleteChat(thread.id);
+        });
+
+        li.appendChild(link);
+        li.appendChild(del);
+        list.appendChild(li);
+    });
+}
+
+// ----------------------
+// Message Handling
+// ----------------------
+function handleNewMessage(text, sender = "user", file = null) {
+    let state = loadState();
+
+    if (!state.currentThread) {
+        const newThread = createThread("New Chat");
+        state = loadState();
+        state.currentThread = newThread.id;
+        saveState(state);
+        currentThread = newThread.id;
+    }
+
+    const threadId = state.currentThread;
+    const message = { text, sender };
+    // ✅ Hide header when first message is sent
+    const headerEl = document.querySelector("header.header");
+    if (headerEl) headerEl.style.display = "none";
+
+    const thread = state.threads.find(t => t.id === threadId);
+    if (thread) {
+        thread.hideHeader = true;
+        saveState(state);
+    } if (file) message.file = file;
+
+    addMessage(threadId, message);
+
+    if (file) showMessageWithImage(text, file, sender);
+    else renderMessage(text, sender === "user" ? "user-message" : "bot-message");
+}
+
+// ----------------------
+// Initialization
+// ----------------------
+document.addEventListener("DOMContentLoaded", () => {
+    const state = loadState();
+
+    if (!state.threads.length) {
+        const first = createThread("New Chat 1");
+        switchThread(first.id);
+    } else {
+        renderThreads();
+        if (state.currentThread && state.threads.some(t => t.id === state.currentThread))
+            switchThread(state.currentThread);
+        else switchThread(state.threads[state.threads.length - 1].id);
+    }
+
+    // Ensure header visibility on load
+    const headerEl = document.querySelector("header.header");
+    const activeThread = state.threads.find(t => t.id === state.currentThread);
+    if (headerEl && activeThread) {
+        headerEl.style.display = activeThread.hideHeader ? "none" : "block";
+    }
+
+    const btn = document.getElementById("new-thread-btn");
+    if (btn)
+        btn.addEventListener("click", () => {
+            const newThread = createThread(`New Chat ${getThreads().length + 1}`);
+            switchThread(newThread.id);
+
+            // Reset chat input and image preview
+            const userInput = document.getElementById("user-input");
+            const previewContainer = document.getElementById("image-preview");
+            if (userInput) userInput.value = "";
+            if (previewContainer) {
+                previewContainer.innerHTML = "";
+                previewContainer.classList.remove("active");
+            }
+        });
+});
 
 const input = document.getElementById('user-input');
 const computedStyle = getComputedStyle(input);
@@ -868,7 +1206,8 @@ function getRandomDelayMessage() {
 }
 
 const capabilities = [
-    "Version 8.5 - Launched September 2025  🚀",
+    "Version 9.0 - Launched October 2025  🚀",
+    "Chat Threads for organized conversations 🧵",
     "Ask for the latest headlines 📰",
     "Summarize your long texts ✂️",
     "Translate messages instantly 🌐",
@@ -891,9 +1230,8 @@ const capabilities = [
     "Offline PWA mode for chatting anywhere 🌍",
     "Auto-resizing input box with live word count ↩️",
     "Smarter Markdown & codeblock handling 🛠️",
-    "Future-ready AI personas & voice styles 🎙️"
+    "Edit your messages after sending ✍️",
 ];
-
 
 let i = 0;
 const subtitleEl = document.getElementById("micro-subtitle");
@@ -921,11 +1259,23 @@ function loopCapabilities() {
 loopCapabilities();
 
 
-// Function to update chat memory
 function updateMemory(role, content) {
-    chatMemory.push({ role, content });
-    if (chatMemory.length > 25) chatMemory.shift(); // Keep last 25 messages for performance
-    sessionStorage.setItem("chatMemory", JSON.stringify(chatMemory));
+    if (!currentThread) return;
+
+    // Load current thread's memory
+    let threadMemory = JSON.parse(sessionStorage.getItem(`chatMemory-${currentThread}`)) || [];
+
+    // Add new message
+    threadMemory.push({ role, content });
+
+    // Keep last 25 messages for performance
+    if (threadMemory.length > 25) threadMemory.shift();
+
+    // Save back to sessionStorage per-thread
+    sessionStorage.setItem(`chatMemory-${currentThread}`, JSON.stringify(threadMemory));
+
+    // Update global variable for immediate access
+    chatMemory = threadMemory;
 }
 
 // Function to get backend URL

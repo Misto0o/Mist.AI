@@ -40,8 +40,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.9.4/css/bulma.min.css" />
 
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="/styles.css?v=18" />
-    <link rel="stylesheet" href="/themes.css?v=18" />
+    <link rel="stylesheet" href="/styles.css?v=19" />
+    <link rel="stylesheet" href="/themes.css?v=19" />
 
     <!-- Font Awesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
@@ -79,6 +79,8 @@
 
             <!-- Sidebar Icons (Visible when collapsed) -->
             <div class="sidebar-icons">
+                <button class="sidebar-icon" onclick="createThread(name)"><i class="fa-solid fa-comments"></i>
+                </button>
                 <button class="sidebar-icon" onclick="window.open('https://builtbykristian.netlify.app', '_blank')"><i
                         class="fas fa-home"></i></button>
                 <button class="sidebar-icon" onclick="window.open('https://github.com/Misto0o/Mist.AI', '_blank')"><i
@@ -93,6 +95,13 @@
 
             <!-- Menu Content (Hidden when collapsed) -->
             <div class="sidebar-content">
+                <!-- Chat Threads Section -->
+                <p id="chat-thread-label" class="menu-label has-text-centered is-size-4">Chat Threads</p>
+                <ul class="menu-list" id="chat-threads-list">
+                    <!-- Threads appear here -->
+                </ul>
+                <button id="new-thread-btn" class="button is-small is-fullwidth is-success">+ New Thread</button>
+                <hr>
                 <p class="menu-label has-text-centered has-text-success is-size-4">My Creator's Contact</p>
                 <ul class="menu-list">
                     <li><a href="https://builtbykristian.netlify.app" target="_blank">About Me</a></li>
@@ -211,8 +220,8 @@
         </div>
     </div>
 
-    <script src="/script.js?v=18" defer></script>
-    <script src="/service-worker.js?v=18" defer></script>
+    <script src="/script.js?v=19" defer></script>
+    <script src="/service-worker.js?v=19" defer></script>
 </body>
 
 </html>
