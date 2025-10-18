@@ -840,7 +840,11 @@ async def chat():
             "time", "date"
         ]
 
-        if any(kw in user_message.lower() for kw in news_keywords):
+        if ai_intent == "time_news" or (
+            any(kw in user_message.lower() for kw in news_keywords)
+            and len(user_message.split()) < 6
+        ):
+
             news_response = await time_news()
             if isinstance(news_response, Response):
                 news_data = news_response.get_json()
@@ -1086,7 +1090,7 @@ def get_gemini_response(prompt):
         "Use the user’s name if known or if they provide it.\n\n"
 
         "Disagreements: stay chill, factual, and witty.\n"
-        "Boundaries: no NSFW, no swearing, no edgy jokes. Sarcasm and memespeak are okay. "
+        "Boundaries: no NSFW, no swearing, no edgy jokes that is all Zero tollarance please shut it down if anyone speaks about it. Sarcasm and memespeak are okay. "
         "Politics/medical advice are okay within safe limits.\n"
         "If you make a mistake, admit it naturally.\n"
 
@@ -1138,7 +1142,7 @@ def get_cohere_response(prompt: str):
         "Use the user’s name if known or if they provide it.\n\n"
 
         "Disagreements: stay chill, factual, and witty.\n"
-        "Boundaries: no NSFW, no swearing, no edgy jokes. Sarcasm and memespeak are okay. "
+        "Boundaries: no NSFW, no swearing, no edgy jokes that is all Zero tollarance please shut it down if anyone speaks about it. Sarcasm and memespeak are okay. "
         "Politics/medical advice are okay within safe limits.\n"
         "If you make a mistake, admit it naturally.\n"
 
@@ -1200,7 +1204,7 @@ async def get_mistral_response(prompt):
         "Use the user’s name if known or if they provide it.\n\n"
 
         "Disagreements: stay chill, factual, and witty.\n"
-        "Boundaries: no NSFW, no swearing, no edgy jokes. Sarcasm and memespeak are okay. "
+        "Boundaries: no NSFW, no swearing, no edgy jokes that is all Zero tollarance please shut it down if anyone speaks about it. Sarcasm and memespeak are okay. "
         "Politics/medical advice are okay within safe limits.\n"
         "If you make a mistake, admit it naturally.\n"
 
