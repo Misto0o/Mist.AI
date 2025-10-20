@@ -608,6 +608,9 @@ async function sendMessage(userMessage = null) {
         const threadId = state.currentThread;
         addMessage(threadId, { text: botText, sender: "bot" });
 
+        userInput.disabled = false;
+        canSendMessage = true;
+        userInput.focus();
 
     } catch (error) {
         console.error("Fetch error:", error);
@@ -621,7 +624,6 @@ async function sendMessage(userMessage = null) {
     previewContainer.innerHTML = "";
     previewContainer.classList.remove("active");
     uploadedFile = null;
-    canSendMessage = true;
 }
 
 // 🔥 Helper to convert file -> Base64
