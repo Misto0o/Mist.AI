@@ -3,13 +3,15 @@ primary_region = "iad"
 
 [build]
 
+[processes]
+  app = "gunicorn -w 1 -b 0.0.0.0:5000 wsgi:application"
+
 [http_service]
   internal_port = 5000
   force_https = true
   auto_stop_machines = true
   auto_start_machines = true
   min_machines_running = 0
-  command = ["gunicorn", "-w", "1", "-b", "0.0.0.0:$PORT", "wsgi:application"]
 
 [[vm]]
   memory = "512MB"
@@ -20,5 +22,15 @@ primary_region = "iad"
   port = 9090
 
 [[mounts]]
-source = "bans_db"
-destination = "/app/data"
+  source = "bans_db"
+  destination = "/app/data"
+```
+
+**Key changes:**
+1. Moved `command` out of `[http_service]` into `[processes]` section
+2. Changed `-b 0.0.0.0:$PORT` to `-b 0.0.0.0:5000` (hardcoded port to match your internal_port)
+3. Removed the array syntax - just use a plain string
+
+Alternatively, if you want to use the Procfile/CMD approach, remove the `command` entirely and make sure your `Dockerfile` or `Procfile` has:
+```
+web: gunicorn -w 1 -b 0.0.0.0:5000 wsgi:application
