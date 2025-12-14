@@ -9,6 +9,7 @@ primary_region = "iad"
   auto_stop_machines = true  # Automatically stop machines when not in use to save cost
   auto_start_machines = true  # Prevent automatic start unless manually triggered
   min_machines_running = 0  # Minimize machines to zero when not in use
+  command = ["gunicorn", "-w", "1", "-b", "0.0.0.0:5000", "wsgi:application"]
 
 [[vm]]
   memory = "512MB"  # upgrade from 256MB to 512MB RAM
