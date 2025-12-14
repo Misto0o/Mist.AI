@@ -1770,5 +1770,4 @@ def get_random_fun_fact():
 
 if __name__ == "__main__":
     app.logger.info("🚀 Mist.AI Server is starting...")
-    # Start the Flask server
-app.run(debug=False, host="0.0.0.0", port=5000, use_reloader=False)
+    app.run(host="0.0.0.0", port=5000, debug=False)
