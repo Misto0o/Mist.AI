@@ -547,24 +547,26 @@ async function typeBotMessage(message, containerClass = "bot-message") {
 async function sendMessage(userMessage = null) {
     const userInput = document.getElementById("user-input");
     const messagesDiv = document.getElementById("chat-box");
-    const userIP = await getUserIP();
-
+    const userIP = await getUserIP(); // Get user's IP for logging
     if (!userInput || !messagesDiv || !canSendMessage) return;
 
     if (!userMessage) userMessage = userInput.value.trim();
-    if (!userMessage && !uploadedFile) return; // 🔥 Allow sending if image exists
+    if (!userMessage && !uploadedFile) return; // Allow sending if image exists
 
-    // 🔥 Save + render the user message properly
+    // -------------------
+    // Render user message
+    // -------------------
     handleNewMessage(userMessage, "user", uploadedFile);
     userInput.value = '';
-    await handleUserMessage(userMessage);
     document.body.classList.add("hide-header");
 
-    // Disable input
+    // Disable input while sending
     userInput.disabled = true;
     canSendMessage = false;
 
-    // Show "thinking"
+    // -------------------
+    // Show "thinking" animation
+    // -------------------
     thinkingBubble = createThinkingBubble();
     messagesDiv.appendChild(thinkingBubble);
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
@@ -576,6 +578,7 @@ async function sendMessage(userMessage = null) {
             imgBase64 = await fileToBase64(uploadedFile);
         }
 
+        // Prepare payload for backend
         const creatorValue = JSON.parse(localStorage.getItem("creatorMode") || "false");
         const payload = {
             message: userMessage,
@@ -584,46 +587,104 @@ async function sendMessage(userMessage = null) {
             creator: creatorValue,
             ground: shouldUseGrounding(userMessage),
             ip: userIP,
-            ...(imgBase64 && { img_url: imgBase64 }) // 🔥 Attach image
+            ...(imgBase64 && { img_url: imgBase64 }) // Attach image if exists
         };
 
+        // Send POST request
         const response = await fetch(getBackendUrl(), {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload)
         });
 
+        // Check if service is down (503 status)
+        if (response.status === 503) {
+            try {
+                const errorData = await response.json();
+                if (errorData.is_down) {
+                    // Redirect to down page
+                    window.location.href = `${getBackendBase()}/mistai_down`;
+                    return;
+                }
+            } catch (e) {
+                // If JSON parse fails, still redirect on 503
+                window.location.href = `${getBackendBase()}/mistai_down`;
+                return;
+            }
+        }
+
         if (!response.ok) throw new Error(`HTTP Error! Status: ${response.status}`);
         const data = await response.json();
         if (!data.response) throw new Error("No response from API");
 
-        const botText = `Mist.AI: ${data.response}`;
+        // -------------------
+        // Render bot response
+        // -------------------
+        const botText = data.response;
         removeThinkingBubble();
-        await typeBotMessage(botText); // ✅ animation
+        await typeBotMessage(botText); // Animate bot typing
 
-        updateMemory("bot", data.response);
+        // -------------------
+        // Update chat memory
+        // -------------------
+        updateMemory("bot", botText);
 
-        // Save to thread WITHOUT rendering again
+        // Save message to current thread state (no re-render)
         const state = loadState();
         const threadId = state.currentThread;
         addMessage(threadId, { text: botText, sender: "bot" });
 
-        userInput.disabled = false;
-        canSendMessage = true;
-        userInput.focus();
-
     } catch (error) {
         console.error("Fetch error:", error);
+
         removeThinkingBubble();
+
+        // 🔥 rollback optimistic user message
+        const state = loadState();
+        if (state.currentThread) {
+            removeLastUserMessage(state.currentThread);
+        }
+
+        // clear UI so refresh doesn’t resurrect it
+        const chatBox = document.getElementById("chat-box");
+        if (chatBox) {
+            chatBox.removeChild(chatBox.lastElementChild);
+        }
+
         showMessage("❌ An error occurred while sending your message. Please try again.", "bot");
     }
 
-    // Reset
-    userInput.value = "";
+    // -------------------
+    // Re-enable input and reset
+    // -------------------
+    userInput.disabled = false;
+    canSendMessage = true;
+    userInput.focus();
+
+    // Clear image preview
     const previewContainer = document.getElementById("image-preview");
     previewContainer.innerHTML = "";
     previewContainer.classList.remove("active");
     uploadedFile = null;
+}
+
+checkDownMode();
+// Optional: Check periodically (every 60 seconds)
+setInterval(checkDownMode, 60000);
+
+function removeLastUserMessage(threadId) {
+    const state = loadState();
+    if (!state.chats[threadId]) return;
+
+    // remove last message ONLY if it was from user
+    for (let i = state.chats[threadId].length - 1; i >= 0; i--) {
+        if (state.chats[threadId][i].sender === "user") {
+            state.chats[threadId].splice(i, 1);
+            break;
+        }
+    }
+
+    saveState(state);
 }
 
 // 🔥 Helper to convert file -> Base64
@@ -1208,16 +1269,15 @@ function getRandomDelayMessage() {
 }
 
 const capabilities = [
-    "Version 9.0 - Launched October 2025  🚀",
+    "Version 9.5 - Launched December 2025  🚀",
     "Chat Threads for organized conversations 🧵",
+    "Analyze IMAGEs in one go 🔍",
     "Ask for the latest headlines 📰",
     "Summarize your long texts ✂️",
     "Translate messages instantly 🌐",
     "Explain coding concepts 💻",
     "Check your grammar effortlessly ✏️",
     "Upload images via drag & drop 🖼️",
-    "Analyze text + images in one go 🔍",
-    "Detect text in images with OCR 🧾",
     "Fetch concise Wikipedia summaries 📚",
     "Show real-time weather & news 🌦️",
     "Use slash commands like /joke, /rps, /flipcoin 🎲",
@@ -1302,6 +1362,44 @@ function getIPBanURL(endpoint = "") {
         : 'https://mist-ai.fly.dev';
 
     return basePath + endpoint;
+}
+
+// Function to get backend URL (base only)
+function getBackendBase() {
+    const hostname = window.location.hostname;
+    const isLocal = hostname === 'localhost' || hostname === '127.0.0.1';
+    const isFileUrl = window.location.protocol === 'file:';
+
+    return isFileUrl || isLocal
+        ? 'http://127.0.0.1:5000'
+        : 'https://mist-ai.fly.dev';
+}
+
+// Check if service is down
+async function checkDownMode() {
+    const backendBase = getBackendBase();
+    try {
+        const res = await fetch(`${backendBase}/is-down`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!res.ok) {
+            console.warn("Could not check down mode");
+            return;
+        }
+
+        const data = await res.json();
+
+        if (data.is_down) {
+            // Redirect to down page
+            window.location.href = `${backendBase}/mistai_down`;
+        }
+    } catch (err) {
+        console.error("Failed to check down mode:", err);
+    }
 }
 
 function swapModel(selectElement) {

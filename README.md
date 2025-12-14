@@ -1,139 +1,145 @@
-# ☁️ Mist.AI – V9.0
+# ☁️ Mist.AI – V9.5
 
-Mist.AI is an advanced AI assistant powered by **Gemini AI**, **Command R AI**, **Mistral AI**, **OCR Vision**, and **Tavily Google Search**.  
-In this major release (**V9.0**), Mist.AI introduces **chat threads**, **improved Tavily grounding**, **new AI models**, and a refreshed, more stable UI.
+Mist.AI is an advanced AI assistant powered by **Gemini AI**, **Command R AI**, **Mistral AI**, **Gemini Vision**, and **Tavily Search**.  
+Version **9.5** focuses on **modernized vision processing**, **improved reliability**, and **system transparency**, building on the major features introduced in V9.0.
 
 ---
 
-🚀 **Current Version:** V9.0  
-🌐 **Live Domain:** [https://mistai.org](https://mistai.org)  
+🚀 **Current Version:** V9.5  
+🌐 **Live Domain:** https://mistai.org  
 📱 **Mobile App / PWA Support**  
 🧠 **Smarter AI – No Knowledge Cutoff**  
-⚡ **New LLM Models**  
-🖼️ **Real-Time Google Searching**  
-🐱 **Refined UI & CSS Enhancements**
-💥 **LAST MISTAI UPDATE WILL BE V10**
+⚡ **Multiple LLM Models**  
+🖼️ **Gemini Vision Image Understanding**  
+📡 **System Status Monitoring**  
+💥 **LAST MIST.AI UPDATE WILL BE V10**
 
 ---
 
-## 🚀 What’s New in V9.0
+## 🆕 What’s New in V9.5
+
+### 👁️ Gemini Vision Integration
+- Fully removed **OCR.space** from Mist.AI
+- Image understanding is now powered by **Gemini Vision**  
+- Faster, more accurate recognition of:
+  - Text
+  - Math equations
+  - Diagrams
+  - Mixed image content including **objects, animals, scenes, and text**
+  - Unified vision + reasoning model for better contextual responses
+
+---
+
+### 📡 System Status Page
+- Added a **live status page** to monitor Mist.AI availability  
+- Automatically updates during:
+  - API outages  
+  - Rate-limit failures  
+  - Fatal backend errors  
+- Ensures transparency and faster issue awareness for users
+
+---
 
 ### 🗨️ Chat Threads
-- Mist.AI now supports **chat threads**, allowing you to save progress in multiple conversations.  
-- Each thread has its own **separate session memory**.  
-- Chats persist even after refreshing the page.  
-- Integrated directly into the **sidebar** for easy access.  
-- Rename your chats freely to stay organized.  
-- Improved mobile sidebar compatibility and layout.
+- Save progress across **multiple conversations**  
+- Each thread maintains **separate session memory**  
+- Chats persist after refresh  
+- Integrated into the **sidebar**  
+- Rename chats freely  
+- Improved mobile sidebar layout
 
 ---
 
 ### 🛠️ Enhanced Grounding & Real-Time Search
-- Fixed unnecessary or repetitive Tavily grounding results.  
-- Grounding is now **context-aware**, pulling only relevant web data.  
-- **Real-time online search integration** keeps responses factual and current.  
-- Mist.AI’s answers are now more accurate, grounded, and up-to-date than ever.
+- Fixed repetitive or unnecessary Tavily grounding  
+- Grounding is now **context-aware**  
+- Real-time web search keeps answers **accurate and current**
 
 ---
 
 ### 🤖 New Models & Friendly Names
-Mist.AI now includes **fresh new models** with **user-friendly display names**, keeping backend keys unchanged.
 
 | Frontend Name | Backend Model | Description |
-|----------------|----------------|--------------|
-| ⭐ **Mist.AI Nova** | Gemini 2.5 Flash | Fast, lightweight, and creative |
-| 🤖 **Mist.AI Sage** | Command-R7B (12-2024) | Great for reasoning and multi-turn chat |
-| 🌬️ **Mist.AI Flux** | Mistral | Balanced performance and speed |
+|--------------|---------------|-------------|
+| ⭐ **Mist.AI Nova** | Gemini 2.5 Flash | Fast, lightweight, creative |
+| 🤖 **Mist.AI Sage** | Command-R7B (12-2024) | Strong reasoning & memory |
+| 🌬️ **Mist.AI Flux** | Mistral | Balanced speed & performance |
 
-These names appear throughout the interface, notifications, and logs for a more personalized feel.
+These names appear throughout the UI, logs, and notifications.
 
 ---
 
 ### 🧑‍💻 Markdown & Code Display Fixes
-- Fixed random white-block issues in Markdown rendering.  
-- **Showdown Markdown** now only applies *italic* and **bold** styles properly.  
-- **CodeMirror** is used only within code blocks for clean formatting.
-
----
-
-### 🖼️ Improved Image Handling
-- Upload images via **file picker** or **drag-and-drop**.  
-- Images are now processed **instantly** — no need for a separate “Analyze” step.  
-- Send text and images together in one message.  
-- Enhanced **OCR detection** for text, math equations, and better image previews.
-
----
-
-### ✨ Input Box Upgrades
-- 🔥 Live **word counter** with a 1200-word limit.  
-- ⚠️ Word limit turns red after 500 words as a visual warning.  
-- ⬇️ Input disables automatically at max length.  
-- ↩️ Input box height only grows on real line breaks (no jumpy resizing).  
-- 🧹 Input styling resets automatically after each message.
-
----
-
-### 🧩 Browser Extension (Chrome & Firefox)
-- Right-click any text to **Explain, Summarize, Rephrase, or Translate** instantly.  
-- Context-aware response injection directly into your browser.  
-- Compatible with both **Chrome (V3)** and **Firefox (V2)** manifest versions.  
+- Fixed random white block rendering issues  
+- **Showdown Markdown** only applies valid formatting  
+- **CodeMirror** is restricted to code blocks for clean output
 
 ---
 
 ## 📌 Core Features
 
-- ✔ **Browser Extension** – Chat instantly on any webpage  
-- ✔ **Powered by Gemini, Command R, & Mistral AI**  
-- ✔ **No Knowledge Cutoff** – Access to real-time data  
-- ✔ **Google Searching via Tavily API**  
-- ✔ **Customizable Themes** – 8+ built-in (including secret ones!)  
-- ✔ **Real-Time Weather & News Integration**  
-- ✔ **Session Memory** – Context-aware conversation flow  
-- ✔ **Cooldown System** – Prevents spam and flooding  
-- ✔ **File Uploads** – Supports PDF, TXT, DOCX, JSON, and images  
-- ✔ **Image OCR** – Smarter text and math recognition  
+- ✔ **Browser Extension** – Chat on any webpage  
+- ✔ **Powered by Gemini, Command R, & Mistral AI**
+- ✔ **Real-Time Web Search** – Tavily-powered  
+- ✔ **Session Memory** – Context-aware responses  
+- ✔ **Chat Threads** – Persistent conversations  
+- ✔ **Session Memory** – Context-aware conversation flow
+- ✔ **File Uploads** – PDF, TXT, DOCX, JSON, Images  
+- ✔ **Image Understanding** – Gemini Vision  
 - ✔ **Slash Commands (/)**  
-  - `/flipcoin` – Flip a coin  
-  - `/rps` – Rock, Paper, Scissors  
-  - `/joke` – Random joke  
-  - `/riddle` – Random riddle  
-  - `/weather <city>` – Get local forecasts  
-  - `/news` – Fetch latest headlines  
-- ✔ **IP & Token Ban System** – Keeps the platform secure  
-- ✔ **Redesigned Sidebar** – Better layout + instant theme switching  
-- ✔ **Offline Mode (PWA)** – Use Mist.AI anywhere  
-- ✔ **Chat Threads** – Save and manage multiple conversations with ease  
+  - `/flipcoin`  
+  - `/rps`  
+  - `/joke`  
+  - `/riddle`  
+  - `/weather <city>`  
+  - `/news`  
+- ✔ **Cooldown & Rate Limiting**  
+- ✔ **IP & Token Ban System**  
+- ✔ **Custom Themes** (including hidden ones 👀)  
+- ✔ **PWA Offline Support**
 
 ---
+
+### 🧩 Browser Extension (Chrome & Firefox)
+- Right-click any text to **Explain, Summarize, Rephrase, or Translate**  
+- Context-aware responses injected directly into webpages  
+- Supports:
+  - **Chrome (Manifest V3)**  
+  - **Firefox (Manifest V2)**  
+
 
 ## 🧩 Installing the Mist.AI Extension
 
 ### Chrome / Firefox
-1. Search **Mist.AI** in the Chrome or Firefox Web Store.  
-2. Click **Add to Chrome** or **Add to Firefox**.  
-3. Pin Mist.AI to your toolbar.  
-4. Right-click any text or click the icon to start chatting!
+1. Search **Mist.AI** in the Chrome or Firefox Web Store  
+2. Click **Add to Chrome** or **Add to Firefox**  
+3. Pin Mist.AI to your toolbar  
+4. Right-click text or click the icon to start chatting
 
-> ⚙️ **Manual Install (if needed):**  
-> - Clone or download the extension folder  
-> - **Chrome:** Go to `chrome://extensions/` → Enable Developer Mode → Load Unpacked → Select folder  
-> - **Firefox:** Go to `about:debugging#/runtime/this-firefox` → Load Temporary Add-on → Select `manifest.json`  
-> ✅ Done!
+### Manual Install
+- Clone or download the extension folder  
+- **Chrome:**  
+  - Go to `chrome://extensions/`  
+  - Enable Developer Mode  
+  - Click **Load Unpacked**  
+- **Firefox:**  
+  - Go to `about:debugging#/runtime/this-firefox`  
+  - Load Temporary Add-on → `manifest.json`
 
 ---
 
 ## 🌐 Live Preview
-🔗 [https://mistai.org](https://mistai.org)
+🔗 https://mistai.org
 
 ---
 
 ## 🛠️ Future Plans
-- 🎨 **More Themes** – Including animated and user-submitted designs  
-- ⌨️ **Expanded Slash Commands** – More utilities and games  
-- 📸 **Advanced Image Recognition** – Objects, faces, and environments  
-- 🎙️ **Wake Word System (Experimental)** – Voice-activated Mist.AI  
-- ⚠️ **Final Version Milestone:** Mist.AI V10
+- 🎨 More themes (animated + user-submitted)  
+- ⌨️ Expanded slash commands  
+- Capitator.JS For Notifications
+- ⚠️ **Final milestone:** Mist.AI V10
 
 ---
 
-💡 **Built by [Kristian](https://builtbykristian.netlify.app)**  
+💡 Built by **Kristian**  
+🔗 https://builtbykristian.netlify.app
