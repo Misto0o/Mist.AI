@@ -1769,5 +1769,6 @@ def get_random_fun_fact():
 
 
 if __name__ == "__main__":
-    app.logger.info("🚀 Mist.AI Server is starting...")
-    app.run(debug=False)
+    port = int(os.environ.get("PORT", 5000))
+    app.logger.info(f"🚀 Mist.AI Server is starting on 0.0.0.0:{port}...")
+    app.run(host="0.0.0.0", port=port, debug=False)

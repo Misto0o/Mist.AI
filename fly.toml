@@ -4,20 +4,20 @@ primary_region = "iad"
 [build]
 
 [http_service]
-  internal_port = 5000  # Ensure this matches Flask's port
+  internal_port = 5000
   force_https = true
-  auto_stop_machines = true  # Automatically stop machines when not in use to save cost
-  auto_start_machines = true  # Prevent automatic start unless manually triggered
-  min_machines_running = 0  # Minimize machines to zero when not in use
-  command = ["gunicorn", "-w", "1", "-b", "0.0.0.0:5000", "wsgi:application"]
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 0
+  command = ["gunicorn", "-w", "1", "-b", "0.0.0.0:$PORT", "wsgi:application"]
 
 [[vm]]
-  memory = "512MB"  # upgrade from 256MB to 512MB RAM
-  cpu_kind = "shared"  # Keep the shared CPU, which is still within the free tier
-  cpus = 1  # 1 CPU core should be sufficient for your app
+  memory = "512MB"
+  cpu_kind = "shared"
+  cpus = 1
 
 [metrics]
-  port = 5000
+  port = 9090
 
 [[mounts]]
 source = "bans_db"
