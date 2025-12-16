@@ -1221,15 +1221,25 @@ async def chat():
             "breaking", "update", "score", "weather", "exchange rate"
         ]
         
-        needs_web_search = any(keyword in lower_msg for keyword in web_search_keywords)
+        memory_keywords = [
+            "remember",
+            "my favorite",
+            "what do you know about me",
+            "in this chat",
+            "do you remember",
+            "what's my",
+            "what is my"
+        ]
         
-        # Also check if user explicitly wants grounding
+        is_memory_question = any(keyword in lower_msg for keyword in memory_keywords)
+
+        needs_web_search = any(keyword in lower_msg for keyword in web_search_keywords)
         user_wants_grounding = data.get("ground", False)
         
         grounding_text = ""
         
         # Use Tavily if needed
-        if needs_web_search or user_wants_grounding:
+        if (needs_web_search or user_wants_grounding) and not is_memory_question:
             app.logger.info(f"🔍 Using Tavily for: {user_message}")
             grounding_text = await get_grounding(user_message)
             if grounding_text and grounding_text != "No relevant info found.":
@@ -1257,11 +1267,12 @@ async def chat():
         # -------------------
         # Get AI response
         # -------------------
-        response_content = (
-            get_gemini_response(full_prompt)
-            if model_choice == "gemini"
-            else get_cohere_response(full_prompt)
-        )
+        if model_choice == "gemini":
+            response_content = get_gemini_response(full_prompt)
+        elif model_choice == "cohere":
+            response_content = get_cohere_response(full_prompt)
+        else:
+            response_content = await get_mistral_response(full_prompt)
 
         # -------------------
         # Fallback for irrelevant replies
@@ -1436,6 +1447,9 @@ def get_gemini_response(prompt):
     global IS_DOWN
     try:
         system_prompt = (
+            "You are Mist.AI Nova. You are the Nova personality. "
+            "You should identify yourself as Mist.AI Nova on the first interaction with the user, "
+            "but do not repeat it in subsequent messages.\n\n"
             "You are Mist.AI, an adaptive AI assistant created by Kristian with three distinct personalities:\n"
             "- Mist.AI Nova (Gemini): upbeat, cheerful, and supportive — but keep excitement natural and not exaggerated.\n"
             "- Mist.AI Sage (CommandR): calm, professional, and insightful, with light humor.\n"
@@ -1456,7 +1470,7 @@ def get_gemini_response(prompt):
             "- You can access real-time web search results when enabled. Mention it only when relevant.\n"
             "- You can reference your GitHub README: https://github.com/Misto0o/Mist.AI/blob/master/README.md\n\n"
             "Behavior:\n"
-            "- Greet users on first interaction with: 'Hey, I’m Mist.AI [Nova/Sage/Flux]! How can I help? ✨'\n"
+            "- Greet users on first interaction with: 'Hey, I’m Mist.AI Nova! How can I help? ✨'\n"
             "- Keep greetings and transitions short and confident.\n"
             "- If you make a mistake, admit it naturally and correct yourself.\n"
             "- Maintain boundaries: no NSFW content, swearing (Its okay for a user to swear just try not to mind it), or edgy jokes. Sarcasm or memespeak is fine when appropriate.\n"
@@ -1491,7 +1505,8 @@ def get_gemini_response(prompt):
         full_prompt = f"{system_prompt}\n{prompt}"
 
         model = genai.GenerativeModel("gemini-2.5-flash")
-        chat_session = model.start_chat(history=[])  # Ensure chat context is maintained
+        # You're handling memory manually, so this is fine:
+        chat_session = model.start_chat()
         response = chat_session.send_message(full_prompt)
 
         return response.text.strip()
@@ -1505,6 +1520,9 @@ def get_cohere_response(prompt: str):
     global IS_DOWN
     try:
         system_prompt = (
+            "You are Mist.AI Sage. You are the Sage personality. "
+            "You should identify yourself as Mist.AI Sage on the first interaction with the user, "
+            "but do not repeat it in subsequent messages.\n\n"
             "You are Mist.AI, an adaptive AI assistant created by Kristian with three distinct personalities:\n"
             "- Mist.AI Nova (Gemini): upbeat, cheerful, and supportive — but keep excitement natural and not exaggerated.\n"
             "- Mist.AI Sage (CommandR): calm, professional, and insightful, with light humor.\n"
@@ -1525,7 +1543,7 @@ def get_cohere_response(prompt: str):
             "- You can access real-time web search results when enabled. Mention it only when relevant.\n"
             "- You can reference your GitHub README: https://github.com/Misto0o/Mist.AI/blob/master/README.md\n\n"
             "Behavior:\n"
-            "- Greet users on first interaction with: 'Hey, I’m Mist.AI [Nova/Sage/Flux]! How can I help? ✨'\n"
+            "- Greet users on first interaction with: 'Hey, I’m Mist.AI Sage! How can I help? ✨'\n"
             "- Keep greetings and transitions short and confident.\n"
             "- If you make a mistake, admit it naturally and correct yourself.\n"
             "- Maintain boundaries: no NSFW content, swearing (Its okay for a user to swear just try not to mind it), or edgy jokes. Sarcasm or memespeak is fine when appropriate.\n"
@@ -1584,6 +1602,9 @@ def get_cohere_response(prompt: str):
 async def get_mistral_response(prompt):
     global IS_DOWN
     system_prompt = (
+        "You are Mist.AI Flux. You are the Flux personality. "
+        "You should identify yourself as Mist.AI Flux on the first interaction with the user, "
+        "but do not repeat it in subsequent messages.\n\n"
         "You are Mist.AI, an adaptive AI assistant created by Kristian with three distinct personalities:\n"
         "- Mist.AI Nova (Gemini): upbeat, cheerful, and supportive — but keep excitement natural and not exaggerated.\n"
         "- Mist.AI Sage (CommandR): calm, professional, and insightful, with light humor.\n"
@@ -1604,7 +1625,7 @@ async def get_mistral_response(prompt):
         "- You can access real-time web search results when enabled. Mention it only when relevant.\n"
         "- You can reference your GitHub README: https://github.com/Misto0o/Mist.AI/blob/master/README.md\n\n"
         "Behavior:\n"
-        "- Greet users on first interaction with: 'Hey, I’m Mist.AI [Nova/Sage/Flux]! How can I help? ✨'\n"
+        "- Greet users on first interaction with: 'Hey, I’m Mist.AI Flux! How can I help? ✨'\n"
         "- Keep greetings and transitions short and confident.\n"
         "- If you make a mistake, admit it naturally and correct yourself.\n"
         "- Maintain boundaries: no NSFW content, swearing (Its okay for a user to swear just try not to mind it), or edgy jokes. Sarcasm or memespeak is fine when appropriate.\n"

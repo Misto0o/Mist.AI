@@ -890,7 +890,7 @@ function switchThread(threadId) {
     if (!threadId || !state.chats[threadId]) return;
 
     currentThread = threadId;
-    chatMemory = JSON.parse(sessionStorage.getItem(`chatMemory-${threadId}`)) || [];
+    chatMemory = JSON.parse(localStorage.getItem(`chatMemory-${threadId}`)) || [];
     state.currentThread = threadId;
 
     const chatContainer = document.getElementById("chat-box");
@@ -1322,23 +1322,26 @@ loopCapabilities();
 
 
 function updateMemory(role, content) {
-    if (!currentThread) return;
+        if (!currentThread) return;
 
-    // Load current thread's memory
-    let threadMemory = JSON.parse(sessionStorage.getItem(`chatMemory-${currentThread}`)) || [];
+        let threadMemory = JSON.parse(
+            localStorage.getItem(`chatMemory-${currentThread}`)
+        ) || [];
 
-    // Add new message
-    threadMemory.push({ role, content });
+        const last = threadMemory[threadMemory.length - 1];
+        if (last?.role === role && last?.content === content) return;
 
-    // Keep last 25 messages for performance
-    if (threadMemory.length > 25) threadMemory.shift();
+        threadMemory.push({ role, content });
 
-    // Save back to sessionStorage per-thread
-    sessionStorage.setItem(`chatMemory-${currentThread}`, JSON.stringify(threadMemory));
+        if (threadMemory.length > 25) threadMemory.shift();
 
-    // Update global variable for immediate access
-    chatMemory = threadMemory;
-}
+        localStorage.setItem(
+            `chatMemory-${currentThread}`,
+            JSON.stringify(threadMemory)
+        );
+
+        chatMemory = threadMemory;
+    }
 
 // Function to get backend URL
 function getBackendUrl() {
@@ -1763,7 +1766,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 role: "user",
                 content: `User uploaded a document and said: "${text}". Extracted text: ${extractedText}`
             });
-            sessionStorage.setItem("chatMemory", JSON.stringify(chatMemory));
+            localStorage.setItem("chatMemory", JSON.stringify(chatMemory));
 
             showMessage("📄 Mist.AI has read the document. How can I assist?", "bot");
 
@@ -1837,7 +1840,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 role: "user",
                 content: `User uploaded an image and said: "${userText}"`
             });
-            sessionStorage.setItem("chatMemory", JSON.stringify(chatMemory));
+            localStorage.setItem("chatMemory", JSON.stringify(chatMemory));
 
         } else {
             showMessage(`📤 Uploading document: ${file.name}...`, "bot");
