@@ -136,7 +136,7 @@ These names appear throughout the UI, logs, and notifications.
 ## 🛠️ Future Plans
 - 🎨 More themes (animated + user-submitted)  
 - ⌨️ Expanded slash commands  
-- Capitator.JS For Notifications
+- ⏰ Capitator.JS For Notifications
 - ⚠️ **Final milestone:** Mist.AI V10
 
 ---

@@ -15,6 +15,7 @@ import asyncio
 import sqlite3
 from datetime import datetime
 from functools import wraps
+import hashlib
 
 # ─────────────────────
 # Flask & Web
@@ -447,8 +448,7 @@ news_url = (
 )
 TAVILY_CLIENT = TavilyClient(os.getenv("TAVILY_API_KEY"))
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-
-
+# ✅ Gemini Vision Image Analysis
 async def analyze_image_with_gemini(img_url_or_bytes):
     """
     Accepts a URL, bytes, or base64 string, returns text description / OCR result from Gemini Vision.
@@ -969,6 +969,57 @@ def startup():
 
 startup()
 
+ROUTER_MODEL = "command-r7b-12-2024"
+
+async def needs_tavily(user_message: str) -> bool:
+    if not user_message:
+        return False
+
+    # Init cache
+    if "tavily_router_cache" not in app.config:
+        app.config["tavily_router_cache"] = {}
+
+    cache = app.config["tavily_router_cache"]
+    key = hashlib.sha1(user_message.strip().lower().encode()).hexdigest()
+
+    if key in cache:
+        return cache[key]
+
+    prompt = f"""
+You are a routing classifier.
+
+Decide if the user's message requires REAL-TIME or CURRENT information
+from the web (news, prices, live data, current events, weather).
+
+Return ONLY one word:
+YES or NO
+
+User message:
+\"\"\"{user_message}\"\"\"
+""".strip()
+
+    def sync_call():
+        response = co.chat(
+            model=ROUTER_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0,
+            max_tokens=3,
+        )
+        text = response.message.content[0].text.strip().upper()
+        return "YES" if "YES" in text else "NO"
+
+    try:
+        decision = await asyncio.to_thread(sync_call)
+        result = decision == "YES"
+        cache[key] = result
+
+        app.logger.info(f"🧭 Tavily router → {decision}")
+        return result
+
+    except Exception as e:
+        app.logger.error(f"❌ Router failed, defaulting NO: {e}")
+        return False
+
 
 # -------------------------------
 # Tavily Search (with cache and better logging)
@@ -1087,185 +1138,141 @@ async def tavily_route():
 # -------------------------------
 # Main Chat Route
 # -------------------------------
-@app.route("/chat", methods=["POST", "GET"])
+@app.route("/chat", methods=["GET", "POST"])
 async def chat():
     global IS_DOWN
+
     try:
         start_time = time.time()
 
         # -------------------
-        # GET requests (status)
+        # GET → status check
         # -------------------
         if request.method == "GET":
-            query = request.args.get("q")
             try:
                 ai_status = await asyncio.wait_for(check_ai_services(), timeout=3)
             except asyncio.TimeoutError:
                 ai_status = False
 
+            query = request.args.get("q")
             if query:
                 return render_template("popup.html", query=query)
 
-            return jsonify(
-                {
-                    "status": (
-                        "🟢 Mist.AI is awake!" if ai_status else "🔴 Mist.AI is OFFLINE"
-                    )
-                }
-            ), (200 if ai_status else 503)
+            return jsonify({
+                "status": "🟢 Mist.AI is awake!" if ai_status else "🔴 Mist.AI is OFFLINE"
+            }), (200 if ai_status else 503)
 
         # -------------------
-        # POST requests
+        # POST → main chat
         # -------------------
-        if not request.is_json:
-            return jsonify({"error": "Invalid request: No valid JSON provided."}), 400
-
         if IS_DOWN:
             return render_template("mistai_down.html"), 503
 
-        data = request.get_json()
-        user_message = data.get("message", "").strip()
+        if not request.is_json and "file" not in request.files:
+            return jsonify({"error": "Invalid request"}), 400
+
+        data = request.get_json(silent=True) or {}
+
+        user_message = (data.get("message") or "").strip()
         img_url = data.get("img_url")
         chat_context = data.get("context", [])
         model_choice = data.get("model", "gemini")
+        user_wants_grounding = data.get("ground", False)
 
         if not user_message and not img_url and "file" not in request.files:
             return jsonify({"error": "Message can't be empty."}), 400
 
         lower_msg = user_message.lower()
-        log_message = user_message  # Initialize for logging
+        log_message = user_message
 
         # -------------------
-        # Handle news/time requests (before intent detection)
-        # -------------------
-        news_keywords = [
-            "news",
-            "headlines",
-            "latest news",
-            "current events",
-            "what's up in the news",
-            "todays date",
-            "current time",
-            "time",
-            "date",
-        ]
-
-        if any(kw in user_message.lower() for kw in news_keywords) and len(user_message.split()) < 6:
-            news_response = await time_news()
-            if isinstance(news_response, Response):
-                news_data = news_response.get_json()
-            else:
-                news_data = (
-                    news_response[0].get_json()
-                    if isinstance(news_response, tuple)
-                    else {}
-                )
-
-            current_date = news_data.get("time", {}).get("date", "Unknown Date")
-            current_time_str = news_data.get("time", {}).get("time", "Unknown Time")
-            headlines = "\n".join(
-                f"- [{a['title']}]({a['url']})" for a in news_data.get("news", [])
-            )
-            response_text = (
-                f"Today is {current_date}, current time {current_time_str}.\n"
-                f"News:\n{headlines or 'No headlines available.'}"
-            )
-            return jsonify({"response": response_text})
-
-        # -------------------
-        # Commands & Easter Eggs
+        # Commands / easter eggs
         # -------------------
         if response := check_easter_eggs(lower_msg):
             return jsonify({"response": response})
+
         if lower_msg.startswith("/"):
             return jsonify({"response": await handle_command(lower_msg)})
+
         if lower_msg == "random prompt":
             return jsonify({"response": get_random_prompt()})
+
         if lower_msg == "fun fact":
             return jsonify({"response": get_random_fun_fact()})
 
         # -------------------
-        # Handle file uploads
+        # File uploads
         # -------------------
         if "file" in request.files:
             file = request.files["file"]
             if not file.filename:
-                return jsonify({"error": "No file selected."}), 400
+                return jsonify({"error": "No file selected"}), 400
 
-            file_content = file.stream.read()
+            content = file.stream.read()
             ext = os.path.splitext(file.filename.lower())[1]
-            extracted_text = file_processors.get(
+
+            extracted = file_processors.get(
                 ext, lambda _: "⚠️ Unsupported file type."
-            )(file_content)
-            await upload_to_gofile(file.filename, file_content, file.mimetype)
-            return jsonify(
-                {"response": extracted_text.strip() or "⚠️ No readable text found."}
-            )
+            )(content)
+
+            await upload_to_gofile(file.filename, content, file.mimetype)
+
+            return jsonify({
+                "response": extracted.strip() or "⚠️ No readable text found."
+            })
 
         # -------------------
-        # Handle images with Gemini Vision
+        # Image handling
         # -------------------
         if img_url:
             analysis = await analyze_image_with_gemini(img_url)
-            # Truncate analysis for logging (keep first 100 chars)
-            truncated_analysis = analysis[:100] + "..." if len(analysis) > 100 else analysis
-            user_message += f"\n\n[Image analysis: {analysis}]"  # Full analysis to AI
-            log_message = user_message.replace(f"[Image analysis: {analysis}]", f"[Image analysis: {truncated_analysis}]")  # Truncated for logs
+
+            truncated = analysis[:100] + "..." if len(analysis) > 100 else analysis
+            user_message += f"\n\n[Image analysis: {analysis}]"
+            log_message += f"\n[Image analysis: {truncated}]"
 
         # -------------------
-        # Detect if we need web search (improved keywords)
+        # Tavily routing (SINGLE POINT)
         # -------------------
-        web_search_keywords = [
-            "stock", "price", "current", "latest", "today", "now", "recent",
-            "what is", "who is", "where is", "when did", "how much",
-            "breaking", "update", "score", "weather", "exchange rate"
-        ]
-        
-        memory_keywords = [
-            "remember",
-            "my favorite",
-            "what do you know about me",
-            "in this chat",
-            "do you remember",
-            "what's my",
-            "what is my"
-        ]
-        
-        is_memory_question = any(keyword in lower_msg for keyword in memory_keywords)
-
-        needs_web_search = any(keyword in lower_msg for keyword in web_search_keywords)
-        user_wants_grounding = data.get("ground", False)
-        
         grounding_text = ""
-        
-        # Use Tavily if needed
-        if (needs_web_search or user_wants_grounding) and not is_memory_question:
-            app.logger.info(f"🔍 Using Tavily for: {user_message}")
+        use_tavily = False
+
+        try:
+            use_tavily = user_wants_grounding or await needs_tavily(user_message)
+        except Exception as e:
+            app.logger.warning(f"⚠️ Router failed → skipping Tavily: {e}")
+
+        if use_tavily:
+            app.logger.info(f"🔍 Tavily approved for: {user_message}")
             grounding_text = await get_grounding(user_message)
+
             if grounding_text and grounding_text != "No relevant info found.":
-                app.logger.info(f"✅ Tavily found: {grounding_text[:100]}...")
+                app.logger.info(f"✅ Tavily hit: {grounding_text[:100]}...")
             else:
-                app.logger.warning("⚠️ Tavily returned no results")
+                grounding_text = ""
 
         # -------------------
-        # Build final prompt
+        # Prompt assembly
         # -------------------
-        context_text = "\n".join(f"{m['role']}: {m['content']}" for m in chat_context)
-        
-        if grounding_text and grounding_text != "No relevant info found.":
-            combined_context = f"CURRENT WEB INFO: {grounding_text}"
-        else:
-            combined_context = "No external context available."
+        context_text = "\n".join(
+            f"{m['role']}: {m['content']}" for m in chat_context
+        )
+
+        system_context = (
+            f"CURRENT WEB INFO:\n{grounding_text}"
+            if grounding_text
+            else "No external context available."
+        )
 
         full_prompt = (
-            f"System: [{combined_context}]\n"
+            f"System: [{system_context}]\n"
             f"{context_text}\n"
             f"User: {user_message}\n"
             f"Mist.AI:"
         )
 
         # -------------------
-        # Get AI response
+        # Model response
         # -------------------
         if model_choice == "gemini":
             response_content = get_gemini_response(full_prompt)
@@ -1275,58 +1282,42 @@ async def chat():
             response_content = await get_mistral_response(full_prompt)
 
         # -------------------
-        # Fallback for irrelevant replies
+        # Safety fallback
         # -------------------
-        irrelevant_markers = ["i'm not sure", "i don't know", "sorry", "cannot"]
-        if any(marker in response_content.lower() for marker in irrelevant_markers):
-            response_content = "🤖 I'm not sure about that one. Try rephrasing your question or asking something else!"
+        if any(x in response_content.lower() for x in ["i don't know", "not sure", "sorry"]):
+            response_content = "🤖 Try rephrasing — I didn’t quite get that."
 
         # -------------------
-        # Log user interaction
+        # Logging
         # -------------------
         user_ip = (
             data.get("ip")
             or request.headers.get("X-Forwarded-For")
             or request.remote_addr
         )
-        ip_log.setdefault(user_ip, []).append(
-            {
-                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                "message": log_message,
-            }
-        )
+
+        ip_log.setdefault(user_ip, []).append({
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "message": log_message,
+        })
 
         app.logger.info(
-            f"\n📩 User ({user_ip}): {log_message}\n🤖 BOT ({model_choice}): {response_content}\n"
+            f"\n📩 {user_ip}: {log_message}\n🤖 {model_choice}: {response_content}\n"
         )
 
         return jsonify({"response": response_content})
 
     except Exception as e:
-        # Detect specific error types and set appropriate down reasons
-        error_msg = str(e).lower()
-        
-        if "api key" in error_msg or "api_key" in error_msg:
-            set_down_mode("Invalid or Missing API Key")
-        elif "quota" in error_msg or "limit" in error_msg or "429" in error_msg:
-            set_down_mode("API Quota/Rate Limit Exceeded")
-        elif "timeout" in error_msg or "timed out" in error_msg:
-            set_down_mode("Backend Service Timeout")
-        elif "connection" in error_msg or "network" in error_msg:
-            set_down_mode("Network Connection Error")
-        elif "gemini" in error_msg or "cohere" in error_msg:
-            set_down_mode(f"AI Model Error: {type(e).__name__}")
-        else:
-            set_down_mode(f"Unexpected Error: {type(e).__name__}")
-        
-        app.logger.error(f"❌ Server Error: {str(e)}")
-        
+        set_down_mode(type(e).__name__)
+        app.logger.error(f"❌ Chat route error: {e}")
+
         return jsonify({
             "error": str(e),
             "is_down": True,
             "reason": DOWN_REASON,
             "timestamp": DOWN_TIMESTAMP
         }), 503
+
 # -------------------------------
 # Auxiliary Functions
 # 🔹 Check AI Services

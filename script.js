@@ -470,28 +470,18 @@ window.addEventListener("load", async () => {
     if (isIPBanned(userIP)) disableChat();
 });
 
-function shouldUseGrounding(message) {
-    const msg = message.toLowerCase().trim();
+function userWantsGrounding(message) {
+    const msg = message.toLowerCase();
 
-    // Ignore super short stuff or just emojis
-    if (msg.length < 4 || /^[^\w]+$/.test(msg)) return false;
-
-    // Detect questions (usually need grounding)
-    const questionWords = ["who", "what", "when", "where", "why", "how"];
-    if (questionWords.some(q => msg.startsWith(q + " "))) return true;
-
-    // Detect fact-based queries or news/time queries
-    const factKeywords = ["latest", "current", "today", "update", "news", "weather", "temperature"];
-    if (factKeywords.some(k => msg.includes(k))) return true;
-
-    // Detect numbers or years (might need grounding)
-    if (/\d{2,4}/.test(msg)) return true;
-
-    // Detect URLs (probably wants info about a site)
-    if (/https?:\/\//.test(msg)) return true;
-
-    // For everything else (casual chat, small talk), skip Tavily
-    return false;
+    // ONLY explicit user intent
+    return (
+        msg.includes("source") ||
+        msg.includes("sources") ||
+        msg.includes("cite") ||
+        msg.includes("citation") ||
+        msg.includes("link") ||
+        msg.includes("reference")
+    );
 }
 
 async function typeBotMessage(message, containerClass = "bot-message") {
@@ -585,7 +575,7 @@ async function sendMessage(userMessage = null) {
             context: chatMemory,
             model: currentModel,
             creator: creatorValue,
-            ground: shouldUseGrounding(userMessage),
+            ground: userWantsGrounding(userMessage),
             ip: userIP,
             ...(imgBase64 && { img_url: imgBase64 }) // Attach image if exists
         };
