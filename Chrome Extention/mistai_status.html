@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mist.AI is Down</title>
+    <title>Mist.AI Status-Page</title>
     <!-- Description for SEO -->
     <meta name="description"
         content="Chat smarter with Mist.AI – your AI-powered chatbot with image uploads, fun facts, and instant answers. Fast, fun, and easy to use." />
@@ -252,7 +252,7 @@
     </div>
 
     <script>
-        // Detect environment
+        // Detect environment and set API URL
         function getEnvironment() {
             const hostname = window.location.hostname;
             const protocol = window.location.protocol;
@@ -260,26 +260,29 @@
             if (protocol === 'file:' || hostname === 'localhost' || hostname === '127.0.0.1') {
                 return {
                     name: 'Local Development',
-                    baseUrl: 'http://127.0.0.1:5000'  // Flask root
+                    apiUrl: 'http://127.0.0.1:5000',
+                    homeUrl: 'http://127.0.0.1:5000'
                 };
             }
 
+            // Production - always use Fly.dev for API, mistai.org for home
             return {
                 name: 'Production',
-                baseUrl: 'https://mist-ai.fly.dev'  // deployed site
+                apiUrl: 'https://mist-ai.fly.dev',
+                homeUrl: 'https://mistai.org'  // 👈 Always return to custom domain
             };
         }
 
         function updateEnvironmentInfo() {
             const env = getEnvironment();
             document.getElementById('environment').textContent = env.name;
-            document.getElementById('environment').className = 'status-value warning';
+            document.getElementById('environment').className = 'status-value success';
             document.getElementById('timestamp').textContent =
                 `Last updated: ${new Date().toLocaleTimeString()}`;
 
-            // Make "Return Home" work
+            // Make "Return Home" always go to mistai.org (except localhost)
             const homeLink = document.getElementById('home-link');
-            homeLink.href = env.baseUrl + '/';  // go to Flask root
+            homeLink.href = env.homeUrl;
         }
 
         // Check server status
@@ -294,7 +297,7 @@
 
             try {
                 const env = getEnvironment();
-                const response = await fetch(`${env.baseUrl}/status`);
+                const response = await fetch(`${env.apiUrl}/status`);
                 const data = await response.json();
 
                 if (data.is_down) {

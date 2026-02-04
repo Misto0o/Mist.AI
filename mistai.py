@@ -325,6 +325,14 @@ def is_down_page():
 def home():
     return send_from_directory(os.getcwd(), "index.html")  # current folder
 
+@app.route("/")
+def home():
+    # Check if accessing via Fly.dev URL
+    if request.host == "mist-ai.fly.dev":
+        return redirect("https://mistai.org", code=301)
+    
+    return send_from_directory(os.getcwd(), "index.html")
+
 
 @app.route("/<path:filename>")
 def root_files(filename):
