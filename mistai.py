@@ -320,11 +320,6 @@ def is_down_page():
         return "Down page template missing", 500
 
 
-# Serve root index.html
-@app.route("/")
-def home():
-    return send_from_directory(os.getcwd(), "index.html")  # current folder
-
 @app.route("/")
 def home():
     # Check if accessing via Fly.dev URL
