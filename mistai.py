@@ -16,6 +16,7 @@ import sqlite3
 from datetime import datetime
 from functools import wraps
 import hashlib
+from flask import send_from_directory, redirect, url_for, render_template
 
 # ─────────────────────
 # Flask & Web
@@ -30,7 +31,7 @@ from flask import (
     session,
     flash,
     Response,
-    make_response
+    make_response,
 )
 from flask_cors import CORS
 from werkzeug.exceptions import NotFound
@@ -62,6 +63,7 @@ from docx import Document
 # ─────────────────────
 import sympy
 from sympy.parsing.mathematica import parse_mathematica
+
 # ─────────────────────
 
 # Load environment variables
@@ -164,20 +166,23 @@ IS_DOWN = False
 DOWN_REASON = None  # Track why the service is down
 DOWN_TIMESTAMP = None  # Track when it went down
 
+
 @app.before_request
 def before_request_down_mode():
     global IS_DOWN
 
     # Allow these routes even when down
     allowed_routes = [
-        "mistai_down",
+        "mistai_status",
+        "status",
         "static",
-        "is_down",
         "force_down_test",
         "reset_down_test",
     ]
 
-    if IS_DOWN and request.endpoint not in allowed_routes:
+    endpoint = request.endpoint or ""
+    if IS_DOWN and endpoint not in allowed_routes:
+
         # Allow OPTIONS requests for CORS preflight
         if request.method == "OPTIONS":
             response = make_response()
@@ -204,52 +209,42 @@ def before_request_down_mode():
             return response
 
         # For regular page requests, show down page
-        return render_template("mistai_down.html"), 503
+        return render_template("mistai_status.html"), 503
 
-
-def check_down_mode():
-    global IS_DOWN
-    if IS_DOWN and request.endpoint not in ["mistai_down", "static"]:
-        # Allow OPTIONS requests to succeed for CORS
-        if request.method == "OPTIONS":
-            response = make_response()
-            response.status_code = 200
-            return response
-        # Otherwise show down page
-        return render_template("mistai_down.html"), 503
 
 # =========================
 # Down Mode Routes
 # =========================
-@app.route("/is-down")
-def is_down():
-    """Check if service is down - always returns JSON with detailed status"""
-    global IS_DOWN, DOWN_REASON, DOWN_TIMESTAMP
-    
+@app.route("/status", methods=["GET"])
+async def status():
+    try:
+        ai_ok = await asyncio.wait_for(check_ai_services(), timeout=3)
+    except asyncio.TimeoutError:
+        ai_ok = False
+
     response_data = {
+        "online": ai_ok and not IS_DOWN,
         "is_down": IS_DOWN,
+        "ai_ok": ai_ok,
+        "down_reason": DOWN_REASON,
+        "timestamp": DOWN_TIMESTAMP,
+        "message": (
+            "🟢 Mist.AI is operational"
+            if ai_ok and not IS_DOWN
+            else "🔴 Mist.AI is currently unavailable"
+        ),
     }
-    
-    if IS_DOWN:
-        response_data.update({
-            "error_type": DOWN_REASON or "System Error",
-            "message": f"Service went down at {DOWN_TIMESTAMP}" if DOWN_TIMESTAMP else "Service is currently unavailable",
-            "timestamp": DOWN_TIMESTAMP
-        })
-    else:
-        response_data.update({
-            "message": "Service is operational",
-            "status": "healthy"
-        })
-    
+
     response = jsonify(response_data)
-    response.headers['Access-Control-Allow-Origin'] = '*'
-    return response, 200
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Cache-Control"] = "no-store"
+
+    return response, (200 if response_data["online"] else 503)
 
 
-@app.route("/mistai_down")
-def mistai_down():
-    return render_template("mistai_down.html"), 503
+@app.route("/status-page")
+def mistai_status():
+    return render_template("mistai_status.html"), 503 if IS_DOWN else 200
 
 
 # Detect if running in production
@@ -258,100 +253,176 @@ def is_production():
     # Method 1: Check for Fly.io environment variable
     if os.getenv("FLY_APP_NAME"):
         return True
-    
+
     # Method 2: Check for custom production flag
     if os.getenv("PRODUCTION") == "true":
         return True
-    
+
     # Method 3: Check Flask environment
     if os.getenv("FLASK_ENV") == "production":
         return True
-    
+
     return False
+
 
 # Decorator to restrict routes to development only
 def dev_only(f):
     """Decorator that blocks route access in production"""
+
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if is_production():
-            return jsonify({
-                "error": "This endpoint is only available in development mode",
-                "production": True
-            }), 403
+            return (
+                jsonify(
+                    {
+                        "error": "This endpoint is only available in development mode",
+                        "production": True,
+                    }
+                ),
+                403,
+            )
         return f(*args, **kwargs)
+
     return decorated_function
+
+
+# Serve your “wrongly spelled” favicon
+FAVICON_FOLDER = os.path.join(app.root_path, "mistaifaviocn")
+
+# Map common favicon sizes to their filenames
+FAVICONS = {
+    "16x16": "favicon-16x16.png",
+    "32x32": "favicon-32x32.png",
+    "180x180": "apple-touch-icon.png",
+    "192x192": "android-chrome-192x192.png",
+    "512x512": "android-chrome-512x512.png",
+    "default": "favicon.ico",
+}
+
+@app.route("/mistaifaviocn/<path:filename>")
+def serve_favicon(filename):
+    return send_from_directory(FAVICON_FOLDER, filename)
+
+@app.route("/favicon.ico")
+def favicon():
+    size = request.args.get("size", None)  # e.g., /favicon.ico?size=32x32
+    filename = FAVICONS.get(size, FAVICONS["default"])
+    mimetype = "image/png" if filename.endswith(".png") else "image/x-icon"
+    return send_from_directory(FAVICON_FOLDER, filename, mimetype=mimetype)
+
+
+# Handle /is-down properly
+@app.route("/is-down")
+def is_down_page():
+    try:
+        return render_template("mistai_status.html")  # your down page
+    except:
+        return "Down page template missing", 500
+
+
+# Serve root index.html
+@app.route("/")
+def home():
+    return send_from_directory(os.getcwd(), "index.html")  # current folder
+
+
+@app.route("/<path:filename>")
+def root_files(filename):
+    root_files_list = [
+        "styles.css",
+        "themes.css",
+        "script.js",
+        "service-worker.js",
+        "privacy.html",
+        "manifest.json",
+    ]
+    if filename in root_files_list:
+        return send_from_directory(os.getcwd(), filename)
+    return "File not found", 404
+
 
 # =========================
 # Development-Only Test Routes
 # =========================
+
 
 @app.route("/force-down-test")
 @dev_only
 def force_down_test():
     """Test route to trigger down mode (DEV ONLY)"""
     global IS_DOWN, DOWN_REASON, DOWN_TIMESTAMP
-    
+
     IS_DOWN = True
     DOWN_REASON = "Manual Test Mode"
     DOWN_TIMESTAMP = datetime.now().isoformat()
-    
+
     app.logger.warning(f"⚠️ DOWN MODE ACTIVATED (manual test) at {DOWN_TIMESTAMP}")
-    
-    return jsonify({
-        "message": "IS_DOWN is now True",
-        "is_down": True,
-        "reason": DOWN_REASON,
-        "timestamp": DOWN_TIMESTAMP
-    }), 200
+
+    return (
+        jsonify(
+            {
+                "message": "IS_DOWN is now True",
+                "is_down": True,
+                "reason": DOWN_REASON,
+                "timestamp": DOWN_TIMESTAMP,
+            }
+        ),
+        200,
+    )
+
 
 @app.route("/reset-down-test")
 @dev_only
 def reset_down_test():
     """Test route to reset down mode (DEV ONLY)"""
     global IS_DOWN, DOWN_REASON, DOWN_TIMESTAMP
-    
+
     IS_DOWN = False
     DOWN_REASON = None
     DOWN_TIMESTAMP = None
-    
+
     app.logger.info("✅ DOWN MODE DEACTIVATED (manual reset)")
-    
-    return jsonify({
-        "message": "IS_DOWN reset to False",
-        "is_down": False
-    }), 200
+
+    return jsonify({"message": "IS_DOWN reset to False", "is_down": False}), 200
+
 
 # Optional: Add a dev status endpoint
 @app.route("/dev-status")
 @dev_only
 def dev_status():
     """Show development mode status (DEV ONLY)"""
-    return jsonify({
-        "dev_mode": True,
-        "environment": os.getenv("FLASK_ENV", "development"),
-        "is_down": IS_DOWN,
-        "down_reason": DOWN_REASON,
-        "down_timestamp": DOWN_TIMESTAMP,
-        "available_test_routes": [
-            "/force-down-test",
-            "/reset-down-test",
-            "/dev-status"
-        ]
-    }), 200
-    
+    return (
+        jsonify(
+            {
+                "dev_mode": True,
+                "environment": os.getenv("FLASK_ENV", "development"),
+                "is_down": IS_DOWN,
+                "down_reason": DOWN_REASON,
+                "down_timestamp": DOWN_TIMESTAMP,
+                "available_test_routes": [
+                    "/force-down-test",
+                    "/reset-down-test",
+                    "/dev-status",
+                ],
+            }
+        ),
+        200,
+    )
+
+
 # =========================
 # Helper function to set down mode with reason
 # =========================
 def set_down_mode(reason: str):
     """Set the service to down mode with a specific reason"""
     global IS_DOWN, DOWN_REASON, DOWN_TIMESTAMP
-    
+
     IS_DOWN = True
     DOWN_REASON = reason
     DOWN_TIMESTAMP = datetime.now().isoformat()
-    
+
     app.logger.error(f"🔥 DOWN MODE: {reason} at {DOWN_TIMESTAMP}")
+
 
 # =========================
 # Error Handlers
@@ -359,50 +430,57 @@ def set_down_mode(reason: str):
 @app.errorhandler(500)
 def handle_500(e):
     set_down_mode(f"Internal Server Error: {str(e)[:100]}")
-    
+
     # Return JSON for API calls
     if request.path.startswith("/chat") or request.path.startswith("/is-banned"):
-        response = jsonify({
-            "error": "Internal server error - service is now down",
-            "is_down": True,
-            "reason": DOWN_REASON,
-            "timestamp": DOWN_TIMESTAMP
-        })
+        response = jsonify(
+            {
+                "error": "Internal server error - service is now down",
+                "is_down": True,
+                "reason": DOWN_REASON,
+                "timestamp": DOWN_TIMESTAMP,
+            }
+        )
         response.status_code = 503
         return response
-    
+
     # Return HTML for page requests
-    return render_template("mistai_down.html"), 503
+    return render_template("mistai_status.html"), 503
 
 
 @app.errorhandler(Exception)
 def handle_exception(e):
     from werkzeug.exceptions import NotFound
-    
+
     if isinstance(e, NotFound):
         return handle_404(e)
-    
+
     # Set down mode with error details
     set_down_mode(f"Fatal Error: {type(e).__name__}")
-    
+
     # Return JSON for API calls
     if request.path.startswith("/chat") or request.path.startswith("/is-banned"):
-        response = jsonify({
-            "error": "Fatal error - service is now down",
-            "is_down": True,
-            "reason": DOWN_REASON,
-            "timestamp": DOWN_TIMESTAMP
-        })
+        response = jsonify(
+            {
+                "error": "Fatal error - service is now down",
+                "is_down": True,
+                "reason": DOWN_REASON,
+                "timestamp": DOWN_TIMESTAMP,
+            }
+        )
         response.status_code = 503
         return response
-    
+
     # Return HTML for page requests
-    return render_template("mistai_down.html"), 503
+    return render_template("mistai_status.html"), 503
+
 
 @app.errorhandler(404)
 def handle_404(e):
     app.logger.warning(f"⚠️ 404 Not Found → {request.path}")
     return ("", 204)  # Silent response, avoids breaking pages
+
+
 # =========================
 
 EASTER_EGGS = {
@@ -448,6 +526,8 @@ news_url = (
 )
 TAVILY_CLIENT = TavilyClient(os.getenv("TAVILY_API_KEY"))
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+
+
 # ✅ Gemini Vision Image Analysis
 async def analyze_image_with_gemini(img_url_or_bytes):
     """
@@ -971,6 +1051,7 @@ startup()
 
 ROUTER_MODEL = "command-r7b-12-2024"
 
+
 async def needs_tavily(user_message: str) -> bool:
     if not user_message:
         return False
@@ -1030,52 +1111,58 @@ async def tavily_search(query: str, max_results: int = 3) -> str:
     Tries 'answer', then 'text', then 'content'.
     """
     try:
+
         def sync_search():
             app.logger.info(f"🔍 Tavily searching for: {query}")
-            
+
             response = TAVILY_CLIENT.search(
-                query=query, 
-                max_results=max_results, 
-                include_answer=True
+                query=query, max_results=max_results, include_answer=True
             )
-            
+
             if not response:
                 app.logger.warning("⚠️ Tavily returned None")
                 return None
-            
+
             # FIRST: Check if there's a direct answer field at TOP LEVEL
             if "answer" in response and response["answer"]:
-                app.logger.info(f"✅ Found top-level answer: {response['answer'][:100]}...")
+                app.logger.info(
+                    f"✅ Found top-level answer: {response['answer'][:100]}..."
+                )
                 return response["answer"]
-            
+
             # SECOND: Check results array for content
             if "results" in response and len(response["results"]) > 0:
-                app.logger.info(f"📊 Tavily returned {len(response['results'])} results")
-                
+                app.logger.info(
+                    f"📊 Tavily returned {len(response['results'])} results"
+                )
+
                 # Try to find content in first result
                 first_result = response["results"][0]
-                
+
                 # Try different field names in order of preference
                 for field in ["content", "text", "snippet", "description"]:
                     if field in first_result and first_result[field]:
                         content = first_result[field].strip()
                         if content:  # Make sure it's not empty
-                            app.logger.info(f"✅ Found content in '{field}': {content[:100]}...")
+                            app.logger.info(
+                                f"✅ Found content in '{field}': {content[:100]}..."
+                            )
                             return content
-                
+
                 # If no content, return title + URL
                 if "title" in first_result:
                     app.logger.info(f"📝 Using title + URL from first result")
                     return f"{first_result.get('title', '')} - {first_result.get('url', '')}"
-            
+
             app.logger.warning("⚠️ No usable content found in Tavily results")
             return None
 
         return await asyncio.to_thread(sync_search)
-        
+
     except Exception as e:
         app.logger.error(f"❌ Tavily search failed: {e}")
         import traceback
+
         app.logger.error(traceback.format_exc())
         return None
 
@@ -1103,14 +1190,14 @@ async def get_grounding(user_message: str) -> str:
 
     # Search Tavily
     result = await tavily_search(user_message)
-    
+
     if result:
         cache[cache_key] = result
         app.logger.info(f"✅ Cached new Tavily result")
     else:
         cache[cache_key] = "No relevant info found."
         app.logger.warning(f"⚠️ Tavily found nothing for: {user_message[:50]}")
-    
+
     return cache[cache_key]
 
 
@@ -1149,24 +1236,14 @@ async def chat():
         # GET → status check
         # -------------------
         if request.method == "GET":
-            try:
-                ai_status = await asyncio.wait_for(check_ai_services(), timeout=3)
-            except asyncio.TimeoutError:
-                ai_status = False
-
-            query = request.args.get("q")
-            if query:
-                return render_template("popup.html", query=query)
-
-            return jsonify({
-                "status": "🟢 Mist.AI is awake!" if ai_status else "🔴 Mist.AI is OFFLINE"
-            }), (200 if ai_status else 503)
+            response, code = await status()
+            return response, code
 
         # -------------------
         # POST → main chat
         # -------------------
         if IS_DOWN:
-            return render_template("mistai_down.html"), 503
+            return render_template("mistai_status.html"), 503
 
         if not request.is_json and "file" not in request.files:
             return jsonify({"error": "Invalid request"}), 400
@@ -1211,15 +1288,15 @@ async def chat():
             content = file.stream.read()
             ext = os.path.splitext(file.filename.lower())[1]
 
-            extracted = file_processors.get(
-                ext, lambda _: "⚠️ Unsupported file type."
-            )(content)
+            extracted = file_processors.get(ext, lambda _: "⚠️ Unsupported file type.")(
+                content
+            )
 
             await upload_to_gofile(file.filename, content, file.mimetype)
 
-            return jsonify({
-                "response": extracted.strip() or "⚠️ No readable text found."
-            })
+            return jsonify(
+                {"response": extracted.strip() or "⚠️ No readable text found."}
+            )
 
         # -------------------
         # Image handling
@@ -1254,9 +1331,7 @@ async def chat():
         # -------------------
         # Prompt assembly
         # -------------------
-        context_text = "\n".join(
-            f"{m['role']}: {m['content']}" for m in chat_context
-        )
+        context_text = "\n".join(f"{m['role']}: {m['content']}" for m in chat_context)
 
         system_context = (
             f"CURRENT WEB INFO:\n{grounding_text}"
@@ -1284,7 +1359,9 @@ async def chat():
         # -------------------
         # Safety fallback
         # -------------------
-        if any(x in response_content.lower() for x in ["i don't know", "not sure", "sorry"]):
+        if any(
+            x in response_content.lower() for x in ["i don't know", "not sure", "sorry"]
+        ):
             response_content = "🤖 Try rephrasing — I didn’t quite get that."
 
         # -------------------
@@ -1296,10 +1373,12 @@ async def chat():
             or request.remote_addr
         )
 
-        ip_log.setdefault(user_ip, []).append({
-            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "message": log_message,
-        })
+        ip_log.setdefault(user_ip, []).append(
+            {
+                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "message": log_message,
+            }
+        )
 
         app.logger.info(
             f"\n📩 {user_ip}: {log_message}\n🤖 {model_choice}: {response_content}\n"
@@ -1311,12 +1390,18 @@ async def chat():
         set_down_mode(type(e).__name__)
         app.logger.error(f"❌ Chat route error: {e}")
 
-        return jsonify({
-            "error": str(e),
-            "is_down": True,
-            "reason": DOWN_REASON,
-            "timestamp": DOWN_TIMESTAMP
-        }), 503
+        return (
+            jsonify(
+                {
+                    "error": str(e),
+                    "is_down": True,
+                    "reason": DOWN_REASON,
+                    "timestamp": DOWN_TIMESTAMP,
+                }
+            ),
+            503,
+        )
+
 
 # -------------------------------
 # Auxiliary Functions

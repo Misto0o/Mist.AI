@@ -257,39 +257,29 @@
             const hostname = window.location.hostname;
             const protocol = window.location.protocol;
 
-            // Local dev (Live Server, localhost, file://)
-            if (
-                protocol === 'file:' ||
-                hostname === 'localhost' ||
-                hostname === '127.0.0.1'
-            ) {
+            if (protocol === 'file:' || hostname === 'localhost' || hostname === '127.0.0.1') {
                 return {
                     name: 'Local Development',
-                    baseUrl: window.location.origin || 'http://127.0.0.1:5500'
+                    baseUrl: 'http://127.0.0.1:5000'  // Flask root
                 };
             }
 
-            // Production
             return {
                 name: 'Production',
-                baseUrl: 'https://mistai.org'
+                baseUrl: 'https://mistai.org'  // deployed site
             };
         }
 
-
-        // Update page with environment info
         function updateEnvironmentInfo() {
             const env = getEnvironment();
             document.getElementById('environment').textContent = env.name;
             document.getElementById('environment').className = 'status-value warning';
-
-            // Set home link dynamically
-            document.getElementById('home-link').href = env.baseUrl;
-
-            // Update timestamp
-            const now = new Date();
             document.getElementById('timestamp').textContent =
-                `Last updated: ${now.toLocaleTimeString()}`;
+                `Last updated: ${new Date().toLocaleTimeString()}`;
+
+            // Make "Return Home" work
+            const homeLink = document.getElementById('home-link');
+            homeLink.href = env.baseUrl + '/';  // go to Flask root
         }
 
         // Check server status
@@ -304,37 +294,26 @@
 
             try {
                 const env = getEnvironment();
-                const response = await fetch(`${env.baseUrl}/is-down`, {
-                    method: 'GET',
-                    headers: { 'Content-Type': 'application/json' }
-                });
-
+                const response = await fetch(`${env.baseUrl}/status`);
                 const data = await response.json();
 
-                if (data.is_down === false) {
-                    // Server is back up!
-                    statusEl.textContent = 'ONLINE';
-                    statusEl.className = 'status-value success';
-                    errorTypeEl.textContent = 'Service Restored';
-                    errorTypeEl.className = 'status-value success';
-                    errorDetailsEl.innerHTML =
-                        '<strong>✅ Good news!</strong><br>Mist.AI is back online. You can now return to the chat.';
-                } else {
-                    // Still down
+                if (data.is_down) {
                     statusEl.textContent = 'DOWN';
                     statusEl.className = 'status-value error';
-                    errorTypeEl.textContent = data.error_type || 'System Error';
-                    errorDetailsEl.innerHTML =
-                        `<strong>📋 Status:</strong><br>${data.message || 'Service is temporarily unavailable. Please try again in a few minutes.'}`;
+                    errorTypeEl.textContent = data.down_reason || 'System Error';
+                    errorDetailsEl.innerHTML = `<strong>📋 Status:</strong><br>${data.message || 'Mist.AI is currently unavailable.'}`;
+                } else {
+                    statusEl.textContent = 'ONLINE';
+                    statusEl.className = 'status-value success';
+                    errorTypeEl.textContent = 'Service Operational';
+                    errorDetailsEl.innerHTML = '<strong>✅ Good news!</strong><br>Mist.AI is operational and ready to chat!';
                 }
 
                 lastCheckEl.textContent = 'Just now';
-
             } catch (error) {
                 console.error('Status check failed:', error);
                 errorTypeEl.textContent = 'Connection Failed';
-                errorDetailsEl.innerHTML =
-                    '<strong>⚠️ Cannot reach server</strong><br>Unable to connect to the backend. Please check your internet connection or try again later.';
+                errorDetailsEl.innerHTML = '<strong>⚠️ Cannot reach server</strong><br>Unable to connect to the backend. Please check your internet connection or try again later.';
             }
 
             loader.style.display = 'none';
