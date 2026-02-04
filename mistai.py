@@ -311,15 +311,6 @@ def favicon():
     return send_from_directory(FAVICON_FOLDER, filename, mimetype=mimetype)
 
 
-# Handle /is-down properly
-@app.route("/is-down")
-def is_down_page():
-    try:
-        return render_template("mistai_status.html")  # your down page
-    except:
-        return "Down page template missing", 500
-
-
 @app.route("/")
 def home():
     # Check if accessing via Fly.dev URL
@@ -1384,7 +1375,7 @@ async def chat():
         )
 
         app.logger.info(
-            f"\n📩 {user_ip}: {log_message}\n🤖 {model_choice}: {response_content}\n"
+            f"\n📩 User {user_ip}: {log_message}\n🤖 {model_choice}: {response_content}\n"
         )
 
         return jsonify({"response": response_content})

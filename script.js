@@ -1,3 +1,15 @@
+document.addEventListener("focusin", e => {
+    if (!e.target.classList.contains("edit-textarea")) return;
+
+    document.addEventListener("click", function exitEdit(ev) {
+        if (!e.target.contains(ev.target)) {
+            e.target.closest(".message")?.querySelector(".cancel-button")?.click();
+            document.removeEventListener("click", exitEdit);
+        }
+    });
+});
+
+
 // Initialize Showdown converter for markdown
 const converter = new showdown.Converter({
     simpleLineBreaks: true,
@@ -5,7 +17,7 @@ const converter = new showdown.Converter({
 });
 
 // Function to initialize CodeMirror in the passed container
-function initializeCodeMirror(container, code) {
+function initializeCodeMirror(container, code, mode = "text") {
     if (!container) {
         console.error("CodeMirror container is invalid or not found.");
         return;
@@ -22,12 +34,20 @@ function initializeCodeMirror(container, code) {
 
     const editor = CodeMirror(container, {
         value: code,
-        mode: "javascript",
+        mode: mode,
         theme: "dracula",
         readOnly: true,
         lineNumbers: true,
-        viewportMargin: Infinity // Show all lines, no vertical scroll
+        viewportMargin: Infinity
     });
+
+    setTimeout(() => editor.refresh(), 0);
+
+    // 🔥 FORCE LAYOUT REFRESH
+    setTimeout(() => {
+        editor.refresh();
+    }, 0);
+
 
     editor.setCursor(0, 0);
     editor.getWrapperElement().style.fontSize = "14px";
@@ -124,21 +144,25 @@ function renderMessage(message, className) {
     codeBlocks.forEach((codeBlock, index) => {
         const placeholder = document.getElementById(`code-block-${index}`);
         if (placeholder) {
-            // Create a container for CodeMirror
             const codeContainer = document.createElement("div");
             codeContainer.classList.add("codemirror-container");
 
-            // Remove the triple backticks or <code> tags from the code block
-            const cleanCode = codeBlock.replace(/```/g, "").replace(/<code>/g, "").replace(/<\/code>/g, "");
+            // 🔍 Detect language from ```js, ```python, etc
+            const langMatch = codeBlock.match(/```(\w+)/);
+            const mode = langMatch ? langMatch[1] : "text";
 
-            // Initialize CodeMirror in the created container
-            initializeCodeMirror(codeContainer, cleanCode);
+            // 🧼 Clean the code (remove fences + language)
+            const cleanCode = codeBlock
+                .replace(/```[\w]*\n?/, "")
+                .replace(/```$/, "")
+                .replace(/<code>/g, "")
+                .replace(/<\/code>/g, "");
 
-            // Replace the placeholder with the CodeMirror container
+            initializeCodeMirror(codeContainer, cleanCode, mode);
+
             placeholder.replaceWith(codeContainer);
         }
     });
-
     // Scroll to the bottom of the chat box
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
 }
@@ -547,7 +571,18 @@ async function sendMessage(userMessage = null) {
     // Render user message
     // -------------------
     handleNewMessage(userMessage, "user", uploadedFile);
-    userInput.value = '';
+    // ✅ CLEAR IMAGE STATE IMMEDIATELY
+    const previewContainer = document.getElementById("image-preview");
+    if (previewContainer) {
+        previewContainer.innerHTML = "";
+        previewContainer.classList.remove("active");
+    }
+    uploadedFile = null;
+
+    userInput.value = "";
+    userInput.style.height = `${minHeight}px`; // 🔥 FORCE RESET
+    wordCounter.style.display = "none";
+
     document.body.classList.add("hide-header");
 
     // Disable input while sending
@@ -650,12 +685,6 @@ async function sendMessage(userMessage = null) {
     userInput.disabled = false;
     canSendMessage = true;
     userInput.focus();
-
-    // Clear image preview
-    const previewContainer = document.getElementById("image-preview");
-    previewContainer.innerHTML = "";
-    previewContainer.classList.remove("active");
-    uploadedFile = null;
 }
 
 checkDownMode();
@@ -1174,22 +1203,34 @@ window.addEventListener("DOMContentLoaded", () => {
 
 // Function to enable edit mode
 function enableEditMode(messageElement, originalContent) {
-    // Create a textarea for editing
     const textarea = document.createElement("textarea");
     textarea.classList.add("edit-textarea");
     textarea.value = originalContent;
 
-    // Create a save button
     const saveButton = document.createElement("button");
     saveButton.classList.add("save-button");
     saveButton.textContent = "Save";
     saveButton.onclick = () => saveEditedMessage(messageElement, textarea.value);
 
-    // Replace the message content with the textarea and save button
+    const cancelButton = document.createElement("button");
+    cancelButton.classList.add("cancel-button");
+    cancelButton.textContent = "Cancel";
+    cancelButton.onclick = () => {
+        // 🔥 restore original message
+        messageElement.innerHTML = originalContent;
+
+        const editButton = document.createElement("i");
+        editButton.classList.add("fas", "fa-pen", "edit-button");
+        editButton.onclick = () => enableEditMode(messageElement, originalContent);
+        messageElement.appendChild(editButton);
+    };
+
     messageElement.innerHTML = "";
     messageElement.appendChild(textarea);
     messageElement.appendChild(saveButton);
+    messageElement.appendChild(cancelButton);
 }
+
 
 function saveEditedMessage(messageElement, newContent) {
     const messagesDiv = document.getElementById("chat-box");
@@ -1216,6 +1257,7 @@ function saveEditedMessage(messageElement, newContent) {
 
     // Optionally, update the message in memory
     updateMemory("user", newContent);
+
 }
 
 function createThinkingBubble() {
@@ -1312,26 +1354,26 @@ loopCapabilities();
 
 
 function updateMemory(role, content) {
-        if (!currentThread) return;
+    if (!currentThread) return;
 
-        let threadMemory = JSON.parse(
-            localStorage.getItem(`chatMemory-${currentThread}`)
-        ) || [];
+    let threadMemory = JSON.parse(
+        localStorage.getItem(`chatMemory-${currentThread}`)
+    ) || [];
 
-        const last = threadMemory[threadMemory.length - 1];
-        if (last?.role === role && last?.content === content) return;
+    const last = threadMemory[threadMemory.length - 1];
+    if (last?.role === role && last?.content === content) return;
 
-        threadMemory.push({ role, content });
+    threadMemory.push({ role, content });
 
-        if (threadMemory.length > 25) threadMemory.shift();
+    if (threadMemory.length > 25) threadMemory.shift();
 
-        localStorage.setItem(
-            `chatMemory-${currentThread}`,
-            JSON.stringify(threadMemory)
-        );
+    localStorage.setItem(
+        `chatMemory-${currentThread}`,
+        JSON.stringify(threadMemory)
+    );
 
-        chatMemory = threadMemory;
-    }
+    chatMemory = threadMemory;
+}
 
 // Function to get backend URL
 function getBackendUrl() {
@@ -1372,7 +1414,7 @@ function getBackendBase() {
 async function checkDownMode() {
     const backendBase = getBackendBase();
     try {
-        const res = await fetch(`${backendBase}/is-down`, {
+        const res = await fetch(`${backendBase}/status`, {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json'
@@ -1388,7 +1430,7 @@ async function checkDownMode() {
 
         if (data.is_down) {
             // Redirect to down page
-            window.location.href = `${backendBase}/mistai_down`;
+            window.location.href = `${backendBase}/status-page`;
         }
     } catch (err) {
         console.error("Failed to check down mode:", err);
@@ -1714,6 +1756,7 @@ document.addEventListener("DOMContentLoaded", function () {
         uploadedFile = file;
         const previewContainer = document.getElementById("image-preview");
         const imageUrl = URL.createObjectURL(file);
+        previewContainer.dataset.objectUrl = imageUrl;
 
         previewContainer.innerHTML = `
         <div class="preview-wrapper">
