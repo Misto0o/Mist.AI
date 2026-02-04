@@ -472,7 +472,7 @@ async def analyze_image_with_gemini(img_url_or_bytes):
     image = Image.open(io.BytesIO(image_bytes))
 
     # 3️⃣ Use the correct Gemini API
-    model = genai.GenerativeModel("gemini-2.0-flash-exp")  # or 'gemini-1.5-flash'
+    model = genai.GenerativeModel("gemini-2.5-flash")
 
     response = model.generate_content(
         ["Extract any text and describe the image in detail.", image]
