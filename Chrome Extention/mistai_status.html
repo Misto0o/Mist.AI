@@ -207,8 +207,8 @@
 <body>
     <div class="container">
         <div class="box">
-            <h1>⚠️ Mist.AI is Down</h1>
-            <p class="subtitle">We're experiencing technical difficulties</p>
+            <h1 id="main-title">⚠️ Mist.AI Status</h1>
+            <p class="subtitle" id="main-subtitle">Checking server status...</p>
 
             <div class="status-section">
                 <h3 style="margin-bottom: 15px; opacity: 0.9;">System Status</h3>
@@ -292,6 +292,8 @@
             const errorTypeEl = document.getElementById('error-type');
             const lastCheckEl = document.getElementById('last-check');
             const errorDetailsEl = document.getElementById('error-details');
+            const mainTitle = document.getElementById('main-title');
+            const mainSubtitle = document.getElementById('main-subtitle');
 
             loader.style.display = 'inline-block';
 
@@ -301,20 +303,31 @@
                 const data = await response.json();
 
                 if (data.is_down) {
+                    // System is DOWN
+                    mainTitle.textContent = '⚠️ Mist.AI is Down';
+                    mainSubtitle.textContent = 'We\'re experiencing technical difficulties';
                     statusEl.textContent = 'DOWN';
                     statusEl.className = 'status-value error';
                     errorTypeEl.textContent = data.down_reason || 'System Error';
                     errorDetailsEl.innerHTML = `<strong>📋 Status:</strong><br>${data.message || 'Mist.AI is currently unavailable.'}`;
                 } else {
+                    // System is ONLINE
+                    mainTitle.textContent = '✅ Mist.AI is Online';
+                    mainSubtitle.textContent = 'All systems operational';
                     statusEl.textContent = 'ONLINE';
                     statusEl.className = 'status-value success';
                     errorTypeEl.textContent = 'Service Operational';
+                    errorTypeEl.className = 'status-value success';
                     errorDetailsEl.innerHTML = '<strong>✅ Good news!</strong><br>Mist.AI is operational and ready to chat!';
+                    errorDetailsEl.style.background = 'rgba(46, 213, 115, 0.1)';
+                    errorDetailsEl.style.borderLeft = '4px solid #2ed573';
                 }
 
                 lastCheckEl.textContent = 'Just now';
             } catch (error) {
                 console.error('Status check failed:', error);
+                mainTitle.textContent = '❌ Connection Failed';
+                mainSubtitle.textContent = 'Unable to reach server';
                 errorTypeEl.textContent = 'Connection Failed';
                 errorDetailsEl.innerHTML = '<strong>⚠️ Cannot reach server</strong><br>Unable to connect to the backend. Please check your internet connection or try again later.';
             }
