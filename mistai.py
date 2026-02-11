@@ -178,6 +178,8 @@ def before_request_down_mode():
         "static",
         "force_down_test",
         "reset_down_test",
+        "api_chat",
+        "api_status",
     ]
 
     endpoint = request.endpoint or ""
@@ -197,6 +199,7 @@ def before_request_down_mode():
             request.path.startswith("/chat")
             or request.path.startswith("/is-banned")
             or request.path.startswith("/tavily")
+            or request.path.startswith("/api/")
         ):
             response = jsonify(
                 {
@@ -210,6 +213,125 @@ def before_request_down_mode():
 
         # For regular page requests, show down page
         return render_template("mistai_status.html"), 503
+
+
+@app.route("/api/chat", methods=["POST"])
+def api_chat():
+    """
+    API endpoint for programmatic access to MistAI.
+    """
+    try:
+        data = request.get_json()
+
+        if not data or "message" not in data:
+            return (
+                jsonify(
+                    {"error": "Missing 'message' in request body", "is_down": IS_DOWN}
+                ),
+                400,
+            )
+
+        user_message = data.get("message", "").strip()
+        model = data.get("model", "gemini").strip().lower()
+        mode = data.get("mode", "chat").strip().lower()
+
+        if not user_message:
+            return (
+                jsonify({"error": "Message cannot be empty", "is_down": IS_DOWN}),
+                400,
+            )
+
+        # Validate model
+        valid_models = ["gemini", "cohere", "mistral"]
+        if model not in valid_models:
+            return (
+                jsonify(
+                    {
+                        "error": f"Invalid model. Choose from: {', '.join(valid_models)}",
+                        "is_down": IS_DOWN,
+                    }
+                ),
+                400,
+            )
+
+        # Modify prompt for assistant mode
+        if mode == "assistant":
+            system_override = (
+                "\n\nIMPORTANT: You are being used as a voice assistant. "
+                "Keep responses VERY SHORT (1-2 sentences max). "
+                "For action commands, just acknowledge briefly."
+            )
+            modified_message = f"{user_message}{system_override}"
+        else:
+            modified_message = user_message
+
+        # -------------------------------
+        # AI execution (SAFE + SYNC)
+        # -------------------------------
+        ai_response = None
+
+        try:
+            if model == "gemini":
+                ai_response = get_gemini_response(modified_message)
+
+            elif model == "cohere":
+                ai_response = get_cohere_response(modified_message)
+
+            elif model == "mistral":
+                ai_response = asyncio.run(get_mistral_response(modified_message))
+
+        except Exception as e:
+            app.logger.exception("Model execution failed")
+            return (
+                jsonify(
+                    {
+                        "error": "AI model failed to respond",
+                        "details": str(e),
+                        "is_down": IS_DOWN,
+                    }
+                ),
+                500,
+            )
+
+        if not ai_response:
+            return (
+                jsonify({"error": "Empty response from AI model", "is_down": IS_DOWN}),
+                500,
+            )
+
+        return (
+            jsonify(
+                {
+                    "response": ai_response,
+                    "model": model,
+                    "timestamp": datetime.now().isoformat(),
+                    "is_down": IS_DOWN,
+                }
+            ),
+            200,
+        )
+
+    except Exception as e:
+        app.logger.exception("API Error")
+        return jsonify({"error": str(e), "is_down": IS_DOWN}), 500
+
+
+# ✅ NEW: API STATUS ENDPOINT
+@app.route("/api/status", methods=["GET"])
+def api_status():
+    """
+    Check if the API is online and which models are available.
+    """
+    return jsonify(
+        {
+            "status": "down" if IS_DOWN else "online",
+            "is_down": IS_DOWN,
+            "down_reason": DOWN_REASON if IS_DOWN else None,
+            "down_since": DOWN_TIMESTAMP if IS_DOWN else None,
+            "available_models": ["gemini", "cohere", "mistral"],
+            "timestamp": datetime.now().isoformat(),
+        }
+    ), (200 if not IS_DOWN else 503)
 
 
 # =========================
@@ -299,9 +421,11 @@ FAVICONS = {
     "default": "favicon.ico",
 }
 
+
 @app.route("/mistaifaviocn/<path:filename>")
 def serve_favicon(filename):
     return send_from_directory(FAVICON_FOLDER, filename)
+
 
 @app.route("/favicon.ico")
 def favicon():
@@ -316,7 +440,7 @@ def home():
     # Check if accessing via Fly.dev URL
     if request.host == "mist-ai.fly.dev":
         return redirect("https://mistai.org", code=301)
-    
+
     return send_from_directory(os.getcwd(), "index.html")
 
 
