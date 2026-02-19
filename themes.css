@@ -1,121 +1,329 @@
-/* THEMED CHAT MESSAGES */
-.light-theme .user-message {
-    background-color: #ffffff;
+/* ==================== CSS VARIABLE DEFINITIONS PER THEME ==================== */
+
+.light-theme {
+    --primary: #222222;
+    --primary-hover: #000000;
+    --accent: #ffffff;
+    --bg: #111111;
+    --bg-dark: #000000;
+    --text: #ffffff;
+    --text-inverse: #222;
+    --user-bg: #ffffff;
+    --bot-bg: #ddd;
 }
 
-.light-theme .bot-message {
-    background-color: #ddd;
-    color: #222;
+.blue-theme {
+    --primary: #64ffda;
+    --primary-hover: #4dd0ba;
+    --accent: #64ffda;
+    --bg: #1976d2;
+    --bg-dark: #0d47a1;
+    --text: #ffffff;
+    --text-inverse: #0d47a1;
+    --user-bg: #64ffda;
+    --bot-bg: #1565C0;
 }
 
-.blue-theme .user-message {
-    background-color: #64ffda;
-    color: #0d47a1;
+.midnight-theme {
+    --primary: #4F46E5;
+    --primary-hover: #2563EB;
+    --accent: #2563EB;
+    --bg: #1E293B;
+    --bg-dark: #0F172A;
+    --text: #E5E7EB;
+    --text-inverse: #ffffff;
+    --user-bg: #2563EB;
+    --bot-bg: #1E293B;
 }
 
-.blue-theme .bot-message {
-    background-color: #1565C0;
+.cyberpunk-theme {
+    --primary: #00E5FF;
+    --primary-hover: #FF4081;
+    --accent: #FF4081;
+    --bg: #1A1A2E;
+    --bg-dark: #1A1A2E;
+    --text: #1A1A2E;
+    --text-inverse: #1A1A2E;
+    --user-bg: #FF4081;
+    --bot-bg: #00E5FF;
 }
 
-/* Midnight Blue Theme */
-.midnight-theme .user-message {
-    background-color: #2563EB;
-    color: #D1D5DB;
+.arctic-theme {
+    --primary: #64B5F6;
+    --primary-hover: #42A5F5;
+    --accent: #64B5F6;
+    --bg: #E3F2FD;
+    --bg-dark: #E3F2FD;
+    --text: #1E3A5F;
+    --text-inverse: #1E3A5F;
+    --user-bg: #64B5F6;
+    --bot-bg: #E3F2FD;
 }
 
-.midnight-theme .bot-message {
-    background-color: #1E293B;
-    color: #E5E7EB;
+.terminal-theme {
+    --primary: #00FF41;
+    --primary-hover: #008F11;
+    --accent: #00FF41;
+    --bg: #0D1B0D;
+    --bg-dark: #0D1B0D;
+    --text: #00FF41;
+    --text-inverse: #0D1B0D;
+    --user-bg: #00FF41;
+    --bot-bg: #008F11;
 }
 
-/* Cyberpunk Neon Theme */
+.sunset-theme {
+    --primary: #FF8C42;
+    --primary-hover: #D7263D;
+    --accent: #FF8C42;
+    --bg: #2C1E3D;
+    --bg-dark: #2C1E3D;
+    --text: #FDE68A;
+    --text-inverse: #2C1E3D;
+    --user-bg: #FF8C42;
+    --bot-bg: #D7263D;
+}
+
+.konami-theme {
+    --primary: #FF3131;
+    --primary-hover: #FFD700;
+    --accent: #FFD700;
+    --bg: #111;
+    --bg-dark: #0D1B2A;
+    --text: #FFD700;
+    --text-inverse: #ffffff;
+    --user-bg: #FF3131;
+    --bot-bg: #0D1B2A;
+}
+
+.galaxy-theme {
+    --primary: #667eea;
+    --primary-hover: #764ba2;
+    --accent: #f093fb;
+    --bg: #1a1a2e;
+    --bg-dark: #16213e;
+    --text: #ffffff;
+    --text-inverse: #ffffff;
+    --user-bg: #667eea;
+    --bot-bg: #f093fb;
+}
+
+.golden-theme {
+    --primary: #D4AF37;
+    --primary-hover: #F4A460;
+    --accent: #D4AF37;
+    --bg: #5D4037;
+    --bg-dark: #3E2723;
+    --text: #F4A460;
+    --text-inverse: #3E2723;
+    --user-bg: #F4A460;
+    --bot-bg: #D4AF37;
+}
+
+.cherry-theme {
+    --primary: #FF69B4;
+    --primary-hover: #FFB7C5;
+    --accent: #FF69B4;
+    --bg: #FFE4EC;
+    --bg-dark: #FFDAE5;
+    --text: #8B2E3B;
+    --text-inverse: #5D1F27;
+    --user-bg: #FFB7C5;
+    --bot-bg: #FFDAE5;
+}
+
+/* ==================== SHARED THEME STYLES (all themes) ==================== */
+
+[class$="-theme"] .user-message {
+    background-color: var(--user-bg);
+    color: var(--text-inverse);
+    border-color: var(--accent);
+}
+
+[class$="-theme"] .bot-message {
+    background-color: var(--bot-bg);
+    color: var(--text);
+    border-color: var(--accent);
+}
+
+[class$="-theme"] .sidebar {
+    border-left-color: var(--accent);
+    color: var(--text);
+}
+
+[class$="-theme"] .chat-input-container {
+    background: var(--bg);
+    color: var(--text);
+    border-color: var(--accent);
+}
+
+[class$="-theme"] .button {
+    background-color: var(--primary);
+    color: var(--text-inverse);
+    border-color: var(--accent);
+}
+
+[class$="-theme"] .button:hover {
+    background-color: var(--primary-hover);
+}
+
+[class$="-theme"] .site-title {
+    color: var(--accent) !important;
+}
+
+[class$="-theme"] .menu-label {
+    color: var(--p) !important;
+}
+
+[class$="-theme"] .menu-list a {
+    color: var(--primary);
+}
+
+[class$="-theme"] .menu-list a:hover {
+    background-color: var(--primary);
+    color: var(--text-inverse);
+}
+
+[class$="-theme"] .icon-button [class$="-theme"] .slash-button {
+    color: var(--text-inverse);
+    /* removed background-color so per-theme hovers can work */
+}
+
+[class$="-theme"] .icon-button:hover,
+[class$="-theme"] .slash-button:hover {
+    background-color: var(--primary-hover);
+    /* this stays as fallback but per-theme rules below will override it */
+}
+
+[class$="-theme"] #word-counter {
+    color: var(--accent);
+}
+
+[class$="-theme"] .tools-popup {
+    background-color: var(--bg);
+    color: var(--text);
+}
+
+[class$="-theme"] .tool-option:hover {
+    background-color: var(--primary);
+    color: var(--text-inverse);
+}
+
+[class$="-theme"] .send-btn {
+    background: var(--primary);
+    color: var(--text-inverse);
+}
+
+/* === Galaxy gradient overrides === */
+.galaxy-theme .user-message {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.galaxy-theme .bot-message {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+.galaxy-theme .button {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+}
+
+.galaxy-theme .button:hover {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+.galaxy-theme .chat-input-container {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+}
+
+.galaxy-theme .menu-list a:hover {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.galaxy-theme .site-title {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* Konami unique colors */
+.konami-theme .bot-message {
+    color: #00FFFF;
+}
+
+.konami-theme .menu-list a {
+    color: #00FFFF;
+}
+
+/* Cyberpunk - restore cyan text on dark bg elements, white on pink user msg */
+.cyberpunk-theme .sidebar,
+.cyberpunk-theme .chat-input-container,
+.cyberpunk-theme .tools-popup {
+    color: #00E5FF;
+}
+
+.cyberpunk-theme #word-counter {
+    color: #FF4081;
+}
+
 .cyberpunk-theme .user-message {
-    background-color: #FF4081;
-    color: #1A1A2E;
+    color: #ffffff;
 }
 
-.cyberpunk-theme .bot-message {
-    background-color: #00E5FF;
-    color: #1A1A2E;
+/* Arctic - darker chat input container for readability */
+.arctic-theme .chat-input-container {
+    background: #5B9BD5;
+    color: #ffffff;
 }
 
-/* Arctic Frost Theme */
-.arctic-theme .user-message {
-    background-color: #64B5F6;
-    color: #1E3A5F;
+/* Midnight - menu-label more readable */
+.midnight-theme .menu-label {
+    color: #93C5FD !important;
 }
 
-.arctic-theme .bot-message {
-    background-color: #E3F2FD;
-    color: #1E3A5F;
+/* Golden - bot message darker text */
+.golden-theme .bot-message {
+    color: #3E2723;
 }
 
-/* Retro Terminal Theme */
-.terminal-theme .user-message {
-    background-color: #00FF41;
-    color: #0D1B0D;
+/* Cherry - dark chat input container */
+.cherry-theme .chat-input-container {
+    background: #C2185B;
+    color: #ffffff;
+    border-color: #FF69B4;
 }
 
-.terminal-theme .bot-message {
-    background-color: #008F11;
-    color: #E0E0E0;
+/* Light theme - buttons keep white text on dark button bg */
+.light-theme .button,
+.light-theme .icon-button,
+.light-theme .slash-button {
+    color: #ffffff;
 }
 
-/* Sunset Dusk Theme */
-.sunset-theme .user-message {
-    background-color: #FF8C42;
-    color: #2C1E3D;
+/* Light theme - sidebar menu links white, input border white */
+.light-theme .menu-list a {
+    color: #ffffff;
 }
 
-.sunset-theme .bot-message {
-    background-color: #D7263D;
-    color: #FDE68A;
+.light-theme .chat-input-container {
+    border-color: #ffffff;
 }
 
-/* Sidebar */
+/* ==================== TEXTAREA INHERIT (all themes) ==================== */
+[class$="-theme"] #user-input {
+    background: transparent;
+    color: inherit;
+}
+
+/* ==================== BASE STYLES ==================== */
+
 .sidebar {
     padding: 15px;
     border-radius: 10px;
     border-left: 5px solid transparent;
 }
 
-/* Themed Sidebar */
-.light-theme .sidebar {
-    border-left-color: #ffffff;
-    color: #222;
-}
-
-.blue-theme .sidebar {
-    border-left-color: #64ffda;
-    color: #0d47a1;
-}
-
-.midnight-theme .sidebar {
-    border-left-color: #2563EB;
-    color: #D1D5DB;
-}
-
-.cyberpunk-theme .sidebar {
-    border-left-color: #FF4081;
-    color: #FF4081;
-}
-
-.arctic-theme .sidebar {
-    border-left-color: #64B5F6;
-    color: #1E3A5F;
-}
-
-.terminal-theme .sidebar {
-    border-left-color: #00FF41;
-    color: #00FF41;
-}
-
-.sunset-theme .sidebar {
-    border-left-color: #FF8C42;
-    color: #FF8C42;
-}
-
-/* Chat Input */
 .chat-input-container {
     background: #444;
     border-radius: 25px;
@@ -123,90 +331,6 @@
     border: 2px solid transparent;
 }
 
-/* Themed Chat Input */
-.light-theme .chat-input-container {
-    background: #ddd;
-    color: #222;
-    border-color: #1565C0;
-}
-
-.blue-theme .chat-input-container {
-    background: #1976d2;
-    border-color: #64ffda;
-}
-
-.midnight-theme .chat-input-container {
-    background: #1E293B;
-    border-color: #2563EB;
-}
-
-.cyberpunk-theme .chat-input-container {
-    background: #FF4081;
-    color: #1A1A2E;
-    border-color: #00E5FF;
-}
-
-.arctic-theme .chat-input-container {
-    background: #E3F2FD;
-    color: #1E3A5F;
-    border-color: #64B5F6;
-}
-
-.terminal-theme .chat-input-container {
-    background: #0D1B0D;
-    color: #00FF41;
-    border-color: #00FF41;
-}
-
-.sunset-theme .chat-input-container {
-    background: #2C1E3D;
-    border-color: #FF8C42;
-}
-
-.light-theme .button {
-    background-color: #1976d2;
-    color: white;
-    border-color: #1565C0;
-}
-
-.blue-theme .button {
-    background-color: #64ffda;
-    color: #0d47a1;
-    border-color: #64ffda;
-}
-
-.midnight-theme .button {
-    background-color: #4F46E5;
-    color: white;
-    border-color: #2563EB;
-}
-
-.cyberpunk-theme .button {
-    background-color: #00E5FF;
-    color: #1A1A2E;
-    border-color: #FF4081;
-}
-
-.arctic-theme .button {
-    background-color: #64B5F6;
-    color: #1E3A5F;
-    border-color: #E3F2FD;
-}
-
-.terminal-theme .button {
-    background-color: #00FF41;
-    color: #0D1B0D;
-    border-color: #008F11;
-}
-
-.sunset-theme .button {
-    background-color: #FF8C42;
-    color: #2C1E3D;
-    border-color: #D7263D;
-}
-
-
-/* Chat Bubbles */
 .user-message,
 .bot-message {
     border-radius: 15px;
@@ -214,236 +338,17 @@
     border: 2px solid transparent;
 }
 
-/* Themed Chat Borders */
-.light-theme .user-message,
-.light-theme .bot-message {
-    border-color: #ffffff;
-}
 
-.blue-theme .user-message,
-.blue-theme .bot-message {
-    border-color: #64ffda;
-}
-
-.midnight-theme .user-message,
-.midnight-theme .bot-message {
-    border-color: #2563EB;
-}
-
-.cyberpunk-theme .user-message,
-.cyberpunk-theme .bot-message {
-    border-color: #FF4081;
-}
-
-.arctic-theme .user-message,
-.arctic-theme .bot-message {
-    border-color: #64B5F6;
-}
-
-.terminal-theme .user-message,
-.terminal-theme .bot-message {
-    border-color: #00FF41;
-}
-
-.sunset-theme .user-message,
-.sunset-theme .bot-message {
-    border-color: #FF8C42;
-}
-
-.chat-box::-webkit-scrollbar-thumb {
-    background-color: #444;
-}
-
-.light-theme .chat-box::-webkit-scrollbar-thumb {
-    background-color: #aaa;
-}
-
-.blue-theme .chat-box::-webkit-scrollbar-thumb {
-    background-color: #64ffda;
-}
-
-.midnight-theme .chat-box::-webkit-scrollbar-thumb {
-    background-color: #4F46E5;
-}
-
-.cyberpunk-theme .chat-box::-webkit-scrollbar-thumb {
-    background-color: #FF4081;
-}
-
-.arctic-theme .chat-box::-webkit-scrollbar-thumb {
-    background-color: #64B5F6;
-}
-
-.terminal-theme .chat-box::-webkit-scrollbar-thumb {
-    background-color: #00FF41;
-}
-
-.sunset-theme .chat-box::-webkit-scrollbar-thumb {
-    background-color: #FF8C42;
-}
-
-/* THEMED TITLE */
 .site-title {
     font-weight: bold;
 }
 
-/* Light Theme */
-.light-theme .site-title {
-    color: #ffffff !important;
-}
-
-/* Blue Theme */
-.blue-theme .site-title {
-    color: #64ffda !important;
-}
-
-/* Midnight Theme */
-.midnight-theme .site-title {
-    color: #2563EB !important;
-}
-
-/* Cyberpunk Theme */
-.cyberpunk-theme .site-title {
-    color: #FF4081 !important;
-}
-
-/* Arctic Theme */
-.arctic-theme .site-title {
-    color: #64B5F6 !important;
-}
-
-/* Terminal Theme */
-.terminal-theme .site-title {
-    color: #00FF41 !important;
-}
-
-/* Sunset Theme */
-.sunset-theme .site-title {
-    color: #FF8C42 !important;
-}
-
-/* THEMED MENU LABEL */
 .menu-label {
     font-size: 1.2rem;
     font-weight: bold;
     text-align: center;
 }
 
-/* Light Theme */
-.light-theme .menu-label {
-    color: #ffffff !important;
-}
-
-/* Blue Theme */
-.blue-theme .menu-label {
-    color: #64ffda !important;
-}
-
-/* Midnight Theme */
-.midnight-theme .menu-label {
-    color: #2563EB !important;
-}
-
-/* Cyberpunk Theme */
-.cyberpunk-theme .menu-label {
-    color: #FF4081 !important;
-}
-
-/* Arctic Theme */
-.arctic-theme .menu-label {
-    color: #64B5F6 !important;
-}
-
-/* Terminal Theme */
-.terminal-theme .menu-label {
-    color: #00FF41 !important;
-}
-
-/* Sunset Theme */
-.sunset-theme .menu-label {
-    color: #FF8C42 !important;
-}
-
-/* THEMED MENU LIST */
-.menu-list a {
-    display: block;
-    padding: 8px 15px;
-    border-radius: 8px;
-    transition: background-color 0.3s, color 0.3s;
-    font-weight: 500;
-}
-
-/* Light Theme */
-.light-theme .menu-list a {
-    color: #ffffff;
-}
-
-.light-theme .menu-list a:hover {
-    background-color: #ffffff !important;
-    color: white;
-}
-
-/* Blue Theme */
-.blue-theme .menu-list a {
-    color: #64ffda;
-}
-
-.blue-theme .menu-list a:hover {
-    background-color: #64ffda;
-    color: #0d47a1;
-}
-
-/* Midnight Theme */
-.midnight-theme .menu-list a {
-    color: #2563EB;
-}
-
-.midnight-theme .menu-list a:hover {
-    background-color: #2563EB;
-    color: white;
-}
-
-/* Cyberpunk Theme */
-.cyberpunk-theme .menu-list a {
-    color: #FF4081;
-}
-
-.cyberpunk-theme .menu-list a:hover {
-    background-color: #FF4081;
-    color: #1A1A2E;
-}
-
-/* Arctic Theme */
-.arctic-theme .menu-list a {
-    color: #64B5F6;
-}
-
-.arctic-theme .menu-list a:hover {
-    background-color: #64B5F6;
-    color: #1E3A5F;
-}
-
-/* Terminal Theme */
-.terminal-theme .menu-list a {
-    color: #00FF41;
-}
-
-.terminal-theme .menu-list a:hover {
-    background-color: #00FF41;
-    color: #0D1B0D;
-}
-
-/* Sunset Theme */
-.sunset-theme .menu-list a {
-    color: #FF8C42;
-}
-
-.sunset-theme .menu-list a:hover {
-    background-color: #FF8C42;
-    color: #2C1E3D;
-}
-
-/* === THEMED MENU LIST === */
 .menu-list a {
     display: block;
     padding: 8px 15px;
@@ -456,78 +361,8 @@
     transform: scale(1.05);
 }
 
-/* Light Theme */
-.light-theme .menu-list a {
-    color: #ffffff;
-}
-
-.light-theme .menu-list a:hover {
-    background-color: #1565C0;
-    color: white;
-}
-
-/* Blue Theme */
-.blue-theme .menu-list a {
-    color: #64ffda;
-}
-
-.blue-theme .menu-list a:hover {
-    background-color: #64ffda;
-    color: #0d47a1;
-}
-
-/* Midnight Theme */
-.midnight-theme .menu-list a {
-    color: #2563EB;
-}
-
-.midnight-theme .menu-list a:hover {
-    background-color: #2563EB;
-    color: white;
-}
-
-/* Cyberpunk Theme */
-.cyberpunk-theme .menu-list a {
-    color: #FF4081;
-}
-
-.cyberpunk-theme .menu-list a:hover {
-    background-color: #FF4081;
-    color: #1A1A2E;
-}
-
-/* Arctic Theme */
-.arctic-theme .menu-list a {
-    color: #64B5F6;
-}
-
-.arctic-theme .menu-list a:hover {
-    background-color: #64B5F6;
-    color: #1E3A5F;
-}
-
-/* Terminal Theme */
-.terminal-theme .menu-list a {
-    color: #00FF41;
-}
-
-.terminal-theme .menu-list a:hover {
-    background-color: #00FF41;
-    color: #0D1B0D;
-}
-
-/* Sunset Theme */
-.sunset-theme .menu-list a {
-    color: #FF8C42;
-}
-
-.sunset-theme .menu-list a:hover {
-    background-color: #FF8C42;
-    color: #2C1E3D;
-}
-
 .theme-container {
-    position: absolute;
+    position: fixed;
     top: 20px;
     right: 20px;
     background: rgba(0, 0, 0, 0.7);
@@ -553,137 +388,149 @@
     font-size: 14px;
 }
 
-/* Main Layout */
-.main-container {
-    display: flex;
-    height: 100vh;
-}
-
-/* Konami Code Theme - Retro Arcade Colors */
-.konami-theme .user-message {
-    background-color: #FF3131;
-    /* Electric Red for user messages */
-    color: #fff;
-}
-
-
 #konami-option {
     display: block;
 }
 
-.konami-theme .bot-message {
-    background-color: #0D1B2A;
-    /* Dark Blue for bot messages */
-    color: #00FFFF;
-    /* Neon Cyan text */
-}
+/* ==================== ACTIVE THREAD STYLES ==================== */
 
-/* Sidebar */
-.konami-theme .sidebar {
-    /* Deep black for arcade vibes */
-    border-left-color: #FF3131;
-    color: #FFD700;
-    /* Bright Yellow text */
-}
-
-/* Themed Chat Input */
-.konami-theme .chat-input-container {
-    background: #111;
-    color: #FFD700;
-    border-color: #FF3131;
-}
-
-/* Buttons */
-.konami-theme .button {
-    background-color: #FF3131;
-    color: white;
-    border-color: #FF3131;
-}
-
-.konami-theme .button:hover {
-    background-color: #FFD700;
-    /* Bright Yellow on hover */
-    color: #111;
-}
-
-/* Chat Bubbles */
-.konami-theme .user-message,
-.konami-theme .bot-message {
-    border-color: #FF3131;
-}
-
-/* Themed Menu */
-.konami-theme .menu-list a {
-    color: #00FFFF;
-    background-color: #0D1B2A;
-}
-
-.konami-theme .menu-list a:hover {
-    background-color: #FF3131;
+body:not([class*="-theme"]) .active-thread .thread-link {
+    background: linear-gradient(135deg, #43ed8d, #38ecb0);
     color: #fff;
+    font-weight: 600;
+    transform: translateX(3px);
 }
 
-/* Themed Swap Button */
-.konami-theme .swap-button {
-    background-color: #FF3131;
-    color: white;
-    border-color: #FF3131;
+/* All themes - active thread uses primary color */
+[class$="-theme"] .active-thread .thread-link {
+    background-color: var(--primary);
+    color: var(--text-inverse);
+    font-weight: 600;
+    transform: translateX(3px);
+    border-color: var(--accent);
 }
 
-.konami-theme .swap-button:hover {
-    background-color: #00FFFF;
+/* Galaxy - gradient override */
+.galaxy-theme .active-thread .thread-link {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #ffffff;
+}
+
+/* Cyberpunk - accent pop */
+.cyberpunk-theme .active-thread .thread-link {
+    background-color: #FF4081;
+    color: #ffffff;
+}
+
+/* Konami - gold highlight */
+.konami-theme .active-thread .thread-link {
+    background-color: #FFD700;
     color: #111;
 }
 
-/* Title & Menu Label */
-.konami-theme .site-title,
-.konami-theme .menu-label {
-    color: #FFD700 !important;
-    /* Gold for that retro glow */
+/* Cherry - readable contrast */
+.cherry-theme .active-thread .thread-link {
+    background-color: #FF69B4;
+    color: #5D1F27;
 }
 
-/* Glowing Effect for Retro Feel */
-@keyframes neonGlow {
-    0% {
-        text-shadow: 0 0 5px #00FFFF, 0 0 10px #00FFFF, 0 0 20px #00FFFF;
-    }
-
-    50% {
-        text-shadow: 0 0 10px #FFD700, 0 0 20px #FFD700, 0 0 30px #FFD700;
-    }
-
-    100% {
-        text-shadow: 0 0 5px #00FFFF, 0 0 10px #00FFFF, 0 0 20px #00FFFF;
-    }
+/* Arctic - darker blue for visibility */
+.arctic-theme .active-thread .thread-link {
+    background-color: #42A5F5;
+    color: #ffffff;
 }
 
-.konami-theme .site-title {
-    animation: neonGlow 1.5s infinite alternate;
+/* Golden - warm brown text for contrast */
+.golden-theme .active-thread .thread-link {
+    background-color: #D4AF37;
+    color: #3E2723;
 }
 
-.konami-theme .chat-message {
-    background-color: #ffcc00;
-    /* Bright yellow for retro vibes */
-    color: #000;
-    /* Black text for contrast */
-    font-weight: bold;
-    font-family: 'Press Start 2P', cursive;
-    /* Arcade-style font */
-    padding: 10px;
+/* ==================== THREAD LINK BASE (button reset) ==================== */
+
+.thread-link {
+    background: none;
+    border: none;
+    text-align: left;
+    width: 100%;
+    cursor: pointer;
+    padding: 8px 15px;
     border-radius: 8px;
-    border: 2px solid #ff5722;
-    /* Konami orange */
-    box-shadow: 0px 0px 10px rgba(255, 87, 34, 0.8);
-    animation: konami-glow 1s infinite alternate ease-in-out;
+    font-weight: 500;
+    transition: background-color 0.3s, color 0.3s, transform 0.2s ease-in-out;
 }
 
-/* Optional: Add a glowing effect */
-@keyframes konami-glow {
-    0% {
-        box-shadow: 0px 0px 10px rgba(255, 87, 34, 0.8);
-    }
+.thread-link:hover {
+    transform: scale(1.05);
+}
 
-    100% {
-        box-shadow: 0px 0px 20px rgba(255, 255, 0, 1);
-    }
+/* Theme hover support for buttons */
+[class$="-theme"] .menu-list .thread-link {
+    color: var(--primary);
+}
+
+[class$="-theme"] .menu-list .thread-link:hover {
+    background-color: var(--primary);
+    color: var(--text-inverse);
+}
+
+/* Light theme - active thread needs contrast fix */
+.light-theme .active-thread .thread-link {
+    background-color: #222222 !important;
+    color: #ffffff !important;
+}
+
+body.blue-theme .icon-button:hover {
+    background: rgba(100, 255, 218, 0.15) !important;
+    color: #64ffda !important;
+}
+
+body.midnight-theme .icon-button:hover {
+    background: rgba(79, 70, 229, 0.2) !important;
+    color: #818CF8 !important;
+}
+
+body.cyberpunk-theme .icon-button:hover {
+    background: rgba(0, 229, 255, 0.15) !important;
+    color: #00E5FF !important;
+}
+
+body.arctic-theme .icon-button:hover {
+    background: rgba(100, 181, 246, 0.2) !important;
+    color: #1E3A5F !important;
+}
+
+body.terminal-theme .icon-button:hover {
+    background: rgba(0, 255, 65, 0.15) !important;
+    color: #00FF41 !important;
+}
+
+body.sunset-theme .icon-button:hover {
+    background: rgba(255, 140, 66, 0.2) !important;
+    color: #FF8C42 !important;
+}
+
+body.konami-theme .icon-button:hover {
+    background: rgba(255, 215, 0, 0.15) !important;
+    color: #FFD700 !important;
+}
+
+body.galaxy-theme .icon-button:hover {
+    background: rgba(102, 126, 234, 0.2) !important;
+    color: #f093fb !important;
+}
+
+body.golden-theme .icon-button:hover {
+    background: rgba(212, 175, 55, 0.2) !important;
+    color: #D4AF37 !important;
+}
+
+body.cherry-theme .icon-button:hover {
+    background: rgba(255, 105, 180, 0.15) !important;
+    color: #FF69B4 !important;
+}
+
+body.light-theme .icon-button:hover {
+    background: rgba(0, 0, 0, 0.15) !important;
+    color: #000000 !important;
 }

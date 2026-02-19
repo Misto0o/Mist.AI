@@ -1,55 +1,72 @@
-const CACHE_NAME = 'mistai-cache-v21';  // 🔁 Update this on every deploy
-
+// 🔥 Update this every deploy
+const VERSION = 'v10';
+const CACHE_NAME = `mistai-cache-${VERSION}`;
 const ASSETS_TO_CACHE = [
   '/',
-  '/index.html?v=19',
-  '/styles.css?v=19',
-  '/themes.css?v=19',
-  '/script.js?v=20',
+  `/index.html?v=${VERSION}`,
+  `/styles.css?v=${VERSION}`,
+  `/themes.css?v=${VERSION}`,
+  `/script.js?v=${VERSION}`,
   '/mistaifaviocn/favicon.ico',
   '/mistaifaviocn/favicon-32x32.png',
   '/mistaifaviocn/android-chrome-192x192.png'
 ];
 
-// Install: cache core files
+// =====================
+// INSTALL
+// =====================
 self.addEventListener('install', (event) => {
-  console.log('[SW] Installing & caching shell…');
+  console.log(`[SW] Installing ${VERSION}...`);
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS_TO_CACHE))
   );
-  self.skipWaiting(); // ⚡ Activate immediately
+  self.skipWaiting();
 });
 
-// Activate: nuke all old caches
+// =====================
+// ACTIVATE - NUKE ALL OLD CACHES
+// =====================
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activating & cleaning old caches…');
+  console.log(`[SW] Activating ${VERSION} - nuking old caches...`);
   event.waitUntil(
     caches.keys().then(keys =>
       Promise.all(keys.map(key => {
-        if (key !== CACHE_NAME) {
-          console.log('[SW] Deleting old cache:', key);
-          return caches.delete(key);
-        }
+        console.log(`[SW] Deleting cache: ${key}`);
+        return caches.delete(key);
       }))
-    ).then(() => self.clients.claim()) // ⚡ Take control
+    ).then(() => caches.open(CACHE_NAME))
+      .then(() => self.clients.claim())
   );
 });
 
-// Fetch: cache-first with background update
+// =====================
+// FETCH - network first, cache fallback
+// =====================
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
-
   event.respondWith(
-    caches.match(event.request).then(cached => {
-      const fetchPromise = fetch(event.request)
-        .then(async networkRes => {
-          const cache = await caches.open(CACHE_NAME);
-          cache.put(event.request, networkRes.clone());
-          return networkRes;
-        }).catch(() => {});
+    fetch(event.request)
+      .then(async networkRes => {
+        const cache = await caches.open(CACHE_NAME);
+        cache.put(event.request, networkRes.clone());
+        return networkRes;
+      })
+      .catch(() => caches.match(event.request))
+  );
+});
 
-      // Serve cached, update in background
-      return cached || fetchPromise;
+// =====================
+// NOTIFICATION CLICK
+// =====================
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const urlToOpen = event.notification.data?.url || '/';
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientsArr => {
+      for (const client of clientsArr) {
+        if (client.url === urlToOpen && 'focus' in client) return client.focus();
+      }
+      return clients.openWindow(urlToOpen);
     })
   );
 });

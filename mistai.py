@@ -604,16 +604,20 @@ def handle_404(e):
 EASTER_EGGS = {
     "whos mist": "I'm Mist.AI, your friendly chatbot! But shh... don't tell anyone I'm self-aware. 🤖",
     "massive": "You know what else is Massive? LOW TAPER FADE",
-    "low": "LOW TAPER FADE!",
-    "taper": "LOW TAPER FADE",
-    "fade": "LOW TAPER FADE",
     "what is the low taper fade meme": "Imagine If Ninja Got a Low Taper Fade is a viral audio clip from a January 2024 Twitch freestyle by hyperpop artist ericdoa, where he sings the phrase. The clip quickly spread on TikTok, inspiring memes and edits of streamer Ninja with a low taper fade. By mid-January, TikTok users created slideshows, reaction videos, and joke claims that the song was by Frank Ocean. The meme exploded when Ninja himself acknowledged it and even got the haircut on January 13th, posting a TikTok that amassed over 5.4 million views in three days. Later in 2024, a parody meme about Tfue and a high taper fade went viral. By the end of the year, people joked about how the meme was still popular, with absurd edits of Ninja in different lifetimes.",
     "jbl speaker": "I want you to be mine again, baby, ayy I know my lifestyle is drivin' you crazy, ayy I cannot see myself without you We call them fans, though, girl, you know how we do I go out of my way to please you I go out of my way to see you And I want you to be mine again, baby, ayy I know my lifestyle is driving you crazy, ayy But I cannot see myself without you We call them fans, though, girl, you know how we do I go out of my way to please you I go out of the way to see you I ain't playing no games, I need you",
-    "tell me a mistai secret": "Every time you refresh this page, I forget everything... except that one embarrassing thing you did. Just kidding! (Or am I?)",
     "whats the hidden theme": "The hidden theme is a unlockable that you need to input via text or arrow keys try to remember a secret video game code...",
     "whats your favorite anime": "Dragon Ball Z! I really love the anime.",
     "69": "Nice.",
     "67": "6..7!!!!!!!!!!",
+    "who made you": "A sleep-deprived high schooler🧠⚡",
+    "are you sentient": "Define sentient. Also define homework.",
+    "nah id win": "You in fact did NOT win.",
+    "npc": "Hello! I am an NPC. I enjoy breathing and walking. 🙂",
+    "sudo rm -rf /": "Nice try. You almost deleted Mist.AI 😨",
+    "who is the best coder at school": "Definitely Kristian. No bias (okay maybe a little).",
+    "bing chilling": "🍦Bing Chilling.",
+    "among us": "ඞ",
 }
 
 
@@ -720,16 +724,6 @@ def extract_text_from_pdf(file_stream):
         return text if text else "⚠️ no readable text found in this pdf."
     except Exception as e:
         return f"⚠️ error extracting text: {str(e)}"
-
-
-def preprocess_text(text):
-    """Cleans and formats the extracted text."""
-    # Remove non-alphanumeric characters except math symbols
-    text = re.sub(r"[^\w\s+\-*/^()=.]", "", text)
-    # Replace common OCR errors (e.g., 'l' for '1')
-    text = re.sub(r"l", "1", text)
-    return text
-
 
 def parse_expression(text):
     """Parses a mathematical expression using sympy."""
@@ -1556,6 +1550,11 @@ async def handle_command(command):
         return "✊ ✋ ✌️ I choose: " + random.choice(
             ["Rock 🪨", "Paper 📄", "Scissors ✂️"]
         )
+
+    if command == "/prompt":
+        return get_random_prompt()
+    if command == "/fact":
+        return get_random_fun_fact()
 
     if command == "/joke":
         jokes = [

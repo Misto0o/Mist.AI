@@ -84,28 +84,41 @@ function extractCodeBlocks(message) {
     return message.match(codePattern) || [];
 }
 
-// Function to render a message with Showdown and CodeMirror
 function renderMessage(message, className) {
     const messagesDiv = document.getElementById("chat-box");
     const messageElement = document.createElement("div");
     messageElement.classList.add("message", className);
 
-    // Extract code blocks from the message
-    const codeBlocks = extractCodeBlocks(message);
-    let processedMessage = message;
+    const codeBlockRegex = /```(\w*)\n?([\s\S]*?)```/g;
+    let lastIndex = 0;
+    let match;
 
-    // Replace code blocks with placeholders
-    codeBlocks.forEach((codeBlock, index) => {
-        processedMessage = processedMessage.replace(codeBlock, `<div id="code-block-${index}"></div>`);
-    });
+    while ((match = codeBlockRegex.exec(message)) !== null) {
+        // Text BEFORE this code block
+        const before = message.slice(lastIndex, match.index);
+        if (before.trim()) {
+            const seg = document.createElement("div");
+            seg.innerHTML = converter.makeHtml(before);
+            messageElement.appendChild(seg);
+        }
 
-    // Process non-code parts with Showdown
-    processedMessage = converter.makeHtml(processedMessage);
+        // The code block
+        const lang = match[1] || "code";
+        const code = match[2].trim();
+        messageElement.appendChild(buildCodeBlock(lang, code));
 
-    // Set the processed message as HTML
-    messageElement.innerHTML = processedMessage;
+        lastIndex = match.index + match[0].length;
+    }
 
-    // Add edit button for user messages
+    // Remaining text after last code block
+    const remaining = message.slice(lastIndex);
+    if (remaining.trim()) {
+        const seg = document.createElement("div");
+        seg.innerHTML = converter.makeHtml(remaining);
+        messageElement.appendChild(seg);
+    }
+
+    // Edit button for user messages
     if (className === "user-message") {
         const editButton = document.createElement("i");
         editButton.classList.add("fas", "fa-pen", "edit-button");
@@ -114,57 +127,115 @@ function renderMessage(message, className) {
         messageElement.appendChild(editButton);
     }
 
-    // Append the message to the chat box
-    messagesDiv.appendChild(messageElement);
-
-    // ✅ Add copy button for bot messages
+    // Copy button for bot messages
     if (className === "bot-message") {
         const copyButton = document.createElement("i");
         copyButton.classList.add("fa-solid", "fa-copy", "copy-button");
         copyButton.title = "Copy Message";
-
-        // Set up the click handler
         copyButton.onclick = () => {
-            navigator.clipboard.writeText(message.replace("Mist.AI: ", ""))
+            navigator.clipboard.writeText(message)
                 .then(() => {
-                    copyButton.classList.remove("fa-copy"); // Remove original copy icon
-                    copyButton.classList.add("fa-check");  // Add checkmark icon
-                    setTimeout(() => {
-                        copyButton.classList.remove("fa-check");
-                        copyButton.classList.add("fa-copy");  // Reset to copy icon
-                    }, 1500);
+                    copyButton.classList.replace("fa-copy", "fa-check");
+                    setTimeout(() => copyButton.classList.replace("fa-check", "fa-copy"), 1500);
                 })
                 .catch(err => console.error("Copy failed", err));
         };
-
         messageElement.appendChild(copyButton);
     }
 
-    // Replace placeholders with CodeMirror instances
-    codeBlocks.forEach((codeBlock, index) => {
-        const placeholder = document.getElementById(`code-block-${index}`);
-        if (placeholder) {
-            const codeContainer = document.createElement("div");
-            codeContainer.classList.add("codemirror-container");
-
-            // 🔍 Detect language from ```js, ```python, etc
-            const langMatch = codeBlock.match(/```(\w+)/);
-            const mode = langMatch ? langMatch[1] : "text";
-
-            // 🧼 Clean the code (remove fences + language)
-            const cleanCode = codeBlock
-                .replace(/```[\w]*\n?/, "")
-                .replace(/```$/, "")
-                .replace(/<code>/g, "")
-                .replace(/<\/code>/g, "");
-
-            initializeCodeMirror(codeContainer, cleanCode, mode);
-
-            placeholder.replaceWith(codeContainer);
-        }
-    });
-    // Scroll to the bottom of the chat box
+    messagesDiv.appendChild(messageElement);
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
+}
+
+
+// ----------------------------------------------------------
+//  buildCodeBlock()
+//  Creates the styled code card with language label + copy btn
+// ----------------------------------------------------------
+function buildCodeBlock(lang, code) {
+    const wrapper = document.createElement("div");
+    wrapper.classList.add("message-code-block");
+
+    // Header
+    const header = document.createElement("div");
+    header.classList.add("code-header");
+
+    const langLabel = document.createElement("span");
+    langLabel.classList.add("code-lang");
+    langLabel.textContent = lang;
+
+    const copyBtn = document.createElement("button");
+    copyBtn.classList.add("code-copy-btn");
+    copyBtn.innerHTML = `<i class="fa-regular fa-copy"></i> Copy`;
+    copyBtn.onclick = () => {
+        navigator.clipboard.writeText(code).then(() => {
+            copyBtn.innerHTML = `<i class="fa-solid fa-check"></i> Copied!`;
+            setTimeout(() => {
+                copyBtn.innerHTML = `<i class="fa-regular fa-copy"></i> Copy`;
+            }, 2000);
+        });
+    };
+
+    header.appendChild(langLabel);
+    header.appendChild(copyBtn);
+    wrapper.appendChild(header);
+
+    // Code body — CodeMirror if loaded, else plain <pre>
+    if (typeof CodeMirror !== "undefined") {
+        const cmContainer = document.createElement("div");
+        wrapper.appendChild(cmContainer);
+        setTimeout(() => initializeCodeMirror(cmContainer, code, lang), 0);
+    } else {
+        const pre = document.createElement("pre");
+        pre.textContent = code;
+        wrapper.appendChild(pre);
+    }
+
+    return wrapper;
+}
+
+
+// ----------------------------------------------------------
+//  typeBotMessage()
+//  Short messages (<= 80 words, no code) → animated typing
+//  Long messages or code → instant render (no lag)
+// ----------------------------------------------------------
+async function typeBotMessage(message, containerClass = "bot-message") {
+    const messagesDiv = document.getElementById("chat-box");
+
+    const wordCount = message.trim().split(/\s+/).length;
+    const hasCode = /```[\s\S]*?```/.test(message);
+
+    // Instant for long or code responses
+    if (wordCount > 80 || hasCode) {
+        renderMessage(message, containerClass);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        return message;
+    }
+
+    // Animated typing for short replies
+    const tempEl = document.createElement("div");
+    tempEl.classList.add("message", containerClass);
+    messagesDiv.appendChild(tempEl);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+    const total = message.length;
+    let i = 0;
+
+    while (i < total) {
+        tempEl.textContent += message[i];
+        i++;
+        const p = i / total;
+        const delay = p < 0.3 ? 38 : p < 0.7 ? 26 : 11;
+        await new Promise(res => setTimeout(res, delay));
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+
+    // Replace temp element with fully rendered version
+    messagesDiv.removeChild(tempEl);
+    renderMessage(message, containerClass);
+
+    return message;
 }
 
 // Default settings
@@ -181,6 +252,9 @@ let thinkingBubble = null; // store globally if needed
 let delayTimeout = null; // timeout reference
 const COOLDOWN_TIME = 60 * 1000; // 60 seconds in milliseconds
 const creatorMode = JSON.parse(localStorage.getItem("creatorMode") || "false");
+const PASTED_THRESHOLD = 200;
+let pastedContent = null;
+const MAX_PASTES = 5;
 
 // List of banned words and AI safety phrases
 const bannedWords = [
@@ -355,7 +429,6 @@ function enableChat() {
     const inputBox = document.getElementById("user-input");
     if (inputBox) {
         inputBox.disabled = false;
-        inputBox.style.backgroundColor = "#111";
         inputBox.placeholder = "Type a message...";
         console.log("✅ Chat enabled.");
     }
@@ -457,6 +530,90 @@ async function handleUserMessage(message) {
             disableChat();
         }
     }
+}
+
+
+function initPasteDetection() {
+    const input = document.getElementById('user-input');
+    if (!input) return;
+
+    input.addEventListener('paste', (e) => {
+        const pasted = (e.clipboardData || window.clipboardData).getData('text');
+        if (!pasted || pasted.length < PASTED_THRESHOLD) return;
+
+        e.preventDefault();
+
+        // Enforce max 5
+        const existing = document.querySelectorAll('.pasted-block');
+        if (existing.length >= MAX_PASTES) return;
+
+        // Store all pastes as an array
+        if (!window.pastedItems) window.pastedItems = [];
+        window.pastedItems.push(pasted);
+        pastedContent = window.pastedItems.join('\n\n');
+
+        addPastedBlock(pasted);
+    });
+}
+
+function addPastedBlock(text) {
+    let row = document.getElementById('pasted-blocks-row');
+
+    // Create the row container if it doesn't exist yet
+    if (!row) {
+        row = document.createElement('div');
+        row.id = 'pasted-blocks-row';
+        row.classList.add('pasted-blocks-row');
+        const container = document.querySelector('.chat-input-container');
+        const textarea = document.getElementById('user-input');
+        container.insertBefore(row, textarea);
+    }
+
+    const block = document.createElement('div');
+    block.classList.add('pasted-block');
+
+    const preview = document.createElement('div');
+    preview.classList.add('pasted-block-text');
+    preview.textContent = text;
+    block.appendChild(preview);
+
+    const label = document.createElement('span');
+    label.classList.add('pasted-label');
+    label.textContent = 'PASTED';
+    block.appendChild(label);
+
+    const removeBtn = document.createElement('button');
+    removeBtn.classList.add('pasted-remove');
+    removeBtn.textContent = '×';
+    removeBtn.onclick = () => {
+        // Remove this paste from the stored array
+        const idx = window.pastedItems?.indexOf(text);
+        if (idx > -1) window.pastedItems.splice(idx, 1);
+        pastedContent = window.pastedItems?.length
+            ? window.pastedItems.join('\n\n')
+            : null;
+
+        block.remove();
+
+        // Clean up row if empty
+        const row = document.getElementById('pasted-blocks-row');
+        if (row && row.children.length === 0) row.remove();
+    };
+    block.appendChild(removeBtn);
+
+    row.appendChild(block);
+}
+
+function removePastedBlock() {
+    const row = document.getElementById('pasted-blocks-row');
+    if (row) row.remove();
+    window.pastedItems = [];
+    pastedContent = null;
+}
+
+function showPastedBlock(text) {
+    // Kept for compatibility — routes to addPastedBlock
+    addPastedBlock(text);
 }
 
 // =========================
@@ -565,12 +722,38 @@ async function sendMessage(userMessage = null) {
     if (!userInput || !messagesDiv || !canSendMessage) return;
 
     if (!userMessage) userMessage = userInput.value.trim();
-    if (!userMessage && !uploadedFile) return; // Allow sending if image exists
+
+    const pastedSnapshot = pastedContent;
+    const pastedItemsSnapshot = window.pastedItems ? [...window.pastedItems] : [];
+
+    // Build the FULL payload text (what gets sent to the backend)
+    let payloadMessage = userMessage;
+    if (pastedSnapshot) {
+        payloadMessage = userMessage
+            ? `${userMessage}\n\n${pastedSnapshot}`
+            : pastedSnapshot;
+    }
+
+    if (!payloadMessage && !uploadedFile) return;
+
+    // Render user message — pass the TYPED text + chips separately for display
+    // but send the FULL combined text to the backend
+    if (pastedItemsSnapshot.length > 0) {
+        renderUserMessageWithChips(userMessage, pastedItemsSnapshot);
+        // Save to thread with typed text only for display
+        handleNewMessageSilent(payloadMessage, "user", uploadedFile);
+    } else {
+        handleNewMessage(userMessage, "user", uploadedFile);
+    }
+
+    removePastedBlock();
+
+    // Use payloadMessage for the actual API call
+    userMessage = payloadMessage;
 
     // -------------------
     // Render user message
     // -------------------
-    handleNewMessage(userMessage, "user", uploadedFile);
     // ✅ CLEAR IMAGE STATE IMMEDIATELY
     const previewContainer = document.getElementById("image-preview");
     if (previewContainer) {
@@ -690,6 +873,34 @@ async function sendMessage(userMessage = null) {
 checkDownMode();
 // Optional: Check periodically (every 60 seconds)
 setInterval(checkDownMode, 60000);
+
+function handleNewMessageSilent(text, sender = "user", file = null) {
+    let state = loadState();
+
+    if (!state.currentThread) {
+        const newThread = createThread("New Chat");
+        state = loadState();
+        state.currentThread = newThread.id;
+        saveState(state);
+        currentThread = newThread.id;
+    }
+
+    const threadId = state.currentThread;
+    const message = { text, sender };
+
+    const headerEl = document.querySelector("header.header");
+    if (headerEl) headerEl.style.display = "none";
+
+    const thread = state.threads.find(t => t.id === threadId);
+    if (thread) {
+        thread.hideHeader = true;
+        saveState(state);
+    }
+
+    if (file) message.file = file;
+    addMessage(threadId, message);
+    // No render — UI was already handled by renderUserMessageWithChips
+}
 
 function removeLastUserMessage(threadId) {
     const state = loadState();
@@ -1036,6 +1247,7 @@ function handleNewMessage(text, sender = "user", file = null) {
 
     const threadId = state.currentThread;
     const message = { text, sender };
+
     // ✅ Hide header when first message is sent
     const headerEl = document.querySelector("header.header");
     if (headerEl) headerEl.style.display = "none";
@@ -1044,12 +1256,20 @@ function handleNewMessage(text, sender = "user", file = null) {
     if (thread) {
         thread.hideHeader = true;
         saveState(state);
-    } if (file) message.file = file;
+    }
+
+    if (file) message.file = file;
 
     addMessage(threadId, message);
 
-    if (file) showMessageWithImage(text, file, sender);
-    else renderMessage(text, sender === "user" ? "user-message" : "bot-message");
+    // ✅ Render with chips if pasted items exist
+    if (file) {
+        showMessageWithImage(text, file, sender);
+    } else if (window.pastedItems && window.pastedItems.length > 0) {
+        renderUserMessageWithChips(text, window.pastedItems);
+    } else {
+        renderMessage(text, sender === "user" ? "user-message" : "bot-message");
+    }
 }
 
 // ----------------------
@@ -1111,7 +1331,8 @@ if (!wordCounter) {
     input.parentNode.appendChild(wordCounter);
 }
 
-input.addEventListener('input', () => {
+input.addEventListener('input', (e) => {
+    if (e.target !== input) return;   // ← add this one line at the very top
     let value = input.value;
     let words = value.trim() === '' ? [] : value.trim().split(/\s+/);
 
@@ -1171,34 +1392,31 @@ function prepareMessageForSend() {
     return words.join(' ');
 }
 
-window.addEventListener("DOMContentLoaded", () => {
-    const params = new URLSearchParams(window.location.search);
-    const query = params.get("q");
-    const isDraft = params.get("draft") === "true";
 
-    if (query) {
-        const inputBox = document.getElementById("user-input");
+document.addEventListener("DOMContentLoaded", function () {
+    const themeSelect = document.getElementById("theme-select");
 
-        const trySend = (tries = 15) => {
-            if (
-                typeof sendMessage === "function" &&
-                typeof canSendMessage !== "undefined" &&
-                inputBox
-            ) {
-                inputBox.value = query;
+    themeSelect.addEventListener("change", function () {
+        const selectedTheme = themeSelect.value;
 
-                if (!isDraft && canSendMessage) {
-                    sendMessage(query);
-                    inputBox.value = ''; // ✅ clear input box properly
+        // Create the swipe effect
+        gsap.to("body", {
+            x: "100%",
+            opacity: 0,
+            duration: 0.3,
+            onComplete: () => {
+                // Remove existing theme classes
+                document.body.classList.remove("light-theme", "blue-theme", "midnight-theme", "cyberpunk-theme", "arctic-theme", "terminal-theme", "sunset-theme", "konami-theme", "cherry-theme", "golden-theme", "galaxy-theme");
+                // Apply the new theme
+                if (selectedTheme !== "dark") {
+                    document.body.classList.add(`${selectedTheme}-theme`);
                 }
 
-            } else if (tries > 0) {
-                setTimeout(() => trySend(tries - 1), 300);
+                // Animate back in
+                gsap.fromTo("body", { x: "-100%", opacity: 0 }, { x: "0%", opacity: 1, duration: 0.3 });
             }
-        };
-
-        trySend();
-    }
+        });
+    });
 });
 
 // Function to enable edit mode
@@ -1301,9 +1519,9 @@ function getRandomDelayMessage() {
 }
 
 const capabilities = [
-    "Version 9.5 - Launched December 2025  🚀",
+    "Version 10 - Launched February 2026 🚀",
     "Chat Threads for organized conversations 🧵",
-    "Analyze IMAGEs in one go 🔍",
+    "Analyze images & compress large text automatically 🔍🧠",
     "Ask for the latest headlines 📰",
     "Summarize your long texts ✂️",
     "Translate messages instantly 🌐",
@@ -1314,7 +1532,7 @@ const capabilities = [
     "Show real-time weather & news 🌦️",
     "Use slash commands like /joke, /rps, /flipcoin 🎲",
     "Remembers session context 🧠",
-    "Customizable themes & sidebar layouts 🎨",
+    "Customizable themes (Galaxy, Golden, Cherry) & sidebar layouts 🎨",
     "Built-in cooldown logic to prevent spam ⚡",
     "Supports PDF, DOCX, TXT, JSON uploads 📄",
     "Friendly AI model names: Nova, Sage, Flux 🤖",
@@ -1325,6 +1543,7 @@ const capabilities = [
     "Auto-resizing input box with live word count ↩️",
     "Smarter Markdown & codeblock handling 🛠️",
     "Edit your messages after sending ✍️",
+    "Notifications for model switching & important events 🔔",
 ];
 
 let i = 0;
@@ -1487,20 +1706,22 @@ const slashButton = document.getElementById("slash-button");
 const suggestionsBox = document.createElement("div");
 suggestionsBox.id = "command-suggestions";
 suggestionsBox.style.position = "absolute";
-suggestionsBox.style.background = "#222";
 suggestionsBox.style.color = "#fff";
 suggestionsBox.style.border = "1px solid #444";
+suggestionsBox.style.backgroundColor = "#222";
 suggestionsBox.style.padding = "5px";
 suggestionsBox.style.display = "none";
 suggestionsBox.style.zIndex = "1000";
 suggestionsBox.style.borderRadius = "5px";
 suggestionsBox.style.cursor = "pointer";
+suggestionsBox.style.display = "block";
+suggestionsBox.style.transform = "translateY(-100%)";
 document.body.appendChild(suggestionsBox);
 
 // Command list
-const commands = ["/flipcoin", "/rps", "/joke", "/riddle", "/weather", "/help"];
+const commands = ["/flipcoin", "/rps", "/joke", "/riddle", "/weather", "/prompt", "/fact", "/help"];
 
-// Show suggestions when typing "/"
+// Show suggestions when typing "/" 
 inputField.addEventListener("input", (e) => {
     const value = e.target.value;
     if (value.startsWith("/")) {
@@ -1555,6 +1776,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const themeSelect = document.getElementById("theme-select");
 
     themeSelect.addEventListener("change", function () {
+        localStorage.setItem("mistai-theme", themeSelect.value);
         const selectedTheme = themeSelect.value;
 
         // Create the swipe effect
@@ -1564,7 +1786,7 @@ document.addEventListener("DOMContentLoaded", function () {
             duration: 0.3,
             onComplete: () => {
                 // Remove existing theme classes
-                document.body.classList.remove("light-theme", "blue-theme", "midnight-theme", "cyberpunk-theme", "arctic-theme", "terminal-theme", "sunset-theme", "konami-theme");
+                document.body.classList.remove("light-theme", "blue-theme", "midnight-theme", "cyberpunk-theme", "arctic-theme", "terminal-theme", "sunset-theme", "konami-theme", "cherry-theme", "golden-theme", "galaxy-theme");
                 // Apply the new theme
                 if (selectedTheme !== "dark") {
                     document.body.classList.add(`${selectedTheme}-theme`);
@@ -1881,19 +2103,59 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     });
 
+    document.addEventListener("paste", e => {
+        const items = e.clipboardData.items;
+        for (let i = 0; i < items.length; i++) {
+            const item = items[i];
+            if (item.type.startsWith("image/")) {
+                const file = item.getAsFile();
+                if (!file) return;
 
-    // Check if service workers are supported
-    if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-            navigator.serviceWorker
-                .register('/service-worker.js')  // Path to your service worker file
-                .then((registration) => {
-                    console.log('Service Worker registered with scope:', registration.scope);
-                })
-                .catch((error) => {
-                    console.error('Service Worker registration failed:', error);
+                const userText = document.getElementById("user-input").value.trim();
+                previewImage(file);
+                chatMemory.push({
+                    role: "user",
+                    content: `User pasted an image and said: "${userText}"`
                 });
-        });
+                localStorage.setItem("chatMemory", JSON.stringify(chatMemory));
+                break; // Only handle the first image
+            }
+        }
+    });
+
+    const chatBox = document.getElementById("chat-box");
+
+    chatBox.addEventListener("paste", e => {
+        const items = e.clipboardData.items;
+        for (let item of items) {
+            if (item.type.startsWith("image/")) {
+                const file = item.getAsFile();
+                if (!file) return;
+
+                previewImage(file);
+                e.preventDefault(); // Prevent the default paste behavior
+                break; // Only handle the first image
+            }
+        }
+    });
+
+
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/service-worker.js').then(async reg => {
+            console.log("✅ SW registered", reg);
+
+            // Wait for the SW to be active
+            if (reg.installing) {
+                await new Promise(resolve => {
+                    reg.installing.addEventListener('statechange', e => {
+                        if (e.target.state === 'activated') resolve();
+                    });
+                });
+            }
+
+            initNotifications();
+
+        }).catch(err => console.error("❌ SW failed:", err));
     }
 
     window.onload = function () {
@@ -1936,41 +2198,6 @@ document.addEventListener("DOMContentLoaded", function () {
                 });
         }
 
-        // Open debug panel with secret keystroke
-        document.addEventListener("keydown", (e) => {
-            if (e.altKey && e.key === "m") {
-                const panel = document.getElementById("debug-panel");
-                panel.style.display = panel.style.display === "none" ? "block" : "none";
-            }
-        });
-
-        // Make debug panel draggable
-        (function makeDraggable() {
-            const panel = document.getElementById("debug-panel");
-            let isDragging = false;
-            let offsetX, offsetY;
-
-            panel.addEventListener("mousedown", (e) => {
-                isDragging = true;
-                offsetX = e.clientX - panel.getBoundingClientRect().left;
-                offsetY = e.clientY - panel.getBoundingClientRect().top;
-                panel.style.transition = "none";
-            });
-
-            document.addEventListener("mousemove", (e) => {
-                if (isDragging) {
-                    panel.style.left = `${e.clientX - offsetX}px`;
-                    panel.style.top = `${e.clientY - offsetY}px`;
-                    panel.style.right = "auto";
-                    panel.style.bottom = "auto";
-                }
-            });
-
-            document.addEventListener("mouseup", () => {
-                isDragging = false;
-            });
-        })();
-
         // Sidebar toggle behavior
         const sidebar = document.querySelector('.sidebar');
         const sidebarToggle = document.getElementById('sidebarToggle');
@@ -1996,3 +2223,118 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     };
 });
+
+// Register Service Worker
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/service-worker.js').then(reg => {
+        console.log("✅ SW registered", reg);
+
+        if (navigator.serviceWorker.controller) {
+            initNotifications();
+        } else {
+            navigator.serviceWorker.addEventListener('controllerchange', initNotifications);
+        }
+    }).catch(err => console.error("❌ SW failed:", err));
+}
+
+const DAILY_NOTIF_KEY = 'mistai_last_tip_day';
+const COMMIT_NOTIF_KEY = 'mistai_last_commit_day';
+const LAST_TIP_INDEX_KEY = 'mistai_last_tip_index';
+
+const NOTIF_MESSAGES = [
+    "💡 Try /joke or /riddle for something fun!",
+    "🔍 Ask Mist.AI anything — news, weather, math, code.",
+    "🎨 Try a new theme in the top right corner!",
+    "📁 You can upload images or documents for Mist.AI to read!",
+    "⏳ If Mist.AI is taking a while, it's probably fetching the latest data!",
+    "🤖 Mist.AI is always learning. Feedback is appreciated!",
+    "🧠 Remember, Mist.AI has no knowledge cutoff — ask about recent events!",
+];
+
+async function initNotifications() {
+    const permission = await Notification.requestPermission();
+    if (permission !== 'granted') return;
+
+    const today = new Date().toDateString();
+
+    // ─── Daily tip (once per day, cycles through messages) ───
+    const lastTipDay = localStorage.getItem(DAILY_NOTIF_KEY);
+    if (lastTipDay !== today) {
+        localStorage.setItem(DAILY_NOTIF_KEY, today);
+
+        // Cycle through tips in order so none repeat back to back
+        let nextIndex = (parseInt(localStorage.getItem(LAST_TIP_INDEX_KEY) ?? '-1') + 1) % NOTIF_MESSAGES.length;
+        localStorage.setItem(LAST_TIP_INDEX_KEY, nextIndex);
+
+        new Notification('✨ Mist.AI', {
+            body: NOTIF_MESSAGES[nextIndex],
+            icon: '/mistaifaviocn/android-chrome-192x192.png'
+        });
+    }
+
+    // ─── GitHub commit (once every 5 days) ───
+    const lastCommitDay = localStorage.getItem(COMMIT_NOTIF_KEY);
+    const daysSinceCommit = lastCommitDay
+        ? Math.floor((new Date() - new Date(lastCommitDay)) / (1000 * 60 * 60 * 24))
+        : 999;
+
+    if (daysSinceCommit >= 5) {
+        localStorage.setItem(COMMIT_NOTIF_KEY, today);
+        try {
+            const res = await fetch('https://api.github.com/repos/Misto0o/Mist.AI/commits?per_page=1');
+            const data = await res.json();
+            const commit = data[0]?.commit?.message || 'New update pushed!';
+            const short = commit.split('\n')[0].slice(0, 80);
+
+            new Notification('🛠️ Mist.AI Updated', {
+                body: short,
+                icon: '/mistaifaviocn/android-chrome-192x192.png'
+            });
+        } catch (e) {
+            console.warn('GitHub fetch failed:', e);
+        }
+    }
+}
+
+function renderUserMessageWithChips(typedText, pastedItems) {
+    const messagesDiv = document.getElementById("chat-box");
+    const messageElement = document.createElement("div");
+    messageElement.classList.add("message", "user-message");
+
+    // Add the typed text (if any)
+    if (typedText.trim()) {
+        const textDiv = document.createElement("div");
+        textDiv.textContent = typedText;
+        textDiv.style.marginBottom = "8px";
+        messageElement.appendChild(textDiv);
+    }
+
+    // Add compact chips for each pasted block
+    pastedItems.forEach((pastedText) => {
+        const chip = document.createElement("div");
+        chip.classList.add("pasted-chip-inline");
+
+        const preview = document.createElement("span");
+        preview.textContent = pastedText.slice(0, 50) + (pastedText.length > 50 ? "..." : "");
+        chip.appendChild(preview);
+
+        const label = document.createElement("span");
+        label.classList.add("chip-label");
+        label.textContent = "PASTED";
+        chip.appendChild(label);
+
+        messageElement.appendChild(chip);
+    });
+
+    // Edit button
+    const editButton = document.createElement("i");
+    editButton.classList.add("fas", "fa-pen", "edit-button");
+    editButton.title = "Edit";
+    editButton.onclick = () => enableEditMode(messageElement, typedText);
+    messageElement.appendChild(editButton);
+
+    messagesDiv.appendChild(messageElement);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+}
+
+initPasteDetection();
