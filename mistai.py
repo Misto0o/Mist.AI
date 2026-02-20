@@ -1114,13 +1114,8 @@ def admin_logout():
 # =========================
 def startup():
     print("🚀 Starting up database...")
-    init_db()
-    add_token_column()
-    migrate_to_tokens()
-    unify_tokens_by_ip()
-    safe_cleanup()
+    init_db()  # just this - creates table if missing, that's all you need
     print("✅ Startup complete.")
-
 
 startup()
 
