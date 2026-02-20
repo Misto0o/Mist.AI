@@ -721,6 +721,10 @@ async function sendMessage(userMessage = null) {
     const userIP = await getUserIP(); // Get user's IP for logging
     if (!userInput || !messagesDiv || !canSendMessage) return;
 
+    if (Notification.permission === "default") {
+        await Notification.requestPermission();
+    }
+
     if (!userMessage) userMessage = userInput.value.trim();
 
     const pastedSnapshot = pastedContent;
@@ -2226,16 +2230,16 @@ document.addEventListener("DOMContentLoaded", function () {
 
 // Register Service Worker
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/service-worker.js').then(reg => {
-        console.log("✅ SW registered", reg);
-
-        if (navigator.serviceWorker.controller) {
-            initNotifications();
-        } else {
-            navigator.serviceWorker.addEventListener('controllerchange', initNotifications);
-        }
-    }).catch(err => console.error("❌ SW failed:", err));
+    navigator.serviceWorker.register('/service-worker.js')
+        .then(reg => console.log("✅ SW registered", reg))
+        .catch(err => console.error("❌ SW failed:", err));
 }
+
+window.addEventListener('load', () => {
+    setTimeout(() => {
+        if (Notification.permission === 'granted') initNotifications();
+    }, 3000);
+});
 
 const DAILY_NOTIF_KEY = 'mistai_last_tip_day';
 const COMMIT_NOTIF_KEY = 'mistai_last_commit_day';
