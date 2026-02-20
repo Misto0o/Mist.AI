@@ -54,7 +54,6 @@ from tavily import TavilyClient
 # ─────────────────────
 # File & Document Processing
 # ─────────────────────
-import pdfplumber
 import fitz  # PyMuPDF
 from docx import Document
 
@@ -709,22 +708,6 @@ async def upload_to_gofile(filename, file_content, mimetype):
         return {"error": "Upload failed"}
 
 
-# ✅ Extract text from PDFs (fixed)
-def extract_text_from_pdf(file_stream):
-    try:
-        text = ""
-        with pdfplumber.open(file_stream) as pdf:
-            for page in pdf.pages:
-                text += page.extract_text() + "\n"
-
-        if not text:  # if pdfplumber fails, try pymupdf
-            doc = fitz.open("pdf", file_stream.read())  # read file as bytes
-            text = "\n".join([page.get_text() for page in doc])
-
-        return text if text else "⚠️ no readable text found in this pdf."
-    except Exception as e:
-        return f"⚠️ error extracting text: {str(e)}"
-
 
 def parse_expression(text):
     """Parses a mathematical expression using sympy."""
@@ -796,48 +779,32 @@ async def time_news():
     # ✅ Function to process different file types
 
 
-def process_pdf(file_content):
-    return extract_text_from_pdf(io.BytesIO(file_content))
-
+def extract_text_from_pdf(file_stream):
+    try:
+        doc = fitz.open("pdf", file_stream.read())
+        text = "\n".join([page.get_text() for page in doc])
+        return text.strip() or "⚠️ No readable text found."
+    except Exception as e:
+        return f"⚠️ Error extracting text: {str(e)}"
 
 def process_txt(file_content):
     return file_content.decode("utf-8", errors="ignore")
 
-
 def process_json(file_content):
     try:
-        json_data = json.loads(file_content.decode("utf-8"))
-        return json.dumps(json_data, indent=4)
+        return json.dumps(json.loads(file_content.decode("utf-8")), indent=4)
     except json.JSONDecodeError:
         return "⚠️ Invalid JSON file."
 
-
 def process_docx(file_content):
-    if not file_content:
-        return "⚠️ No file content received."
-
     try:
-        text = extract_text_from_docx(io.BytesIO(file_content))
-        return text if text.strip() else "⚠️ No readable text found."
+        doc = Document(io.BytesIO(file_content))
+        return "\n".join([p.text for p in doc.paragraphs]).strip() or "⚠️ No readable text found."
     except Exception as e:
-        print(f"Error reading DOCX: {e}")  # Debugging
-        return f"⚠️ Error reading .docx file: {str(e)}"
+        return f"⚠️ Error reading .docx: {str(e)}"
 
-
-def extract_text_from_docx(file_content):
-    try:
-        doc = Document(file_content)
-        return (
-            "\n".join([paragraph.text for paragraph in doc.paragraphs])
-            or "⚠️ No readable text found."
-        )
-    except Exception as e:
-        return f"⚠️ Error reading .docx file: {str(e)}"
-
-
-# ✅ Mapping file extensions to processing functions
 file_processors = {
-    ".pdf": process_pdf,
+    ".pdf": lambda c: extract_text_from_pdf(io.BytesIO(c)),
     ".txt": process_txt,
     ".json": process_json,
     ".docx": process_docx,
