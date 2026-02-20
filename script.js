@@ -2261,11 +2261,8 @@ async function initNotifications() {
     const lastTipDay = localStorage.getItem(DAILY_NOTIF_KEY);
     if (lastTipDay !== today) {
         localStorage.setItem(DAILY_NOTIF_KEY, today);
-
-        // Cycle through tips in order so none repeat back to back
         let nextIndex = (parseInt(localStorage.getItem(LAST_TIP_INDEX_KEY) ?? '-1') + 1) % NOTIF_MESSAGES.length;
         localStorage.setItem(LAST_TIP_INDEX_KEY, nextIndex);
-
         new Notification('✨ Mist.AI', {
             body: NOTIF_MESSAGES[nextIndex],
             icon: '/mistaifaviocn/android-chrome-192x192.png'
@@ -2277,7 +2274,6 @@ async function initNotifications() {
     const daysSinceCommit = lastCommitDay
         ? Math.floor((new Date() - new Date(lastCommitDay)) / (1000 * 60 * 60 * 24))
         : 999;
-
     if (daysSinceCommit >= 5) {
         localStorage.setItem(COMMIT_NOTIF_KEY, today);
         try {
@@ -2285,7 +2281,6 @@ async function initNotifications() {
             const data = await res.json();
             const commit = data[0]?.commit?.message || 'New update pushed!';
             const short = commit.split('\n')[0].slice(0, 80);
-
             new Notification('🛠️ Mist.AI Updated', {
                 body: short,
                 icon: '/mistaifaviocn/android-chrome-192x192.png'

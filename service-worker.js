@@ -44,6 +44,7 @@ self.addEventListener('activate', (event) => {
 // =====================
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
+  if (!event.request.url.startsWith(self.location.origin)) return;
   event.respondWith(
     fetch(event.request)
       .then(async networkRes => {
@@ -69,4 +70,16 @@ self.addEventListener('notificationclick', (event) => {
       return clients.openWindow(urlToOpen);
     })
   );
+});
+
+// =====================
+// MESSAGE - handle notification requests from page
+// =====================
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'SHOW_NOTIFICATION') {
+    self.registration.showNotification(event.data.title, {
+      body: event.data.body,
+      icon: '/mistaifaviocn/android-chrome-192x192.png'
+    });
+  }
 });

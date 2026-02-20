@@ -1221,6 +1221,7 @@ body:not([class*="-theme"]) .active-thread .thread-link {
 
     .site-title {
         z-index: 1 !important;
+        /* Very low - behind everything */
         position: fixed !important;
         top: 0;
         left: 0;
@@ -1230,6 +1231,7 @@ body:not([class*="-theme"]) .active-thread .thread-link {
         font-size: 18px;
         text-align: center;
         background: rgba(0, 0, 0, 0.95);
+        /* Back to solid for proper cutoff */
         backdrop-filter: blur(15px);
         border-bottom: 2px solid #4dbf00;
         box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
@@ -1238,6 +1240,7 @@ body:not([class*="-theme"]) .active-thread .thread-link {
         align-items: center;
         justify-content: center;
         pointer-events: none;
+        /* Don't block clicks on other elements */
     }
 
     .site-title::after {
@@ -1324,12 +1327,47 @@ body:not([class*="-theme"]) .active-thread .thread-link {
         display: flex;
         flex-direction: column;
         overflow-y: auto;
-        padding: 0 0 200px 0;
+        padding: 130px 0px 200px 0px;
         /* ← ADD THIS: pushes content above the input bar */
         -webkit-overflow-scrolling: touch;
     }
 
+    .header {
+        position: fixed;
+        top: 45%;
+        left: 0;
+        right: 0;
+        transform: translateY(-50%);
+        width: 100%;
+        text-align: center;
+        padding: 0 20px;
+    }
 
+    .header .title {
+        font-size: 2.2rem;
+        text-align: center;
+        display: block;
+    }
+
+    .header .subtitle {
+        font-size: 1.4rem;
+        text-align: center;
+    }
+
+    .micro-subtitle {
+        text-align: center;
+        font-size: 0.8rem;
+    }
+
+    .welcome {
+        text-align: center;
+        margin-bottom: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+    }
 
     /* Messages on mobile */
     .message {
@@ -1381,7 +1419,7 @@ body:not([class*="-theme"]) .active-thread .thread-link {
     }
 
     #user-input {
-        font-size: 15px;
+        font-size: 17px;
         padding: 12px 14px 4px;
         min-height: 40px;
         max-height: 100px;
