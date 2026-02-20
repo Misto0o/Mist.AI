@@ -1,4 +1,18 @@
-# flyctl launch added from .gitignore
-**\.env
+.git
+.gitignore
+.env
 fly.toml
-**\bans.db
+bans.db
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+node_modules/
+dist/
+build/
+.cache/
+tests/
+logs/
+*.log
