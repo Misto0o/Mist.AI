@@ -1,25 +1,24 @@
-# ── Stage 1: Build ──────────────────────────────
-FROM python:3.12-slim AS builder
+# Use a lightweight Python image
+FROM python:3.12.9-slim
+
+# Set the working directory inside the container
 WORKDIR /app
+
+# Copy only the requirements file first (improves caching)
 COPY requirements.txt .
-RUN pip install --no-cache-dir --upgrade pip \
- && pip install --no-cache-dir -r requirements.txt --target=/install
 
-# ── Stage 2: Final image ─────────────────────────
-FROM python:3.12-slim
-WORKDIR /app
+# Upgrade pip/setuptools/wheel first, then install dependencies
+RUN pip3 install --upgrade pip setuptools wheel \
+ && pip3 install --no-cache-dir -r requirements.txt
 
-# System deps for PyMuPDF + PDF libs
-RUN apt-get update && apt-get install -y \
-    libglib2.0-0 libgl1 libxrender1 libsm6 libxext6 \
-    && rm -rf /var/lib/apt/lists/*
-
-# Copy installed packages from builder
-COPY --from=builder /install /usr/local/lib/python3.12/site-packages
-
-# Copy app code
+# Copy the rest of the application files
 COPY . .
 
-ENV PORT=8080
+# Expose the Fly.io default port
 EXPOSE 8080
+
+# Set environment variables
+ENV PORT=8080 FLASK_APP=app.py FLASK_ENV=production
+
+# Use Gunicorn for a production-ready server
 CMD ["python", "wsgi.py"]
