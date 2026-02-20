@@ -725,6 +725,7 @@ def extract_text_from_pdf(file_stream):
     except Exception as e:
         return f"⚠️ error extracting text: {str(e)}"
 
+
 def parse_expression(text):
     """Parses a mathematical expression using sympy."""
     try:
@@ -740,60 +741,55 @@ def parse_expression(text):
             return f"⚠️ Parsing error: {str(e)}"
 
 
+async def fetch_time_news_data() -> dict:
+    """Core logic — reusable by both the route and chat."""
+    cache_key = "time_news"
+    cache_expiration = 600
+    now_ts = time.time()
+
+    if cache_key in app.config:
+        cached = app.config[cache_key]
+        if (now_ts - cached["timestamp"]) < cache_expiration:
+            return cached["data"]
+
+    now = datetime.now(pytz.timezone("America/New_York"))
+    current_time = {
+        "date": now.strftime("%A, %B %d, %Y"),
+        "time": now.strftime("%I:%M %p %Z"),
+    }
+
+    news_api_key = os.getenv("THE_NEWS_API_KEY")
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            "https://api.thenewsapi.com/v1/news/top",
+            params={"api_token": news_api_key, "locale": "us", "limit": 3},
+        )
+    news_data = response.json()
+
+    articles = []
+    if "data" in news_data:
+        for article in news_data["data"]:
+            articles.append(
+                {
+                    "title": article.get("title"),
+                    "url": article.get("url"),
+                    "source": (
+                        article.get("source", {}).get("name")
+                        if isinstance(article.get("source"), dict)
+                        else article.get("source")
+                    ),
+                }
+            )
+
+    result = {"time": current_time, "news": articles}
+    app.config[cache_key] = {"data": result, "timestamp": now_ts}
+    return result
+
+
 @app.route("/time-news", methods=["GET"])
 async def time_news():
     try:
-        # 🕒 Cache results for 10 minutes
-        cache_key = "time_news"
-        cache_expiration = 600  # seconds (10 minutes)
-        now_ts = time.time()
-
-        if cache_key in app.config:
-            cached = app.config[cache_key]
-            if (now_ts - cached["timestamp"]) < cache_expiration:
-                return jsonify(cached["data"])
-
-        # Get current time (New York timezone)
-        now = datetime.now(pytz.timezone("America/New_York"))
-        current_time = {
-            "date": now.strftime("%A, %B %d, %Y"),
-            "time": now.strftime("%I:%M %p %Z"),
-        }
-
-        # Fetch news headlines from TheNewsAPI
-        news_api_key = os.getenv("THE_NEWS_API_KEY")
-        if not news_api_key:
-            return jsonify({"error": "News API key not set."}), 500
-
-        url = "https://api.thenewsapi.com/v1/news/top"
-        params = {"api_token": news_api_key, "locale": "us", "limit": 3}
-
-        async with httpx.AsyncClient() as client:
-            response = await client.get(url, params=params)
-        news_data = response.json()
-
-        articles = []
-        if "data" in news_data:
-            for article in news_data["data"]:
-                articles.append(
-                    {
-                        "title": article.get("title"),
-                        "url": article.get("url"),
-                        "source": (
-                            article.get("source", {}).get("name")
-                            if isinstance(article.get("source"), dict)
-                            else article.get("source")
-                        ),
-                    }
-                )
-
-        result = {"time": current_time, "news": articles}
-
-        # 🧠 Save in cache
-        app.config[cache_key] = {"data": result, "timestamp": now_ts}
-
-        return jsonify(result)
-
+        return jsonify(await fetch_time_news_data())
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -1168,6 +1164,66 @@ async def needs_tavily(user_message: str) -> bool:
     if not user_message:
         return False
 
+    greetings = {
+        "hello",
+        "hi",
+        "hey",
+        "sup",
+        "yo",
+        "howdy",
+        "hiya",
+        "hello mist",
+        "hey mist",
+        "hi mist",
+        "thanks mist",
+        "thank you mist",
+        "thanks",
+        "thank you",
+        "thx",
+        "wassup",
+        "what's up",
+        "whats up",
+        "wsp",
+        "sup mist",
+        "yo mist",
+        "hey bro",
+        "hi bro",
+        "hello there",
+        "good morning",
+        "good afternoon",
+        "good evening",
+        "gm",
+        "gn",
+        "ty",
+        "tysm",
+        "thanks bro",
+        "thank u",
+        "thank you bro",
+        "appreciate it",
+        "appreciate u",
+        "much appreciated",
+    }
+    if user_message.strip().lower() in greetings:
+        app.logger.info("🧭 Tavily router → NO (greeting)")
+        return False
+
+    # In needs_tavily(), add after the greetings check:
+    date_time_only = {
+        "whats the current year",
+        "what is the current year",
+        "what year is it",
+        "whats todays date",
+        "what is todays date",
+        "what is the date",
+        "whats the date",
+        "what time is it",
+        "whats the time",
+        "whats the current year and date",
+    }
+    if user_message.strip().lower().rstrip("?") in date_time_only:
+        app.logger.info("🧭 Tavily router → NO (date/time — using injected context)")
+        return False
+
     # Init cache
     if "tavily_router_cache" not in app.config:
         app.config["tavily_router_cache"] = {}
@@ -1181,8 +1237,17 @@ async def needs_tavily(user_message: str) -> bool:
     prompt = f"""
 You are a routing classifier.
 
-Decide if the user's message requires REAL-TIME or CURRENT information
-from the web (news, prices, live data, current events, weather).
+Return YES if the question could benefit from current data, including:
+- Anything about dates, times, or "current/now/today/latest/recent"
+- Sports scores, standings, trades
+- Prices, weather, stocks
+- Who currently holds any position (president, CEO, etc.)
+- Any event that may have occurred or changed recently
+- News or world events
+
+Return NO ONLY for pure math, definitions, or clearly historical facts.
+
+IMPORTANT: If in doubt, return YES.
 
 Return ONLY one word:
 YES or NO
@@ -1196,7 +1261,7 @@ User message:
             model=ROUTER_MODEL,
             messages=[{"role": "user", "content": prompt}],
             temperature=0,
-            max_tokens=3,
+            max_tokens=10,
         )
         text = response.message.content[0].text.strip().upper()
         return "YES" if "YES" in text else "NO"
@@ -1445,10 +1510,46 @@ async def chat():
         # -------------------
         context_text = "\n".join(f"{m['role']}: {m['content']}" for m in chat_context)
 
+        # 📰 News + Time Injection (once per session)
+        if not hasattr(chat, "news_cache"):
+            for attempt in range(3):
+                try:
+                    chat.news_cache = await fetch_time_news_data()
+                    app.logger.info(f"✅ time_news injected on attempt {attempt + 1}")
+                    break
+                except Exception as e:
+                    app.logger.warning(f"⚠️ time_news attempt {attempt + 1} failed: {e}")
+                    if attempt == 2:
+                        chat.news_cache = {"time": {}, "news": []}
+                        app.logger.error(
+                            "❌ time_news failed after 3 attempts, skipping."
+                        )
+
+        tn = chat.news_cache
+        current_date = tn.get("time", {}).get("date", "Unknown Date")
+        current_time_str = tn.get("time", {}).get("time", "Unknown Time")
+        headlines = "; ".join(
+            [a["title"] for a in tn.get("news", []) if a.get("title")]
+        )
+        time_news_ctx = f"Today is {current_date}, current time is {current_time_str}."
+        if headlines:
+            time_news_ctx += f"\nRecent headlines: {headlines}"
+
         system_context = (
-            f"CURRENT WEB INFO:\n{grounding_text}"
-            if grounding_text
-            else "No external context available."
+            "\n".join(
+                filter(
+                    None,
+                    [
+                        time_news_ctx,
+                        (
+                            f"CURRENT WEB INFO:\n{grounding_text}"
+                            if grounding_text
+                            else ""
+                        ),
+                    ],
+                )
+            )
+            or "No external context available."
         )
 
         full_prompt = (

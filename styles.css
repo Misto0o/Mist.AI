@@ -290,6 +290,7 @@ body.hide-header .header {
     padding-top: 5rem;
     /* ← messages always start from here */
     padding-bottom: 20rem;
+    overflow-y: auto;
 }
 
 #chat-box.has-messages {
