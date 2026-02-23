@@ -337,30 +337,21 @@ def api_status():
 # Down Mode Routes
 # =========================
 @app.route("/status", methods=["GET"])
-async def status():
-    try:
-        ai_ok = await asyncio.wait_for(check_ai_services(), timeout=3)
-    except asyncio.TimeoutError:
-        ai_ok = False
-
-    response_data = {
-        "online": ai_ok and not IS_DOWN,
-        "is_down": IS_DOWN,
-        "ai_ok": ai_ok,
-        "down_reason": DOWN_REASON,
-        "timestamp": DOWN_TIMESTAMP,
-        "message": (
-            "🟢 Mist.AI is operational"
-            if ai_ok and not IS_DOWN
-            else "🔴 Mist.AI is currently unavailable"
-        ),
-    }
-
-    response = jsonify(response_data)
-    response.headers["Access-Control-Allow-Origin"] = "*"
+def status():
+    response = jsonify(
+        {
+            "online": not IS_DOWN,
+            "is_down": IS_DOWN,
+            "message": (
+                "🟢 Mist.AI is operational"
+                if not IS_DOWN
+                else "🔴 Mist.AI is currently unavailable"
+            ),
+        }
+    )
     response.headers["Cache-Control"] = "no-store"
-
-    return response, (200 if response_data["online"] else 503)
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    return response, (200 if not IS_DOWN else 503)
 
 
 @app.route("/status-page")
@@ -708,7 +699,6 @@ async def upload_to_gofile(filename, file_content, mimetype):
         return {"error": "Upload failed"}
 
 
-
 def parse_expression(text):
     """Parses a mathematical expression using sympy."""
     try:
@@ -787,8 +777,10 @@ def extract_text_from_pdf(file_stream):
     except Exception as e:
         return f"⚠️ Error extracting text: {str(e)}"
 
+
 def process_txt(file_content):
     return file_content.decode("utf-8", errors="ignore")
+
 
 def process_json(file_content):
     try:
@@ -796,12 +788,17 @@ def process_json(file_content):
     except json.JSONDecodeError:
         return "⚠️ Invalid JSON file."
 
+
 def process_docx(file_content):
     try:
         doc = Document(io.BytesIO(file_content))
-        return "\n".join([p.text for p in doc.paragraphs]).strip() or "⚠️ No readable text found."
+        return (
+            "\n".join([p.text for p in doc.paragraphs]).strip()
+            or "⚠️ No readable text found."
+        )
     except Exception as e:
         return f"⚠️ Error reading .docx: {str(e)}"
+
 
 file_processors = {
     ".pdf": lambda c: extract_text_from_pdf(io.BytesIO(c)),
@@ -1116,6 +1113,7 @@ def startup():
     print("🚀 Starting up database...")
     init_db()  # just this - creates table if missing, that's all you need
     print("✅ Startup complete.")
+
 
 startup()
 
