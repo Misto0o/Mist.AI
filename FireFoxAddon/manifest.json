@@ -1,15 +1,26 @@
 {
   "manifest_version": 2,
   "name": "Mist.AI",
-  "description": "Ask Mist.AI anything or right-click highlighted text to get help.",
-  "version": "1.4",
+  "description": "Ask Mist.AI anything, right-click text for help, auto-fill forms, and answer questions.",
+  "version": "2.0",
   "permissions": [
-    "contextMenus"
+    "contextMenus",
+    "activeTab",
+    "<all_urls>"
   ],
   "background": {
     "scripts": ["fireground.js"],
     "persistent": true
   },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle",
+      "all_frames": true
+    }
+  ],
   "browser_action": {
     "default_popup": "popFire.html",
     "default_icon": {

@@ -1,2 +1,4 @@
 .env
 bans.db
+data/
+*.tmp

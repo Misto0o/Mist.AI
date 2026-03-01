@@ -24,8 +24,8 @@
     <link rel="canonical" href="https://mistai.org" />
 
     <!-- Favicon (Recommended sizes & formats) -->
-    <link rel="icon" href="/mistaifaviocn/favicon.ico" type="image/x-icon" />
-    <link rel="icon" href="/mistaifaviocn/favicon-32x32.png" type="image/png" sizes="32x32" />
+    <link rel="icon" href="mistaifaviocn/favicon.ico" type="image/x-icon" />
+    <link rel="icon" href="mistaifaviocn/favicon-32x32.png" type="image/png" sizes="32x32" />
 
     <!-- Google Analytics -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-GLT3T5YYE9"></script>
@@ -40,8 +40,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.9.4/css/bulma.min.css" />
 
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="/styles.css?v=20" />
-    <link rel="stylesheet" href="/themes.css?v=20" />
+    <link rel="stylesheet" href="styles.css?v=11" />
+    <link rel="stylesheet" href="themes.css?v=11" />
 
     <!-- Font Awesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
@@ -73,11 +73,9 @@
         <!-- Sidebar Close Button (Only visible when expanded) -->
         <button id="closeSidebar" class="close-btn">×</button>
 
-        <!-- Sidebar Icons (Visible when collapsed) -->
+        <!-- Sidebar Icons (Visible when collapsed) --> 
         <div class="sidebar-icons">
             <button class="sidebar-icon" onclick="createThread(name)"><i class="fa-solid fa-comments"></i></button>
-            <button class="sidebar-icon" onclick="window.open('https://builtbykristian.netlify.app', '_blank')"><i
-                    class="fas fa-home"></i></button>
             <button class="sidebar-icon" onclick="window.open('https://github.com/Misto0o/Mist.AI', '_blank')"><i
                     class="fas fa-code"></i></button>
             <button class="sidebar-icon" onclick="window.open('https://mistai.org/status-page', '_blank')"><i
@@ -101,8 +99,6 @@
             <hr>
             <p class="menu-label has-text-centered has-text-success is-size-4">MistAI Information</p>
             <ul class="menu-list">
-                <li><a href="https://builtbykristian.netlify.app" target="_blank"><i class="fas fa-home"></i> About
-                        Me</a></li>
                 <li><a href="https://github.com/Misto0o/Mist.AI" target="_blank"><i class="fas fa-code"></i> My
                         GitHub Code!</a></li>
                 <li><a href="https://mistai.org/status-page" target="_blank"><i class="fa-solid fa-signal"></i> MistAI
@@ -163,8 +159,8 @@
                             <hr style="border-color: rgba(255,255,255,0.07); margin: 4px 0;" />
                             <label class="tool-option model-label">Model:
                                 <select id="model-select" class="model-select" onchange="swapModel(this)">
-                                    <option value="Gemini" selected>Nova ⭐</option>
-                                    <option value="CommandR">Sage 🤖</option>
+                                    <option value="Gemini">Nova ⭐</option>
+                                    <option value="CommandR" selected>Sage 🤖</option>
                                     <option value="Mistral">Flux 🌬️</option>
                                 </select>
                             </label>
@@ -185,6 +181,8 @@
         <p class="disclaimer-text">
             MistAI can make mistakes. Double-check important responses.
         </p>
+        <h5 class="created-by">Created by <a href="https://builtbykristian.netlify.app" target="_blank">Kristian
+                Cook</a></h5>
     </div>
 
     <!-- Overlay background (optional for modal effect) -->
@@ -216,7 +214,7 @@
         </select>
     </div>
 
-    <script src="/script.js?v=20" defer></script>
+    <script src="script.js?v=11" defer></script>
 </body>
 
 </html>

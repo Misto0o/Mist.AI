@@ -1,5 +1,5 @@
 // 🔥 Update this every deploy
-const VERSION = 'v10';
+const VERSION = 'v11';
 const CACHE_NAME = `mistai-cache-${VERSION}`;
 const ASSETS_TO_CACHE = [
   '/',

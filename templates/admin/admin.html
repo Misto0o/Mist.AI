@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>Mist.AI Admin Panel</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background-color: #0d0d0d;
+      font-family: Arial, sans-serif;
+      color: #eee;
+      display: flex;
+      justify-content: center;
+      padding: 1.5rem;
+    }
+
+    .panel {
+      width: 100%;
+      max-width: 800px;
+      background: #1a1a1a;
+      padding: 2rem;
+      border-radius: 14px;
+      box-shadow: 0 0 30px rgba(0, 0, 0, 0.6);
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 0.25rem;
+      color: #fff;
+      font-size: 1.9rem;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: #666;
+      font-size: 0.85rem;
+      margin-bottom: 2rem;
+    }
+
+    h2 {
+      margin-top: 2.5rem;
+      margin-bottom: 1rem;
+      color: #ff4d4d;
+      font-size: 1.2rem;
+      border-bottom: 1px solid #2a2a2a;
+      padding-bottom: 0.4rem;
+    }
+
+    .flash {
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      font-size: 0.95rem;
+    }
+
+    .flash.success {
+      background: #1a3a1a;
+      color: #4caf50;
+      border: 1px solid #4caf50;
+    }
+
+    .flash.error {
+      background: #3a1a1a;
+      color: #ff4d4d;
+      border: 1px solid #ff4d4d;
+    }
+
+    .flash.info {
+      background: #1a2a3a;
+      color: #4da6ff;
+      border: 1px solid #4da6ff;
+    }
+
+    .form-row {
+      display: flex;
+      gap: 0.75rem;
+      align-items: flex-end;
+    }
+
+    .form-row input {
+      flex: 1;
+    }
+
+    .form-row button {
+      width: auto;
+      white-space: nowrap;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 0.4rem;
+      font-weight: bold;
+      font-size: 0.9rem;
+      color: #aaa;
+    }
+
+    input[type="text"],
+    input[type="password"] {
+      width: 100%;
+      padding: 0.7rem 0.9rem;
+      border: 1px solid #333;
+      border-radius: 8px;
+      margin-bottom: 0;
+      background-color: #222;
+      color: #fff;
+      font-size: 0.95rem;
+      transition: border-color 0.2s;
+    }
+
+    input[type="text"]:focus,
+    input[type="password"]:focus {
+      outline: none;
+      border-color: #ff4d4d;
+    }
+
+    button {
+      padding: 0.7rem 1.2rem;
+      background-color: #ff4d4d;
+      border: none;
+      border-radius: 8px;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.2s;
+      font-size: 0.95rem;
+    }
+
+    button:hover {
+      background-color: #cc0000;
+    }
+
+    button.secondary {
+      background-color: #333;
+      color: #eee;
+    }
+
+    button.secondary:hover {
+      background-color: #444;
+    }
+
+    button.green {
+      background-color: #2e7d32;
+    }
+
+    button.green:hover {
+      background-color: #1b5e20;
+    }
+
+    button.small {
+      padding: 0.35rem 0.75rem;
+      font-size: 0.8rem;
+      width: auto;
+    }
+
+    /* Banned list */
+    .banned-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .banned-list li {
+      background: #222;
+      padding: 0.65rem 0.9rem;
+      border-radius: 8px;
+      margin-bottom: 0.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      font-size: 0.9rem;
+    }
+
+    .banned-list .entry-info {
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+    }
+
+    .banned-list .ip-label {
+      color: #ff4d4d;
+      font-weight: bold;
+    }
+
+    .banned-list .token-label {
+      color: #888;
+      font-size: 0.8rem;
+      word-break: break-all;
+    }
+
+    .empty-state {
+      color: #555;
+      font-style: italic;
+      padding: 0.75rem 0;
+      font-size: 0.9rem;
+    }
+
+    /* Log table */
+    .table-wrap {
+      overflow-x: auto;
+      border-radius: 8px;
+      border: 1px solid #2a2a2a;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+    }
+
+    th,
+    td {
+      padding: 0.7rem 0.9rem;
+      border-bottom: 1px solid #222;
+      text-align: left;
+      word-break: break-word;
+    }
+
+    th {
+      background-color: #1f1f1f;
+      color: #aaa;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tr:hover td {
+      background-color: #1f1f1f;
+    }
+
+    .model-badge {
+      display: inline-block;
+      padding: 0.15rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: bold;
+      background: #2a2a2a;
+      color: #aaa;
+    }
+
+    .model-badge.gemini {
+      background: #1a3a2a;
+      color: #4caf50;
+    }
+
+    .model-badge.cohere {
+      background: #1a2a3a;
+      color: #4da6ff;
+    }
+
+    .model-badge.mistral {
+      background: #2a1a3a;
+      color: #b47fff;
+    }
+
+    .grounded-yes {
+      color: #4caf50;
+      font-size: 0.8rem;
+    }
+
+    .grounded-no {
+      color: #555;
+      font-size: 0.8rem;
+    }
+
+    .truncate {
+      max-width: 200px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* Stats bar */
+    .stats-bar {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-bottom: 1.5rem;
+    }
+
+    .stat-card {
+      flex: 1;
+      min-width: 120px;
+      background: #222;
+      border-radius: 10px;
+      padding: 1rem;
+      text-align: center;
+    }
+
+    .stat-card .stat-number {
+      font-size: 1.8rem;
+      font-weight: bold;
+      color: #fff;
+    }
+
+    .stat-card .stat-label {
+      font-size: 0.75rem;
+      color: #666;
+      margin-top: 0.2rem;
+    }
+
+    .actions-row {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      margin-top: 1rem;
+    }
+
+    a {
+      text-decoration: none;
+    }
+
+    .logout-link {
+      display: block;
+      text-align: center;
+      margin-top: 2.5rem;
+      color: #ff4d4d;
+      font-weight: bold;
+      font-size: 0.95rem;
+      transition: color 0.2s;
+    }
+
+    .logout-link:hover {
+      color: #ff7777;
+    }
+
+    @media (max-width: 600px) {
+      .panel {
+        padding: 1.25rem;
+      }
+
+      .form-row {
+        flex-direction: column;
+      }
+
+      .form-row button {
+        width: 100%;
+      }
+
+      .stats-bar {
+        gap: 0.5rem;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="panel">
+    <h1>🌫️ Mist.AI Admin</h1>
+    <p class="subtitle">Manage bans, view logs, and monitor activity</p>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    {% for category, message in messages %}
+    <div class="flash {{ category }}">{{ message }}</div>
+    {% endfor %}
+    {% endif %}
+    {% endwith %}
+
+    <!-- Stats -->
+    <div class="stats-bar">
+      <div class="stat-card">
+        <div class="stat-number">{{ banned_entries | length }}</div>
+        <div class="stat-label">Banned Entries</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number">{{ ip_log | length }}</div>
+        <div class="stat-label">Unique IPs</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number">
+          {% set total = namespace(n=0) %}
+          {% for ip, logs in ip_log.items() %}
+          {% set total.n = total.n + logs | length %}
+          {% endfor %}
+          {{ total.n }}
+        </div>
+        <div class="stat-label">Total Messages</div>
+      </div>
+    </div>
+
+    <!-- Ban Form -->
+    <h2>🚫 Ban User</h2>
+    <form action="{{ url_for('admin_ban') }}" method="POST">
+      <label>IP Address</label>
+      <div class="form-row">
+        <input type="text" name="ip" placeholder="e.g. 192.168.1.1" />
+        <button type="submit">Ban IP</button>
+      </div>
+    </form>
+
+    <!-- Banned Entries -->
+    <h2>🔒 Banned Entries</h2>
+    <ul class="banned-list">
+      {% if banned_entries %}
+      {% for ip, token in banned_entries %}
+      <li>
+        <div class="entry-info">
+          <span class="ip-label">{{ ip or "No IP" }}</span>
+          <span class="token-label">Token: {{ token or "None" }}</span>
+        </div>
+        <form method="POST" action="{{ url_for('admin_unban') }}">
+          <input type="hidden" name="ip" value="{{ ip }}">
+          <input type="hidden" name="token" value="{{ token }}">
+          <button type="submit" class="small secondary">Unban</button>
+        </form>
+      </li>
+      {% endfor %}
+      {% else %}
+      <p class="empty-state">No banned entries.</p>
+      {% endif %}
+    </ul>
+
+    <!-- Chat Logs -->
+    <h2>📥 Chat Logs</h2>
+    <div class="actions-row">
+      <a href="{{ url_for('download_logs') }}">
+        <button type="button" class="green">📥 Download chat_logs.json</button>
+      </a>
+    </div>
+
+    <!-- IP Activity Log -->
+    <h2>📡 IP Activity Log</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>IP</th>
+            <th>Timestamp</th>
+            <th>Message</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if ip_log %}
+          {% for ip, logs in ip_log.items() %}
+          {% for entry in logs %}
+          <tr>
+            <td><code>{{ ip }}</code></td>
+            <td style="white-space:nowrap; color:#888;">{{ entry.timestamp }}</td>
+            <td class="truncate" title="{{ entry.message }}">{{ entry.message }}</td>
+          </tr>
+          {% endfor %}
+          {% endfor %}
+          {% else %}
+          <tr>
+            <td colspan="3" class="empty-state">No activity logged yet.</td>
+          </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+
+    <a href="{{ url_for('admin_logout') }}" class="logout-link">← Logout</a>
+  </div>
+</body>
+
+</html>

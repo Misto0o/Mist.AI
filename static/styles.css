@@ -1212,6 +1212,20 @@ body:not([class*="-theme"]) .active-thread .thread-link {
     background: rgba(255, 255, 255, 0.08);
 }
 
+.created-by {
+    text-align: center;
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.4);
+    margin-top: 20px;
+    margin-bottom: 10px;
+}
+
+.created-by a {
+    color: rgba(255, 255, 255, 0.6);
+    text-decoration: underline;
+    transition: color 0.15s ease;
+}
+
 /* ========================== */
 /*     MOBILE VIEW (≤768px)   */
 /* ========================== */

@@ -16,8 +16,8 @@ primary_region = "iad"
 
   [[http_service.checks]]
   interval = "20s"
-  timeout = "10s"
-  grace_period = "60s"
+  timeout = "15s"
+  grace_period = "120s"
   method = "GET"
   path = "/status"
 
