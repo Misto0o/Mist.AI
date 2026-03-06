@@ -18,3 +18,9 @@
   to = "https://misto0o.github.io/MistAI-Desktop/docs.html"
   status = 200
   force = true
+
+  [[redirects]]
+  from = "/credits"
+  to = "/Credits/index.html"
+  status = 200
+  force = true
