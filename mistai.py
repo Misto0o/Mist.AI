@@ -1013,14 +1013,15 @@ startup()
 ROUTER_MODEL = "command-r7b-12-2024"
 
 
-# =========================
-# Tavily Router
-# =========================
 async def needs_tavily(user_message: str) -> bool:
     if not user_message:
         return False
 
-    greetings = {
+    msg = user_message.strip().lower().rstrip("?!")
+
+    # ── Hardcoded NO list ──────────────────────────────────────────────
+    no_search = {
+        # greetings
         "hello",
         "hi",
         "hey",
@@ -1031,14 +1032,9 @@ async def needs_tavily(user_message: str) -> bool:
         "hello mist",
         "hey mist",
         "hi mist",
-        "thanks mist",
-        "thank you mist",
-        "thanks",
-        "thank you",
-        "thx",
         "wassup",
-        "what's up",
         "whats up",
+        "what's up",
         "wsp",
         "sup mist",
         "yo mist",
@@ -1050,6 +1046,10 @@ async def needs_tavily(user_message: str) -> bool:
         "good evening",
         "gm",
         "gn",
+        # thanks
+        "thanks",
+        "thank you",
+        "thx",
         "ty",
         "tysm",
         "thanks bro",
@@ -1058,12 +1058,27 @@ async def needs_tavily(user_message: str) -> bool:
         "appreciate it",
         "appreciate u",
         "much appreciated",
-    }
-    if user_message.strip().lower() in greetings:
-        app.logger.info("🧭 Tavily router → NO (greeting)")
-        return False
-
-    date_time_only = {
+        "thanks mist",
+        "thank you mist",
+        # identity / meta
+        "who are you",
+        "what are you",
+        "what can you do",
+        "who made you",
+        "are you an ai",
+        "are you a bot",
+        "are you sentient",
+        "whats your name",
+        "what is your name",
+        "tell me about yourself",
+        "introduce yourself",
+        "what are you capable of",
+        "how do you work",
+        "what model are you",
+        "are you gpt",
+        "are you chatgpt",
+        "are you gemini",
+        # date/time
         "whats the current year",
         "what is the current year",
         "what year is it",
@@ -1073,51 +1088,75 @@ async def needs_tavily(user_message: str) -> bool:
         "whats the date",
         "what time is it",
         "whats the time",
-        "whats the current year and date",
+        # farewells
+        "bye",
+        "goodbye",
+        "see you",
+        "see ya",
+        "cya",
+        "later",
+        "peace",
+        # confirmations / filler
+        "ok",
+        "okay",
+        "got it",
+        "sure",
+        "cool",
+        "nice",
+        "great",
+        "perfect",
+        "sounds good",
+        "makes sense",
+        "understood",
+        "noted",
     }
-    if user_message.strip().lower().rstrip("?") in date_time_only:
-        app.logger.info("🧭 Tavily router → NO (date/time)")
+
+    if msg in no_search:
+        app.logger.info(f"🧭 Tavily router → NO (hardcoded bypass)")
         return False
 
-    if "tavily_router_cache" not in app.config:
-        app.config["tavily_router_cache"] = {}
-
-    cache = app.config["tavily_router_cache"]
-    key = hashlib.sha1(user_message.strip().lower().encode()).hexdigest()
-
-    if key in cache:
-        return cache[key]
-
+    # ── Tighter classifier prompt ──────────────────────────────────────
     prompt = f"""
-You are a routing classifier.
+You are a search routing classifier. Decide if a web search is needed.
 
-Return YES if the question could benefit from current data, including:
-- Anything about dates, times, or "current/now/today/latest/recent"
-- Sports scores, standings, trades
-- Prices, weather, stocks
-- Who currently holds any position (president, CEO, etc.)
-- Any event that may have occurred or changed recently
-- News or world events
+Answer YES only if the question REQUIRES live or recent data:
+- Current news, events, or developments
+- Live scores, standings, prices, or stocks  
+- Current weather
+- Who CURRENTLY holds a specific real-world position (president, CEO, etc.)
+- Something that happened recently (last days/weeks/months)
 
-Return NO ONLY for pure math, definitions, or clearly historical facts.
-
-IMPORTANT: If in doubt, return YES.
+Answer NO for:
+- Questions about the AI itself (who are you, what can you do, etc.)
+- Math, logic, or coding questions
+- Definitions or explanations of concepts
+- Historical facts (before 2023)
+- Creative writing or hypotheticals
+- General knowledge that doesn't change
+- Casual conversation or opinions
 
 Return ONLY one word: YES or NO
 
-User message:
-\"\"\"{user_message}\"\"\"
+Message: \"\"\"{user_message}\"\"\"
 """.strip()
+
+    # cache check
+    if "tavily_router_cache" not in app.config:
+        app.config["tavily_router_cache"] = {}
+    cache = app.config["tavily_router_cache"]
+    key = hashlib.sha1(user_message.strip().lower().encode()).hexdigest()
+    if key in cache:
+        return cache[key]
 
     def sync_call():
         response = co.chat(
             model=ROUTER_MODEL,
             messages=[{"role": "user", "content": prompt}],
             temperature=0,
-            max_tokens=10,
+            max_tokens=5,
         )
         text = response.message.content[0].text.strip().upper()
-        return "YES" if "YES" in text else "NO"
+        return "YES" if text.startswith("YES") else "NO"
 
     try:
         decision = await asyncio.to_thread(sync_call)
@@ -1273,7 +1312,6 @@ async def chat():
                 if use_tavily:
                     # Use only the original user text as the query, capped at 400 chars
                     tavily_query = (data.get("message") or "").strip()[:400]
-                    app.logger.info(f"🔍 Tavily approved for: {tavily_query}")
                     grounding_text = await get_grounding(tavily_query)
                     if grounding_text == "No relevant info found.":
                         grounding_text = ""
@@ -1555,8 +1593,7 @@ MAX_TOKENS = 1024
 
 def get_gemini_response(prompt):
     system_prompt = build_system_prompt(
-        "Mist.AI Nova",
-        "Hey, I'm Mist.AI Nova! How can I help? ✨"
+        "Mist.AI Nova", "Hey, I'm Mist.AI Nova! How can I help? ✨"
     )
 
     full_prompt = f"{system_prompt}\n{prompt}"
@@ -1577,8 +1614,7 @@ def get_gemini_response(prompt):
 
 def get_cohere_response(prompt: str):
     system_prompt = build_system_prompt(
-        "Mist.AI Sage",
-        "Hey, I'm Mist.AI Sage! How can I help? ✨"
+        "Mist.AI Sage", "Hey, I'm Mist.AI Sage! How can I help? ✨"
     )
 
     messages = [
@@ -1598,8 +1634,7 @@ def get_cohere_response(prompt: str):
 
 async def get_mistral_response(prompt):
     system_prompt = build_system_prompt(
-        "Mist.AI Flux",
-        "Hey, I'm Mist.AI Flux! How can I help? ✨"
+        "Mist.AI Flux", "Hey, I'm Mist.AI Flux! How can I help? ✨"
     )
 
     headers = {
@@ -1618,11 +1653,7 @@ async def get_mistral_response(prompt):
     }
 
     async with httpx.AsyncClient() as client:
-        response = await client.post(
-            MISTRAL_ENDPOINT,
-            headers=headers,
-            json=payload
-        )
+        response = await client.post(MISTRAL_ENDPOINT, headers=headers, json=payload)
         response.raise_for_status()
         data = response.json()
 

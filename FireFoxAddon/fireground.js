@@ -1,27 +1,14 @@
-// ─────────────────────────────────────────
-// Mist.AI — fireground.js (Firefox MV2)
-// ─────────────────────────────────────────
-
 const MISTAI_API = "https://mist-ai.fly.dev/chat";
 
-// Firefox uses `browser.*` (Promise-based) but also supports `chrome.*`
-// We alias to chrome for compatibility with the shared content.js
-const _browser = typeof browser !== "undefined" ? browser : chrome;
-
-// ─────────────────────────────────────────
-// Helper: safely send message to a tab
-// ─────────────────────────────────────────
 function sendToTab(tabId, message) {
-  _browser.tabs.get(tabId).then((tab) => {
-    if (!tab.url || tab.url.startsWith("about:") || tab.url.startsWith("moz-extension://")) return;
-    _browser.tabs.sendMessage(tabId, message).catch(() => { });
-  }).catch(() => { });
+  chrome.tabs.get(tabId, (tab) => {
+    if (chrome.runtime.lastError) return;
+    if (!tab.url || tab.url.startsWith("chrome://") || tab.url.startsWith("chrome-extension://")) return;
+    chrome.tabs.sendMessage(tabId, message, () => { if (chrome.runtime.lastError) { } });
+  });
 }
 
-// ─────────────────────────────────────────
-// Install: create all context menus
-// ─────────────────────────────────────────
-_browser.runtime.onInstalled.addListener(() => {
+chrome.runtime.onInstalled.addListener(() => {
 
   // ── Root ──────────────────────────────────────────────────
   chrome.contextMenus.create({
@@ -53,22 +40,18 @@ _browser.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({ id: "fillFieldAI", title: "✨ Fill this field", parentId: "mistai-root", contexts: ["editable"] });
   chrome.contextMenus.create({ id: "improveFieldAI", title: "✏️ Improve my text", parentId: "mistai-root", contexts: ["editable"] });
   chrome.contextMenus.create({ id: "submitFormAI", title: "🚀 Submit this form", parentId: "mistai-root", contexts: ["editable"] });
+
 });
 
-// ─────────────────────────────────────────
-// Context menu click handler
-// ─────────────────────────────────────────
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
-  // Form actions
   if (info.menuItemId === "fillFieldAI") { sendToTab(tab.id, { type: "FORM_FILL_FIELD" }); return; }
   if (info.menuItemId === "improveFieldAI") { sendToTab(tab.id, { type: "FORM_IMPROVE_FIELD" }); return; }
   if (info.menuItemId === "submitFormAI") { sendToTab(tab.id, { type: "FORM_SUBMIT" }); return; }
   if (info.menuItemId === "buttonPanel") { sendToTab(tab.id, { type: "SHOW_BUTTON_PANEL" }); return; }
   if (info.menuItemId === "autoFillPage") { sendToTab(tab.id, { type: "AUTO_FILL_PAGE" }); return; }
-  if (info.menuItemId === "answerQuestion") { sendToTab(tab.id, { type: "ANSWER_SELECTION", questionText: info.selectionText }); return; }
 
-  if (info.menuItemId === "askWithMistAI") {
-    _browser.tabs.create({ url: `https://mistai.org/?q=${encodeURIComponent(info.selectionText)}&draft=true` });
+  if (info.menuItemId === "answerQuestion") {
+    sendToTab(tab.id, { type: "ANSWER_SELECTION", questionText: info.selectionText });
     return;
   }
 
@@ -87,12 +70,11 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   const prompt = prompts[info.menuItemId];
   if (!prompt) return;
 
-  sendToTab(tab.id, { type: "SHOW_SIDEBAR", action: info.menuItemId });
+  sendToTab(tab.id, { type: "SHOW_SIDEBAR", loading: true, prompt: info.selectionText, action: info.menuItemId });
 
   try {
     const response = await fetch(MISTAI_API, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+      method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message: prompt, model: "gemini" })
     });
     const data = await response.json();
@@ -102,30 +84,21 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   }
 });
 
-// ─────────────────────────────────────────
-// Message listener (from content.js)
-// ─────────────────────────────────────────
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === "SCRAPE_AND_ASK") {
     const truncated = msg.pageText.slice(0, 3000);
     const prompt = msg.action === "summarize"
       ? `Summarize this web page content concisely:\n\n${truncated}`
       : `Explain what this web page is about:\n\n${truncated}`;
-    fetch(MISTAI_API, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: prompt, model: "gemini" })
-    }).then(r => r.json())
-      .then(data => sendResponse({ result: data.response || data.error }))
+    fetch(MISTAI_API, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: prompt, model: "gemini" }) })
+      .then(r => r.json()).then(data => sendResponse({ result: data.response || data.error }))
       .catch(() => sendResponse({ result: "⚠️ Failed." }));
-    return true; // keep channel open for async response
+    return true;
   }
 
   if (msg.type === "API_CALL") {
-    fetch(MISTAI_API, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: msg.prompt, model: "gemini" })
-    }).then(r => r.json())
-      .then(data => sendResponse({ result: data.response || data.error }))
+    fetch(MISTAI_API, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: msg.prompt, model: "gemini" }) })
+      .then(r => r.json()).then(data => sendResponse({ result: data.response || data.error }))
       .catch(() => sendResponse({ result: "⚠️ Failed." }));
     return true;
   }

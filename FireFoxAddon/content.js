@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────
-// Mist.AI Content Script v3.2
+// Mist.AI Content Script (Firefox)
 // + ❓ Answer Question in tooltip + context menu
 // ─────────────────────────────────────────
 

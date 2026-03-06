@@ -189,7 +189,7 @@ async function typeBotMessage(message, containerClass = "bot-message") {
 // =========================
 // Global State
 // =========================
-let currentModel = "CommandR";
+let currentModel = "cohere";
 let canSendMessage = true;
 let isSwapping = false;
 let chatMemory = [];
@@ -409,6 +409,13 @@ function userWantsGrounding(message) {
 // sendMessage
 // =========================
 async function sendMessage(userMessage = null) {
+    const _t = localStorage.getItem("mistai-theme") || "dark";
+    document.body.classList.remove(
+        "light-theme", "blue-theme", "midnight-theme", "cyberpunk-theme",
+        "arctic-theme", "terminal-theme", "sunset-theme", "konami-theme",
+        "cherry-theme", "golden-theme", "galaxy-theme"
+    );
+    if (_t !== "dark") document.body.classList.add(`${_t}-theme`);
     const userInput = document.getElementById("user-input");
     if (userInput) localStorage.removeItem("mistai-draft");
 
@@ -940,18 +947,22 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // Theme select
     const themeSelect = document.getElementById("theme-select");
     if (themeSelect) {
-        const savedTheme = localStorage.getItem("mistai-theme");
-        if (savedTheme) {
-            themeSelect.value = savedTheme;
-            if (savedTheme !== "dark") document.body.classList.add(`${savedTheme}-theme`);
-        }
+        const savedTheme = localStorage.getItem("mistai-theme") || "dark";
+
+        // Always re-apply on load
+        themeSelect.value = savedTheme;
+        document.body.classList.remove(
+            "light-theme", "blue-theme", "midnight-theme", "cyberpunk-theme",
+            "arctic-theme", "terminal-theme", "sunset-theme", "konami-theme",
+            "cherry-theme", "golden-theme", "galaxy-theme"
+        );
+        if (savedTheme !== "dark") document.body.classList.add(`${savedTheme}-theme`);
 
         themeSelect.addEventListener("change", function () {
-            localStorage.setItem("mistai-theme", themeSelect.value);
             const selectedTheme = themeSelect.value;
+            localStorage.setItem("mistai-theme", selectedTheme);
             gsap.to("body", {
                 x: "100%", opacity: 0, duration: 0.3,
                 onComplete: () => {
@@ -1347,7 +1358,6 @@ function swapModel(selectElement) {
     currentModel = selectedValue;
     const displayName = selectElement.options[selectElement.selectedIndex].text;
     showNotification(`Model switched to: ${displayName}`);
-    sendMessage(`Model switched to: ${displayName}`);
     setTimeout(() => { isSwapping = false; }, 1300);
 }
 

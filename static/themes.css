@@ -134,82 +134,82 @@
 
 /* ==================== SHARED THEME STYLES (all themes) ==================== */
 
-[class$="-theme"] .user-message {
+[class*="-theme"] .user-message {
     background-color: var(--user-bg);
     color: var(--text-inverse);
     border-color: var(--accent);
 }
 
-[class$="-theme"] .bot-message {
+[class*="-theme"] .bot-message {
     background-color: var(--bot-bg);
     color: var(--text);
     border-color: var(--accent);
 }
 
-[class$="-theme"] .sidebar {
+[class*="-theme"] .sidebar {
     border-left-color: var(--accent);
     color: var(--text);
 }
 
-[class$="-theme"] .chat-input-container {
+[class*="-theme"] .chat-input-container {
     background: var(--bg);
     color: var(--text);
     border-color: var(--accent);
 }
 
-[class$="-theme"] .button {
+[class*="-theme"] .button {
     background-color: var(--primary);
     color: var(--text-inverse);
     border-color: var(--accent);
 }
 
-[class$="-theme"] .button:hover {
+[class*="-theme"] .button:hover {
     background-color: var(--primary-hover);
 }
 
-[class$="-theme"] .site-title {
+[class*="-theme"] .site-title {
     color: var(--accent) !important;
 }
 
-[class$="-theme"] .menu-label {
+[class*="-theme"] .menu-label {
     color: var(--p) !important;
 }
 
-[class$="-theme"] .menu-list a {
+[class*="-theme"] .menu-list a {
     color: var(--primary);
 }
 
-[class$="-theme"] .menu-list a:hover {
+[class*="-theme"] .menu-list a:hover {
     background-color: var(--primary);
     color: var(--text-inverse);
 }
 
-[class$="-theme"] .icon-button [class$="-theme"] .slash-button {
+[class*="-theme"] .icon-button [class*="-theme"] .slash-button {
     color: var(--text-inverse);
     /* removed background-color so per-theme hovers can work */
 }
 
-[class$="-theme"] .icon-button:hover,
-[class$="-theme"] .slash-button:hover {
+[class*="-theme"] .icon-button:hover,
+[class*="-theme"] .slash-button:hover {
     background-color: var(--primary-hover);
     /* this stays as fallback but per-theme rules below will override it */
 }
 
-[class$="-theme"] #word-counter {
+[class*="-theme"] #word-counter {
     color: var(--accent);
 }
 
-[class$="-theme"] .tools-popup {
+[class*="-theme"] .tools-popup {
     background-color: var(--bg);
     color: var(--text);
 }
 
-[class$="-theme"] .tool-option:hover {
+[class*="-theme"] .tool-option:hover {
     background-color: var(--primary);
     color: var(--text-inverse);
 }
 
-[class$="-theme"] .send-btn {
+[class*="-theme"] .send-btn {
     background: var(--primary);
     color: var(--text-inverse);
 }
@@ -311,7 +311,7 @@
 }
 
 /* ==================== TEXTAREA INHERIT (all themes) ==================== */
-[class$="-theme"] #user-input {
+[class*="-theme"] #user-input {
     background: transparent;
     color: inherit;
 }
@@ -394,7 +394,7 @@
 
 /* ==================== ACTIVE THREAD STYLES ==================== */
 
-body:not([class*="-theme"]) .active-thread .thread-link {
+body:not([class*="-theme"] ) .active-thread .thread-link {
     background: linear-gradient(135deg, #43ed8d, #38ecb0);
     color: #fff;
     font-weight: 600;
@@ -402,7 +402,7 @@ body:not([class*="-theme"]) .active-thread .thread-link {
 }
 
 /* All themes - active thread uses primary color */
-[class$="-theme"] .active-thread .thread-link {
+[class*="-theme"] .active-thread .thread-link {
     background-color: var(--primary);
     color: var(--text-inverse);
     font-weight: 600;
@@ -465,11 +465,11 @@ body:not([class*="-theme"]) .active-thread .thread-link {
 }
 
 /* Theme hover support for buttons */
-[class$="-theme"] .menu-list .thread-link {
+[class*="-theme"] .menu-list .thread-link {
     color: var(--primary);
 }
 
-[class$="-theme"] .menu-list .thread-link:hover {
+[class*="-theme"] .menu-list .thread-link:hover {
     background-color: var(--primary);
     color: var(--text-inverse);
 }

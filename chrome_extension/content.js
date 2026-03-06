@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────
-// Mist.AI Content Script v3.2
-// + ❓ Answer Question in tooltip + context menu
+// Mist.AI Content Script v3.3
+// + 🔇 Silent Mode (Alt+S toggle, Alt+A to answer)
 // ─────────────────────────────────────────
 
 let sidebarEl = null;
@@ -8,6 +8,8 @@ let resultEl = null;
 let titleEl = null;
 let activeRewriteTarget = null;
 let lastFocusedField = null;
+let silentMode = false;
+let silentIndicator = null;
 
 // ─────────────────────────────────────────
 // Track last focused field
@@ -47,6 +49,7 @@ let autoSuggestEl = null;
 
 function maybeShowAutoSuggest(field) {
     removeAutoSuggest();
+    if (silentMode) return;
     const currentVal = field.value || field.innerText || "";
     if (currentVal.trim().length > 0) return;
     const rect = field.getBoundingClientRect();
@@ -84,7 +87,7 @@ function describeField(field) {
 }
 
 // ─────────────────────────────────────────
-// ❓ Find nearby radio/checkbox options
+// Find nearby radio/checkbox options
 // ─────────────────────────────────────────
 function findNearbyOptions(anchorEl) {
     const containers = [
@@ -105,7 +108,6 @@ function findNearbyOptions(anchorEl) {
         if (inputs.length > 0) return inputs;
     }
 
-    // Last resort — find ALL radio/checkbox inputs on the page
     return Array.from(document.querySelectorAll('input[type="radio"], input[type="checkbox"]'));
 }
 
@@ -120,7 +122,7 @@ function getRadioLabel(radio) {
 }
 
 // ─────────────────────────────────────────
-// ❓ ANSWER A QUESTION
+// ANSWER A QUESTION (sidebar mode)
 // ─────────────────────────────────────────
 async function answerQuestion(questionText, optionInputs) {
     if (!questionText) { showToast("⚠️ No question text found."); return; }
@@ -167,15 +169,12 @@ No markdown, no extra text. Just the JSON.`;
       <div class="mistai-fill-value" style="font-style:italic;color:#94a3b8;font-size:12px;">
         ${escapeHtml(questionText.slice(0, 140))}${questionText.length > 140 ? "…" : ""}
       </div>
-
       <p class="mistai-fill-label" style="margin-top:10px;">Answer</p>
       <div class="mistai-fill-value" style="color:#7dd3fc;font-weight:600;">
         ✅ ${escapeHtml(chosenOption.label)}
       </div>
-
       <p class="mistai-fill-label" style="margin-top:10px;">Why</p>
       <div class="mistai-fill-value">${escapeHtml(explanation)}</div>
-
       <div class="mistai-fill-actions" style="margin-top:12px;">
         <button class="mistai-action-btn" id="mistai-apply-answer">✅ Select this answer</button>
         <button class="mistai-action-btn mistai-secondary" id="mistai-cancel-answer">Cancel</button>
@@ -723,10 +722,11 @@ function showToast(msg) {
 }
 
 // ─────────────────────────────────────────
-// Mouseup → show tooltip with ❓ Answer
+// Mouseup → show tooltip (disabled in silent mode)
 // ─────────────────────────────────────────
 document.addEventListener("mouseup", (e) => {
     if (e.target.closest("#mistai-sidebar") || e.target.closest("#mistai-tooltip") || e.target.closest("#mistai-autosuggest")) return;
+    if (silentMode) return;
     setTimeout(() => {
         const sel = window.getSelection();
         if (!sel || sel.isCollapsed || !sel.toString().trim()) return;
@@ -738,7 +738,6 @@ document.addEventListener("mouseup", (e) => {
         const x = rect.left + window.scrollX + rect.width / 2 - 150;
         const y = rect.top + window.scrollY;
 
-        // Check for nearby radio/checkbox options
         const nearbyOpts = findNearbyOptions(captured.anchorEl || sel.anchorNode?.parentElement);
         const hasOptions = nearbyOpts.length > 0;
 
@@ -758,7 +757,6 @@ document.addEventListener("mouseup", (e) => {
             ];
         }
 
-        // ❓ Always show Answer when options are nearby
         if (hasOptions) {
             actions = [{ label: "❓ Answer", action: "answer_question" }, ...actions];
         }
@@ -816,13 +814,11 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     if (msg.type === "SHOW_BUTTON_PANEL") showButtonClickerPanel();
     if (msg.type === "AUTO_FILL_PAGE") startAutoFill();
 
-    // ❓ Right-click → Answer this Question (selected text passed from background)
     if (msg.type === "ANSWER_SELECTION") {
         const questionText = msg.questionText || "";
         const sel = window.getSelection();
         const anchorEl = sel?.anchorNode?.parentElement || document.body;
         let inputs = findNearbyOptions(anchorEl);
-        // If no inputs near selection, fall back to all on page
         if (inputs.length === 0) {
             inputs = Array.from(document.querySelectorAll('input[type="radio"], input[type="checkbox"]'));
         }
@@ -840,39 +836,92 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 });
 
 // ─────────────────────────────────────────
-// ⌨️  Keyboard Shortcuts (permanent)
-//
-//  Alt + M  →  Open Mist.AI sidebar (home/shortcut menu)
-//  Alt + B  →  Button clicker panel
-//  Alt + F  →  Auto-fill form
+// ⌨️ Keyboard Shortcuts
+//  Alt+M → Home menu
+//  Alt+B → Button clicker
+//  Alt+F → Auto-fill form
+//  Alt+S → Toggle Silent Mode
+//  Alt+A → Answer highlighted question (silent mode)
 // ─────────────────────────────────────────
 document.addEventListener("keydown", (e) => {
     if (!e.altKey) return;
-
-    if (e.key === "m" || e.key === "M") {
-        e.preventDefault();
-        openHome();
-    }
-
-    if (e.key === "b" || e.key === "B") {
-        e.preventDefault();
-        showButtonClickerPanel();
-    }
-
-    if (e.key === "f" || e.key === "F") {
-        e.preventDefault();
-        startAutoFill();
-    }
+    if (e.key === "m" || e.key === "M") { e.preventDefault(); openHome(); }
+    if (e.key === "b" || e.key === "B") { e.preventDefault(); showButtonClickerPanel(); }
+    if (e.key === "f" || e.key === "F") { e.preventDefault(); startAutoFill(); }
+    if (e.key === "s" || e.key === "S") { e.preventDefault(); toggleSilentMode(); }
+    if (e.key === "a" || e.key === "A") { e.preventDefault(); silentAutoAnswer(); }
 });
 
 // ─────────────────────────────────────────
-// 🏠 Home panel — shown when Alt+M pressed
-// Lists all shortcuts so users know what's available
+// 🔇 SILENT MODE
+// ─────────────────────────────────────────
+function toggleSilentMode() {
+    silentMode = !silentMode;
+
+    if (silentIndicator) { silentIndicator.remove(); silentIndicator = null; }
+
+    if (silentMode) {
+        silentIndicator = document.createElement("div");
+        silentIndicator.id = "mistai-silent-indicator";
+        silentIndicator.innerHTML = `Silent Mode <span style="font-size:8px;opacity:0.8;">Alt+S to exit</span>`;
+        document.body.appendChild(silentIndicator);
+        showToast("🔇 Silent Mode ON — highlight a question, press Alt+A to answer");
+    } else {
+        showToast("🔊 Silent Mode OFF");
+    }
+}
+
+async function silentAutoAnswer() {
+    if (!silentMode) return;
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || !sel.toString().trim()) {
+        showToast("⚠️ Highlight a question first");
+        return;
+    }
+
+    const questionText = sel.toString().trim();
+    const anchorEl = sel.anchorNode?.parentElement;
+    const optionInputs = findNearbyOptions(anchorEl);
+
+    if (optionInputs.length === 0) {
+        showToast("⚠️ No answer options found nearby");
+        return;
+    }
+
+    const options = optionInputs.map((inp, i) => ({ inp, label: getRadioLabel(inp) || `Option ${i + 1}` }));
+    const optionsText = options.map((o, i) => `${i + 1}. ${o.label}`).join("\n");
+
+    const prompt = `You are answering a quiz question.
+Question: "${questionText}"
+Options:\n${optionsText}
+Return ONLY JSON: {"index":1,"answer":"exact option text","explanation":"1 sentence why"}`;
+
+    const response = await chrome.runtime.sendMessage({ type: "API_CALL", prompt });
+    const raw = response?.result?.trim() || "";
+
+    let parsed;
+    try { parsed = JSON.parse(raw.replace(/```json|```/g, "").trim()); }
+    catch (e) { showToast("⚠️ Couldn't parse answer"); return; }
+
+    const chosenIndex = Math.max(0, (parsed.index || 1) - 1);
+    const chosenOption = options[chosenIndex] || options[0];
+
+    chosenOption.inp.scrollIntoView({ behavior: "smooth", block: "center" });
+    setTimeout(() => {
+        chosenOption.inp.click();
+        chosenOption.inp.dispatchEvent(new Event("change", { bubbles: true }));
+        chosenOption.inp.style.outline = "3px solid #7dd3fc";
+        setTimeout(() => { chosenOption.inp.style.outline = ""; }, 1500);
+    }, 200);
+}
+
+// ─────────────────────────────────────────
+// 🏠 Home panel
 // ─────────────────────────────────────────
 function openHome() {
     ensureSidebar();
     sidebarEl.classList.add("mistai-visible");
-    if (titleEl) titleEl.textContent = "Mist.AI";
+    if (titleEl) titleEl.textContent = "Welcome to the Mist.AI Toolbox";
     document.getElementById("mistai-loading").style.display = "none";
     resultEl.style.display = "block";
 
@@ -882,6 +931,7 @@ function openHome() {
       <div class="mistai-fill-actions">
         <button class="mistai-action-btn" id="mh-autofill">🤖 Auto-fill This Form</button>
         <button class="mistai-action-btn mistai-secondary" id="mh-buttons">🖱️ Click a Button</button>
+        <button class="mistai-action-btn mistai-secondary" id="mh-silent">${silentMode ? "🔊 Turn Off Silent Mode" : "🔇 Turn On Silent Mode"}</button>
       </div>
 
       <p class="mistai-fill-label" style="margin-top:16px;">Keyboard Shortcuts</p>
@@ -898,12 +948,21 @@ function openHome() {
           <span>Click a button</span>
           <span class="mistai-kbd"><kbd>Alt</kbd><kbd>B</kbd></span>
         </div>
+        <div class="mistai-shortcut-row">
+          <span>Toggle Silent Mode</span>
+          <span class="mistai-kbd"><kbd>Alt</kbd><kbd>S</kbd></span>
+        </div>
+        <div class="mistai-shortcut-row">
+          <span>Answer (silent)</span>
+          <span class="mistai-kbd"><kbd>Alt</kbd><kbd>A</kbd></span>
+        </div>
       </div>
 
       <p class="mistai-fill-label" style="margin-top:16px;">Tips</p>
       <div class="mistai-fill-value" style="font-size:12.5px;line-height:1.6;">
         📌 <strong>Select any text</strong> on the page to see the Mist.AI tooltip<br><br>
         ❓ <strong>Select a quiz question</strong> — the tooltip shows an Answer button if choices are nearby<br><br>
+        🔇 <strong>Silent Mode</strong> — highlight a question then press <strong>Alt+A</strong> to silently select the answer<br><br>
         ✨ <strong>Click an empty input field</strong> to see the auto-fill bubble
       </div>
     </div>
@@ -911,4 +970,8 @@ function openHome() {
 
     document.getElementById("mh-autofill")?.addEventListener("click", () => startAutoFill());
     document.getElementById("mh-buttons")?.addEventListener("click", () => showButtonClickerPanel());
+    document.getElementById("mh-silent")?.addEventListener("click", () => {
+        toggleSilentMode();
+        hideSidebar();
+    });
 }

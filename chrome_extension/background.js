@@ -10,7 +10,7 @@ function sendToTab(tabId, message) {
 
 chrome.runtime.onInstalled.addListener(() => {
 
-  // ── Root (everything lives under "Mist.AI") ──────────────
+  // ── Root ──────────────────────────────────────────────────
   chrome.contextMenus.create({
     id: "mistai-root",
     title: "Mist.AI",
@@ -50,7 +50,6 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId === "buttonPanel") { sendToTab(tab.id, { type: "SHOW_BUTTON_PANEL" }); return; }
   if (info.menuItemId === "autoFillPage") { sendToTab(tab.id, { type: "AUTO_FILL_PAGE" }); return; }
 
-  // ❓ Answer this Question — passes selected text to content script
   if (info.menuItemId === "answerQuestion") {
     sendToTab(tab.id, { type: "ANSWER_SELECTION", questionText: info.selectionText });
     return;

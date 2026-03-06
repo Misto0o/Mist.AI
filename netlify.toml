@@ -1,0 +1,20 @@
+[build]
+  publish = "static"
+
+[[redirects]]
+  from = "/status-page"
+  to = "https://mist-ai.fly.dev/status-page"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/status"
+  to = "https://mist-ai.fly.dev/status"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/docs"
+  to = "https://misto0o.github.io/MistAI-Desktop/docs.html"
+  status = 200
+  force = true
