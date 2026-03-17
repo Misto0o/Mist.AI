@@ -1,15 +1,68 @@
 // ─────────────────────────────────────────
-// Mist.AI Content Script v3.3
-// + 🔇 Silent Mode (Alt+S toggle, Alt+A to answer)
+// Mist.AI Content Script v3.4
+// + 🔇 Silent Mode (persistent toggle)
+// + ✨ Auto-suggest toggle
+// + Firefox-safe hotkeys (Ctrl+Shift instead of Alt)
 // ─────────────────────────────────────────
 
+// ─────────────────────────────────────────
+// State
+// ─────────────────────────────────────────
 let sidebarEl = null;
 let resultEl = null;
 let titleEl = null;
 let activeRewriteTarget = null;
 let lastFocusedField = null;
 let silentMode = false;
+let autoSuggestEnabled = false;
 let silentIndicator = null;
+
+// Detect Firefox
+const IS_FIREFOX = typeof InstallTrigger !== "undefined" || navigator.userAgent.includes("Firefox");
+
+// ─────────────────────────────────────────
+// Persist toggles via chrome.storage
+// ─────────────────────────────────────────
+function loadSettings() {
+    chrome.storage.local.get(["silentMode", "autoSuggestEnabled"], (result) => {
+        silentMode = result.silentMode ?? false;
+        autoSuggestEnabled = result.autoSuggestEnabled ?? false;
+        if (silentMode) showSilentIndicator();
+    });
+}
+
+function saveSetting(key, value) {
+    chrome.storage.local.set({ [key]: value });
+}
+
+loadSettings();
+
+// ─────────────────────────────────────────
+// Silent Mode indicator
+// ─────────────────────────────────────────
+function showSilentIndicator() {
+    if (silentIndicator) return;
+    silentIndicator = document.createElement("div");
+    silentIndicator.id = "mistai-silent-indicator";
+    silentIndicator.innerHTML = `🔇 Silent Mode <span style="font-size:8px;opacity:0.6;">${IS_FIREFOX ? "Ctrl+Shift+S to exit" : "Alt+S to exit"}</span>`;
+    document.body.appendChild(silentIndicator);
+}
+
+function hideSilentIndicator() {
+    if (silentIndicator) { silentIndicator.remove(); silentIndicator = null; }
+}
+
+function toggleSilentMode() {
+    silentMode = !silentMode;
+    saveSetting("silentMode", silentMode);
+    if (silentMode) {
+        showSilentIndicator();
+        showToast(`🔇 Silent Mode ON — highlight a question, press ${IS_FIREFOX ? "Ctrl+Shift+A" : "Alt+A"} to answer`);
+    } else {
+        hideSilentIndicator();
+        showToast("🔊 Silent Mode OFF");
+    }
+}
 
 // ─────────────────────────────────────────
 // Track last focused field
@@ -49,7 +102,7 @@ let autoSuggestEl = null;
 
 function maybeShowAutoSuggest(field) {
     removeAutoSuggest();
-    if (silentMode) return;
+    if (silentMode || !autoSuggestEnabled) return;
     const currentVal = field.value || field.innerText || "";
     if (currentVal.trim().length > 0) return;
     const rect = field.getBoundingClientRect();
@@ -122,6 +175,26 @@ function getRadioLabel(radio) {
 }
 
 // ─────────────────────────────────────────
+// JSON extractor — handles messy model output
+// ─────────────────────────────────────────
+function extractJSON(raw) {
+    raw = raw.replace(/```json|```/g, "").trim();
+    try { return JSON.parse(raw); } catch {}
+    const match = raw.match(/\{[\s\S]*?\}/);
+    if (match) { try { return JSON.parse(match[0]); } catch {} }
+    try { return JSON.parse(raw.replace(/'/g, '"')); } catch {}
+    return null;
+}
+
+function extractJSONArray(raw) {
+    raw = raw.replace(/```json|```/g, "").trim();
+    try { return JSON.parse(raw); } catch {}
+    const match = raw.match(/\[[\s\S]*?\]/);
+    if (match) { try { return JSON.parse(match[0]); } catch {} }
+    return null;
+}
+
+// ─────────────────────────────────────────
 // ANSWER A QUESTION (sidebar mode)
 // ─────────────────────────────────────────
 async function answerQuestion(questionText, optionInputs) {
@@ -138,20 +211,16 @@ Question: "${questionText}"
 Answer options:
 ${optionsText}
 
-Pick the BEST correct answer. Return ONLY a JSON object like:
-{"index": 1, "answer": "exact option text", "explanation": "why this is correct (1-2 sentences)"}
-
-No markdown, no extra text. Just the JSON.`;
+Pick the BEST correct answer. Return ONLY a JSON object, no other text outside the JSON:
+{"index": 1, "answer": "exact option text", "explanation": "why this is correct (1-2 sentences)"}`;
 
     showSidebar("❓ Answering…", true);
 
     const response = await chrome.runtime.sendMessage({ type: "API_CALL", prompt });
     const raw = response?.result?.trim() || "";
+    const parsed = extractJSON(raw);
 
-    let parsed;
-    try {
-        parsed = JSON.parse(raw.replace(/```json|```/g, "").trim());
-    } catch (e) {
+    if (!parsed) {
         setResult(`⚠️ Couldn't parse answer. Raw:\n${raw.slice(0, 200)}`);
         return;
     }
@@ -331,11 +400,9 @@ Example: [{"index":1,"value":"John"},{"index":2,"value":"Business"}]`;
 
     const response = await chrome.runtime.sendMessage({ type: "API_CALL", prompt });
     const raw = response?.result?.trim() || "";
+    const instructions = extractJSONArray(raw);
 
-    let instructions = [];
-    try {
-        instructions = JSON.parse(raw.replace(/```json|```/g, "").trim());
-    } catch (e) {
+    if (!instructions) {
         setResult(`⚠️ Unexpected response.\n\n${raw.slice(0, 200)}`);
         return;
     }
@@ -837,40 +904,35 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 
 // ─────────────────────────────────────────
 // ⌨️ Keyboard Shortcuts
-//  Alt+M → Home menu
-//  Alt+B → Button clicker
-//  Alt+F → Auto-fill form
-//  Alt+S → Toggle Silent Mode
-//  Alt+A → Answer highlighted question (silent mode)
+//
+//  Chrome:  Alt+M / Alt+B / Alt+F / Alt+S / Alt+A
+//  Firefox: Ctrl+Shift+M / Ctrl+Shift+B / Ctrl+Shift+F / Ctrl+Shift+S / Ctrl+Shift+A
+//
+//  M → Home menu
+//  B → Button clicker
+//  F → Auto-fill form
+//  S → Toggle Silent Mode
+//  A → Answer highlighted question (silent mode)
 // ─────────────────────────────────────────
 document.addEventListener("keydown", (e) => {
-    if (!e.altKey) return;
-    if (e.key === "m" || e.key === "M") { e.preventDefault(); openHome(); }
-    if (e.key === "b" || e.key === "B") { e.preventDefault(); showButtonClickerPanel(); }
-    if (e.key === "f" || e.key === "F") { e.preventDefault(); startAutoFill(); }
-    if (e.key === "s" || e.key === "S") { e.preventDefault(); toggleSilentMode(); }
-    if (e.key === "a" || e.key === "A") { e.preventDefault(); silentAutoAnswer(); }
+    const key = e.key.toUpperCase();
+
+    const triggered = IS_FIREFOX
+        ? (e.ctrlKey && e.shiftKey && !e.altKey)
+        : (e.altKey && !e.ctrlKey && !e.shiftKey);
+
+    if (!triggered) return;
+
+    if (key === "M") { e.preventDefault(); openHome(); }
+    if (key === "B") { e.preventDefault(); showButtonClickerPanel(); }
+    if (key === "F") { e.preventDefault(); startAutoFill(); }
+    if (key === "S") { e.preventDefault(); toggleSilentMode(); }
+    if (key === "A") { e.preventDefault(); silentAutoAnswer(); }
 });
 
 // ─────────────────────────────────────────
-// 🔇 SILENT MODE
+// 🔇 Silent auto-answer
 // ─────────────────────────────────────────
-function toggleSilentMode() {
-    silentMode = !silentMode;
-
-    if (silentIndicator) { silentIndicator.remove(); silentIndicator = null; }
-
-    if (silentMode) {
-        silentIndicator = document.createElement("div");
-        silentIndicator.id = "mistai-silent-indicator";
-        silentIndicator.innerHTML = `Silent Mode <span style="font-size:8px;opacity:0.8;">Alt+S to exit</span>`;
-        document.body.appendChild(silentIndicator);
-        showToast("🔇 Silent Mode ON — highlight a question, press Alt+A to answer");
-    } else {
-        showToast("🔊 Silent Mode OFF");
-    }
-}
-
 async function silentAutoAnswer() {
     if (!silentMode) return;
     const sel = window.getSelection();
@@ -894,14 +956,13 @@ async function silentAutoAnswer() {
     const prompt = `You are answering a quiz question.
 Question: "${questionText}"
 Options:\n${optionsText}
-Return ONLY JSON: {"index":1,"answer":"exact option text","explanation":"1 sentence why"}`;
+Return ONLY JSON, no other text outside the JSON object: {"index":1,"answer":"exact option text","explanation":"1 sentence why"}`;
 
     const response = await chrome.runtime.sendMessage({ type: "API_CALL", prompt });
     const raw = response?.result?.trim() || "";
+    const parsed = extractJSON(raw);
 
-    let parsed;
-    try { parsed = JSON.parse(raw.replace(/```json|```/g, "").trim()); }
-    catch (e) { showToast("⚠️ Couldn't parse answer"); return; }
+    if (!parsed) { showToast("⚠️ Couldn't parse answer"); return; }
 
     const chosenIndex = Math.max(0, (parsed.index || 1) - 1);
     const chosenOption = options[chosenIndex] || options[0];
@@ -912,6 +973,7 @@ Return ONLY JSON: {"index":1,"answer":"exact option text","explanation":"1 sente
         chosenOption.inp.dispatchEvent(new Event("change", { bubbles: true }));
         chosenOption.inp.style.outline = "3px solid #7dd3fc";
         setTimeout(() => { chosenOption.inp.style.outline = ""; }, 1500);
+        showToast(`✅ "${chosenOption.label}"`);
     }, 200);
 }
 
@@ -921,9 +983,11 @@ Return ONLY JSON: {"index":1,"answer":"exact option text","explanation":"1 sente
 function openHome() {
     ensureSidebar();
     sidebarEl.classList.add("mistai-visible");
-    if (titleEl) titleEl.textContent = "Welcome to the Mist.AI Toolbox";
+    if (titleEl) titleEl.textContent = "Mist.AI";
     document.getElementById("mistai-loading").style.display = "none";
     resultEl.style.display = "block";
+
+    const modKey = IS_FIREFOX ? "Ctrl+Shift" : "Alt";
 
     resultEl.innerHTML = `
     <div class="mistai-fill-result">
@@ -931,38 +995,44 @@ function openHome() {
       <div class="mistai-fill-actions">
         <button class="mistai-action-btn" id="mh-autofill">🤖 Auto-fill This Form</button>
         <button class="mistai-action-btn mistai-secondary" id="mh-buttons">🖱️ Click a Button</button>
-        <button class="mistai-action-btn mistai-secondary" id="mh-silent">${silentMode ? "🔊 Turn Off Silent Mode" : "🔇 Turn On Silent Mode"}</button>
+      </div>
+
+      <p class="mistai-fill-label" style="margin-top:16px;">Toggles</p>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-size:13px;color:#ccc;">🔇 Silent Mode</span>
+          <button id="toggle-silent" style="
+            padding:4px 14px;border-radius:20px;font-size:12px;font-weight:600;
+            border:none;cursor:pointer;transition:all 0.15s;
+            background:${silentMode ? '#7dd3fc' : '#2a2a2a'};
+            color:${silentMode ? '#0d0d0d' : '#666'};
+          ">${silentMode ? 'ON' : 'OFF'}</button>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-size:13px;color:#ccc;">✨ Auto-suggest Bubble</span>
+          <button id="toggle-autosuggest" style="
+            padding:4px 14px;border-radius:20px;font-size:12px;font-weight:600;
+            border:none;cursor:pointer;transition:all 0.15s;
+            background:${autoSuggestEnabled ? '#7dd3fc' : '#2a2a2a'};
+            color:${autoSuggestEnabled ? '#0d0d0d' : '#666'};
+          ">${autoSuggestEnabled ? 'ON' : 'OFF'}</button>
+        </div>
       </div>
 
       <p class="mistai-fill-label" style="margin-top:16px;">Keyboard Shortcuts</p>
       <div class="mistai-shortcut-grid">
-        <div class="mistai-shortcut-row">
-          <span>Open this menu</span>
-          <span class="mistai-kbd"><kbd>Alt</kbd><kbd>M</kbd></span>
-        </div>
-        <div class="mistai-shortcut-row">
-          <span>Auto-fill form</span>
-          <span class="mistai-kbd"><kbd>Alt</kbd><kbd>F</kbd></span>
-        </div>
-        <div class="mistai-shortcut-row">
-          <span>Click a button</span>
-          <span class="mistai-kbd"><kbd>Alt</kbd><kbd>B</kbd></span>
-        </div>
-        <div class="mistai-shortcut-row">
-          <span>Toggle Silent Mode</span>
-          <span class="mistai-kbd"><kbd>Alt</kbd><kbd>S</kbd></span>
-        </div>
-        <div class="mistai-shortcut-row">
-          <span>Answer (silent)</span>
-          <span class="mistai-kbd"><kbd>Alt</kbd><kbd>A</kbd></span>
-        </div>
+        <div class="mistai-shortcut-row"><span>Open this menu</span><span class="mistai-kbd"><kbd>${modKey}</kbd><kbd>M</kbd></span></div>
+        <div class="mistai-shortcut-row"><span>Auto-fill form</span><span class="mistai-kbd"><kbd>${modKey}</kbd><kbd>F</kbd></span></div>
+        <div class="mistai-shortcut-row"><span>Click a button</span><span class="mistai-kbd"><kbd>${modKey}</kbd><kbd>B</kbd></span></div>
+        <div class="mistai-shortcut-row"><span>Toggle Silent Mode</span><span class="mistai-kbd"><kbd>${modKey}</kbd><kbd>S</kbd></span></div>
+        <div class="mistai-shortcut-row"><span>Answer (silent)</span><span class="mistai-kbd"><kbd>${modKey}</kbd><kbd>A</kbd></span></div>
       </div>
 
       <p class="mistai-fill-label" style="margin-top:16px;">Tips</p>
       <div class="mistai-fill-value" style="font-size:12.5px;line-height:1.6;">
         📌 <strong>Select any text</strong> on the page to see the Mist.AI tooltip<br><br>
         ❓ <strong>Select a quiz question</strong> — the tooltip shows an Answer button if choices are nearby<br><br>
-        🔇 <strong>Silent Mode</strong> — highlight a question then press <strong>Alt+A</strong> to silently select the answer<br><br>
+        🔇 <strong>Silent Mode</strong> — highlight a question then press <strong>${modKey}+A</strong> to silently select the answer<br><br>
         ✨ <strong>Click an empty input field</strong> to see the auto-fill bubble
       </div>
     </div>
@@ -970,8 +1040,23 @@ function openHome() {
 
     document.getElementById("mh-autofill")?.addEventListener("click", () => startAutoFill());
     document.getElementById("mh-buttons")?.addEventListener("click", () => showButtonClickerPanel());
-    document.getElementById("mh-silent")?.addEventListener("click", () => {
+
+    document.getElementById("toggle-silent")?.addEventListener("click", (e) => {
         toggleSilentMode();
-        hideSidebar();
+        const btn = e.currentTarget;
+        btn.textContent = silentMode ? 'ON' : 'OFF';
+        btn.style.background = silentMode ? '#7dd3fc' : '#2a2a2a';
+        btn.style.color = silentMode ? '#0d0d0d' : '#666';
+    });
+
+    document.getElementById("toggle-autosuggest")?.addEventListener("click", (e) => {
+        autoSuggestEnabled = !autoSuggestEnabled;
+        saveSetting("autoSuggestEnabled", autoSuggestEnabled);
+        const btn = e.currentTarget;
+        btn.textContent = autoSuggestEnabled ? 'ON' : 'OFF';
+        btn.style.background = autoSuggestEnabled ? '#7dd3fc' : '#2a2a2a';
+        btn.style.color = autoSuggestEnabled ? '#0d0d0d' : '#666';
+        if (!autoSuggestEnabled) removeAutoSuggest();
+        showToast(autoSuggestEnabled ? '✨ Auto-suggest ON' : '✨ Auto-suggest OFF');
     });
 }

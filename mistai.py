@@ -102,49 +102,69 @@ class StreamToUTF8(logging.StreamHandler):
 
 
 class LogFormatter(logging.Formatter):
-    grey = "\x1b[38;21m"
-    yellow = "\x1b[33;21m"
-    green = "\x1b[32;21m"
-    red = "\x1b[31;21m"
-    reset = "\x1b[0m"
+    RESET  = "\x1b[0m"
+    STYLES = {
+        "DEBUG":    ("\x1b[38;21m", "DBG"),
+        "INFO":     ("\x1b[32;21m", "INF"),
+        "WARNING":  ("\x1b[33;21m", "WRN"),
+        "ERROR":    ("\x1b[31;21m", "ERR"),
+        "CRITICAL": ("\x1b[31;21m", "CRT"),
+    }
+    # Icon prefix per message category (matched on message start)
+    ICONS = {
+        "📩 User": "cyan",   # incoming chat
+        "🤖 Bot": "cyan",   # bot response
+        "🧭 Router": "\x1b[35;21m",  # tavily router  → purple
+        "🔍 Google": "\x1b[35;21m",  # tavily search  → purple
+        "🔥 DownMode": "\x1b[31;21m",  # down mode      → red
+        "⚠️ Warning": "\x1b[33;21m",  # warning        → yellow
+        "❌ Error": "\x1b[31;21m",  # error          → red
+        "✅ Success": "\x1b[32;21m",  # success        → green
+    }
 
     def format(self, record):
-        level_color = {
-            "DEBUG": self.grey,
-            "INFO": self.green,
-            "WARNING": self.yellow,
-            "ERROR": self.red,
-            "CRITICAL": self.red,
-        }.get(record.levelname, self.grey)
-        log_fmt = f"{level_color}[%(levelname)s]{self.reset} %(message)s"
-        return logging.Formatter(log_fmt).format(record)
+        color, tag = self.STYLES.get(record.levelname, ("\x1b[38;21m", "???"))
+        msg = record.getMessage()
+        return f"{color}[{tag}]{self.RESET} {msg}"
 
 
 class FilterFlyLogs(logging.Filter):
+    _SKIP = {"Sending signal", "machine started", "Preparing to run",
+             "fly api proxy", "SSH listening", "reboot", "autostopping"}
+
     def filter(self, record):
         msg = record.getMessage()
-        fly_terms = [
-            "Sending signal",
-            "machine started",
-            "Preparing to run",
-            "fly api proxy",
-            "SSH listening",
-            "reboot",
-            "autostopping",
-        ]
-        if any(term in msg for term in fly_terms):
+        if any(t in msg for t in self._SKIP):
             return False
         if "OPTIONS" in msg:
             return False
         return True
 
 
-handler = StreamToUTF8(sys.stdout)
-handler.setFormatter(LogFormatter())
-handler.addFilter(FilterFlyLogs())
+# ── single module-level logger — use `log` everywhere instead of app.logger ──
+log = logging.getLogger("mistai")
+log.setLevel(logging.INFO)
+log.propagate = False
+_handler = StreamToUTF8(sys.stdout)
+_handler.setFormatter(LogFormatter())
+_handler.addFilter(FilterFlyLogs())
+log.addHandler(_handler)
+logging.getLogger("werkzeug").disabled = True
+
+
+# Convenience helpers — call these instead of log.info / log.error directly
+def log_chat(ip, model, message, response):
+    log.info(f"📩 {ip} [{model}] {message[:80]}")
+    log.info(f"🤖 {response[:80]}")
+
+def log_warn(msg):  log.warning(f"⚠️  {msg}")
+def log_err(msg):   log.error(f"❌ {msg}")
+def log_ok(msg):    log.info(f"✅ {msg}")
+def log_search(msg): log.info(f"🔍 {msg}")
+def log_router(decision): log.info(f"🧭 Tavily → {decision}")
 
 app.logger.handlers.clear()
-app.logger.addHandler(handler)
+app.logger.addHandler(_handler)
 app.logger.setLevel(logging.INFO)
 app.logger.propagate = False
 logging.getLogger("werkzeug").disabled = True
@@ -218,9 +238,9 @@ def _log_writer_thread():
                     batch = []
                     last_write = current_time
                 except Exception as e:
-                    app.logger.warning(f"⚠️ Logging flush failed (non-fatal): {e}")
+                    log_warn(f"⚠️ Logging flush failed (non-fatal): {e}")
         except Exception as e:
-            app.logger.warning(f"⚠️ Log writer thread error: {e}")
+            log_warn(f"⚠️ Log writer thread error: {e}")
 
 
 def safe_log_chat(user_ip, model_choice, message, response, grounded):
@@ -236,7 +256,7 @@ def safe_log_chat(user_ip, model_choice, message, response, grounded):
         }
         log_queue.put(entry, block=False)
     except Exception as e:
-        app.logger.warning(f"⚠️ Failed to queue log entry: {e}")
+        log_warn(f"⚠️ Failed to queue log entry: {e}")
 
 
 # =========================
@@ -252,7 +272,7 @@ def set_down_mode(reason: str):
     IS_DOWN = True
     DOWN_REASON = reason
     DOWN_TIMESTAMP = datetime.now().isoformat()
-    app.logger.error(f"🔥 DOWN MODE: {reason} at {DOWN_TIMESTAMP}")
+    log.error(f"🔥 DOWN MODE: {reason} at {DOWN_TIMESTAMP}")
 
 
 # =========================
@@ -355,7 +375,7 @@ def api_chat():
             elif model == "mistral":
                 ai_response = asyncio.run(get_mistral_response(modified_message))
         except Exception as e:
-            app.logger.exception("Model execution failed")
+            log_err("Model execution failed")
             return (
                 jsonify(
                     {
@@ -386,7 +406,7 @@ def api_chat():
         )
 
     except Exception as e:
-        app.logger.exception("API Error")
+        log_err("API Error")
         return jsonify({"error": str(e), "is_down": IS_DOWN}), 500
 
 
@@ -514,7 +534,7 @@ def force_down_test():
     IS_DOWN = True
     DOWN_REASON = "Manual Test Mode"
     DOWN_TIMESTAMP = datetime.now().isoformat()
-    app.logger.warning(f"⚠️ DOWN MODE ACTIVATED (manual test) at {DOWN_TIMESTAMP}")
+    log_warn(f"⚠️ DOWN MODE ACTIVATED (manual test) at {DOWN_TIMESTAMP}")
     return (
         jsonify(
             {
@@ -535,7 +555,7 @@ def reset_down_test():
     IS_DOWN = False
     DOWN_REASON = None
     DOWN_TIMESTAMP = None
-    app.logger.info("✅ DOWN MODE DEACTIVATED (manual reset)")
+    log_ok("DOWN MODE DEACTIVATED (manual reset)")
     return jsonify({"message": "IS_DOWN reset to False", "is_down": False}), 200
 
 
@@ -578,7 +598,7 @@ def download_logs():
 # =========================
 @app.errorhandler(500)
 def handle_500(e):
-    app.logger.error(f"500 error: {e}")
+    log_err(f"500 error: {e}")
     if request.path.startswith("/chat") or request.path.startswith("/is-banned"):
         return jsonify({"error": "Internal server error", "is_down": IS_DOWN}), 500
     return render_template("mistai_status.html"), 500
@@ -588,7 +608,7 @@ def handle_500(e):
 def handle_exception(e):
     if isinstance(e, NotFound):
         return handle_404(e)
-    app.logger.error(f"Unhandled exception: {type(e).__name__}: {e}")
+    log_err(f"Unhandled exception: {type(e).__name__}: {e}")
     if request.path.startswith("/chat") or request.path.startswith("/is-banned"):
         return jsonify({"error": "Unexpected error", "is_down": IS_DOWN}), 500
     return render_template("mistai_status.html"), 500
@@ -596,7 +616,7 @@ def handle_exception(e):
 
 @app.errorhandler(404)
 def handle_404(e):
-    app.logger.warning(f"⚠️ 404 Not Found → {request.path}")
+    log_warn(f"⚠️ 404 Not Found → {request.path}")
     return ("", 204)
 
 
@@ -910,10 +930,17 @@ def login_required(f):
 @login_required
 def admin_panel():
     banned_entries = get_bans()
+    chat_logs = []
+    if os.path.exists(LOG_FILE):
+        try:
+            with open(LOG_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                chat_logs = data.get("logs", [])
+        except Exception:
+            chat_logs = []
     return render_template(
-        "admin/admin.html", ip_log=ip_log, banned_entries=banned_entries
+        "admin/admin.html", ip_log=ip_log, banned_entries=banned_entries, chat_logs=chat_logs
     )
-
 
 @app.route("/admin/ban", methods=["POST"])
 @login_required
@@ -1012,160 +1039,83 @@ startup()
 
 ROUTER_MODEL = "command-r7b-12-2024"
 
+# Simple heuristics — covers 95% of "no search" cases without a list
+_SEARCH_HINTS = re.compile(
+    r'\b(current|latest|today|tonight|now|recent|live|price|weather|score|'
+    r'standing|news|update|who is|who are|trending|stock|forecast|'
+    r'best|top|recommend|review|vs|compare|worth it|should i buy|'
+    r'product|brand|which one)\b',
+    re.IGNORECASE
+)
+
+_SHORT_MSG_MAX_TOKENS = 6  # "hi", "thanks", "ok cool" etc.
+
+def _quick_no(msg: str) -> bool:
+    """Cheap pre-filter. Returns True if we're confident no search is needed."""
+    stripped = msg.strip()
+    if not stripped:
+        return True
+    # Very short messages are almost never search queries
+    if len(stripped.split()) <= _SHORT_MSG_MAX_TOKENS and not _SEARCH_HINTS.search(stripped):
+        return True
+    return False
+
 
 async def needs_tavily(user_message: str) -> bool:
-    if not user_message:
+    if _quick_no(user_message):
+        log_router("NO")
         return False
 
-    msg = user_message.strip().lower().rstrip("?!")
-
-    # ── Hardcoded NO list ──────────────────────────────────────────────
-    no_search = {
-        # greetings
-        "hello",
-        "hi",
-        "hey",
-        "sup",
-        "yo",
-        "howdy",
-        "hiya",
-        "hello mist",
-        "hey mist",
-        "hi mist",
-        "wassup",
-        "whats up",
-        "what's up",
-        "wsp",
-        "sup mist",
-        "yo mist",
-        "hey bro",
-        "hi bro",
-        "hello there",
-        "good morning",
-        "good afternoon",
-        "good evening",
-        "gm",
-        "gn",
-        # thanks
-        "thanks",
-        "thank you",
-        "thx",
-        "ty",
-        "tysm",
-        "thanks bro",
-        "thank u",
-        "thank you bro",
-        "appreciate it",
-        "appreciate u",
-        "much appreciated",
-        "thanks mist",
-        "thank you mist",
-        # identity / meta
-        "who are you",
-        "what are you",
-        "what can you do",
-        "who made you",
-        "are you an ai",
-        "are you a bot",
-        "are you sentient",
-        "whats your name",
-        "what is your name",
-        "tell me about yourself",
-        "introduce yourself",
-        "what are you capable of",
-        "how do you work",
-        "what model are you",
-        "are you gpt",
-        "are you chatgpt",
-        "are you gemini",
-        # date/time
-        "whats the current year",
-        "what is the current year",
-        "what year is it",
-        "whats todays date",
-        "what is todays date",
-        "what is the date",
-        "whats the date",
-        "what time is it",
-        "whats the time",
-        # farewells
-        "bye",
-        "goodbye",
-        "see you",
-        "see ya",
-        "cya",
-        "later",
-        "peace",
-        # confirmations / filler
-        "ok",
-        "okay",
-        "got it",
-        "sure",
-        "cool",
-        "nice",
-        "great",
-        "perfect",
-        "sounds good",
-        "makes sense",
-        "understood",
-        "noted",
-    }
-
-    if msg in no_search:
-        app.logger.info(f"🧭 Tavily router → NO (hardcoded bypass)")
-        return False
-
-    # ── Tighter classifier prompt ──────────────────────────────────────
-    prompt = f"""
-You are a search routing classifier. Decide if a web search is needed.
-
-Answer YES only if the question REQUIRES live or recent data:
-- Current news, events, or developments
-- Live scores, standings, prices, or stocks  
-- Current weather
-- Who CURRENTLY holds a specific real-world position (president, CEO, etc.)
-- Something that happened recently (last days/weeks/months)
-
-Answer NO for:
-- Questions about the AI itself (who are you, what can you do, etc.)
-- Math, logic, or coding questions
-- Definitions or explanations of concepts
-- Historical facts (before 2023)
-- Creative writing or hypotheticals
-- General knowledge that doesn't change
-- Casual conversation or opinions
-
-Return ONLY one word: YES or NO
-
-Message: \"\"\"{user_message}\"\"\"
-""".strip()
-
-    # cache check
-    if "tavily_router_cache" not in app.config:
-        app.config["tavily_router_cache"] = {}
-    cache = app.config["tavily_router_cache"]
+    # Cache check
+    cache = app.config.setdefault("tavily_router_cache", {})
     key = hashlib.sha1(user_message.strip().lower().encode()).hexdigest()
     if key in cache:
         return cache[key]
 
-    def sync_call():
-        response = co.chat(
-            model=ROUTER_MODEL,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0,
-            max_tokens=5,
-        )
-        text = response.message.content[0].text.strip().upper()
-        return "YES" if text.startswith("YES") else "NO"
+    prompt = f"""
+You are a search routing classifier. Does this message require a live web search?
+
+Answer YES for:
+- Current news, events, or developments
+- Live scores, standings, prices, or stocks
+- Current weather
+- Who currently holds a real-world position (president, CEO, etc.)
+- Recent happenings (last days/weeks/months)
+- Product recommendations, reviews, or comparisons (products change, new ones release)
+- "Best X for Y" questions (best shampoo, best laptop, best restaurant, etc.)
+- Anything where a fresher answer would be meaningfully better
+
+Answer NO for:
+- Math, coding, or logic questions
+- Definitions or explanations of stable concepts
+- Historical facts
+- Creative writing or hypotheticals
+- AI identity questions ("who are you", "what can you do")
+- Casual conversation or opinions
+
+Return ONLY: YES or NO
+
+Message: \"\"\"{user_message}\"\"\"
+""".strip()
 
     try:
+        def sync_call():
+            response = co.chat(
+                model=ROUTER_MODEL,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0,
+                max_tokens=5,
+            )
+            return response.message.content[0].text.strip().upper()
+
         decision = await asyncio.to_thread(sync_call)
-        result = decision == "YES"
+        result = decision.startswith("YES")
         cache[key] = result
-        app.logger.info(f"🧭 Tavily router → {decision}")
+        log_router(decision)
         return result
+
     except Exception as e:
-        app.logger.error(f"❌ Router failed, defaulting NO: {e}")
+        log_err(f"Router failed: {e}")
         return False
 
 
@@ -1177,9 +1127,7 @@ async def tavily_search(query: str, max_results: int = 3) -> str:
     try:
 
         def sync_search():
-            app.logger.info(
-                f"🔍 Tavily searching for: {query[:80]}{'...' if len(query) > 80 else ''}"
-            )
+            log_search(f"Tavily: {query[:80]}")
             response = TAVILY_CLIENT.search(
                 query=query, max_results=max_results, include_answer=True
             )
@@ -1200,7 +1148,7 @@ async def tavily_search(query: str, max_results: int = 3) -> str:
 
         return await asyncio.to_thread(sync_search)
     except Exception as e:
-        app.logger.error(f"❌ Tavily search failed: {e}")
+        log_err(f"Tavily search failed: {e}")
         return None
 
 
@@ -1234,7 +1182,7 @@ async def tavily_route():
             {"query": query, "grounding": grounding or "No relevant info found."}
         )
     except Exception as e:
-        app.logger.error(f"Tavily error: {e}")
+        log_err(f"Tavily error: {e}")
         return jsonify({"error": "Tavily search failed."}), 500
 
 
@@ -1267,7 +1215,27 @@ async def chat():
             return jsonify({"error": "Message can't be empty."}), 400
 
         lower_msg = user_message.lower()
-        log_message = user_message
+
+        def clean_log_message(msg: str) -> str:
+            patterns = [
+                (r'You are a knowledgeable assistant.*?Question:\s*"(.+?)".*', r'[Quiz] \1'),
+                (r'You are filling out a web form.*?labeled:\s*"(.+?)".*', r'[Fill field] \1'),
+                (r'You are an AI form-filling assistant.*?on "(.+?)".*', r'[Auto-fill] \1'),
+                (r'Improve the writing of this text.*?:\s*"(.+?)".*', r'[Improve] \1'),
+                (r'Rephrase this more clearly.*?:\s*"(.+?)".*', r'[Rephrase] \1'),
+                (r'Summarize this.*?:\s*"(.+?)".*', r'[Summarize] \1'),
+                (r'Explain this in simple terms.*?:\s*"(.+?)".*', r'[Explain] \1'),
+                (r'Translate this to English.*?:\s*"(.+?)".*', r'[Translate] \1'),
+                (r'Summarize this web page.*', '[Page summarize]'),
+                (r'Explain what this web page.*', '[Page explain]'),
+            ]
+            for pattern, replacement in patterns:
+                cleaned = re.sub(pattern, replacement, msg, flags=re.DOTALL | re.IGNORECASE)
+                if cleaned != msg:
+                    return cleaned[:120]
+            return msg[:120]
+
+        log_message = clean_log_message(user_message)
 
         # Easter eggs / commands
         if response := check_easter_eggs(lower_msg):
@@ -1316,7 +1284,7 @@ async def chat():
                     if grounding_text == "No relevant info found.":
                         grounding_text = ""
             except Exception as e:
-                app.logger.warning(f"⚠️ Tavily failed → skipping: {e}")
+                log_warn(f"⚠️ Tavily failed → skipping: {e}")
 
         # Prompt assembly — always fetch fresh (uses internal 10-min cache)
         context_text = "\n".join(f"{m['role']}: {m['content']}" for m in chat_context)
@@ -1327,7 +1295,7 @@ async def chat():
                 tn = await fetch_time_news_data()
                 break
             except Exception as e:
-                app.logger.warning(f"⚠️ time_news attempt {attempt + 1} failed: {e}")
+                log_warn(f"⚠️ time_news attempt {attempt + 1} failed: {e}")
 
         current_date = tn.get("time", {}).get("date", "Unknown Date")
         current_time_str = tn.get("time", {}).get("time", "Unknown Time")
@@ -1390,9 +1358,7 @@ async def chat():
             }
         )
 
-        app.logger.info(
-            f"\n📩 {user_ip} [{model_choice}]: {log_message[:80]}\n🤖 {response_content[:80]}\n"
-        )
+        log_chat(user_ip, model_choice, log_message, response_content)
 
         # Log to disk AFTER the response is delivered to the client.
         # The 30-second flush delay in _log_writer_thread ensures the file
@@ -1411,7 +1377,7 @@ async def chat():
         return jsonify({"response": response_content})
 
     except Exception as e:
-        app.logger.error(f"❌ Chat route error: {type(e).__name__}: {e}")
+        log_err(f"Chat route error: {type(e).__name__}: {e}")
         set_down_mode(type(e).__name__)
         return (
             jsonify(
@@ -1706,7 +1672,7 @@ async def get_weather_data(city):
                 "hourly": upcoming,
             }
     except Exception as e:
-        app.logger.error(f"❌ Weather API error: {e}")
+        log_err(f"❌ Weather API error: {e}")
         return {"error": str(e)}
 
 
@@ -1758,5 +1724,5 @@ def get_random_fun_fact():
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    app.logger.info(f"🚀 Mist.AI Server is starting on 0.0.0.0:{port}...")
+    log.info(f"🚀 Mist.AI Server is starting on 0.0.0.0:{port}...")
     app.run(host="0.0.0.0", port=port, debug=False)

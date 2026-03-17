@@ -427,7 +427,16 @@
       <a href="{{ url_for('download_logs') }}">
         <button type="button" class="green">📥 Download chat_logs.json</button>
       </a>
+      <input type="text" id="jsonSearch" placeholder="Search keys or values..." oninput="renderJsonTree()"
+        style="flex:1; min-width:140px;">
+      <button type="button" class="secondary small" onclick="expandAll()">Expand all</button>
+      <button type="button" class="secondary small" onclick="collapseAll()">Collapse all</button>
     </div>
+    <div id="jsonViewer" style="
+  background:#111; border:1px solid #2a2a2a; border-radius:10px;
+  padding:1rem; font-family:monospace; font-size:12.5px;
+  max-height:500px; overflow-y:auto; line-height:1.8;
+"></div>
 
     <!-- IP Activity Log -->
     <h2>📡 IP Activity Log</h2>
@@ -463,5 +472,61 @@
     <a href="{{ url_for('admin_logout') }}" class="logout-link">← Logout</a>
   </div>
 </body>
+
+<script id="log-data" type="application/json">{{ chat_logs | tojson }}</script>
+<script>
+  const LOG_DATA = JSON.parse(document.getElementById('log-data').textContent);
+
+  let nodeId = 0, searchQuery = '';
+
+  function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;') }
+  function hl(v){ 
+    const s = esc(String(v));
+    if(!searchQuery) return s;
+    const re = new RegExp('('+searchQuery.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','gi');
+    return s.replace(re,'<mark style="background:#ffaa4433;border-radius:2px">$1</mark>');
+  }
+
+  function buildNode(val){
+    if(val === null) return `<span style="color:#888">null</span>`;
+    if(typeof val === 'boolean') return `<span style="color:#ff7b72">${val}</span>`;
+    if(typeof val === 'number') return `<span style="color:#ffaa44">${hl(val)}</span>`;
+    if(typeof val === 'string') return `<span style="color:#4caf50">"${hl(val)}"</span>`;
+    if(Array.isArray(val)){
+      if(!val.length) return `<span style="color:#aaa">[]</span>`;
+      const id='n'+(nodeId++);
+      const rows=val.map(v=>`<div style="margin-left:16px">${buildNode(v)}</div>`).join('');
+      return `<span onclick="tog('${id}')" style="cursor:pointer;color:#888;margin-right:3px">▾</span>[<span id="${id}h" style="display:none;color:#555;font-size:11px">${val.length} items]</span><div id="${id}">${rows}</div><span id="${id}e">]</span>`;
+    }
+    if(typeof val === 'object'){
+      const keys=Object.keys(val);
+      if(!keys.length) return `<span style="color:#aaa">{}</span>`;
+      const id='n'+(nodeId++);
+      const rows=keys.map(k=>`<div style="margin-left:16px"><span style="color:#4da6ff">"${hl(k)}"</span>: ${buildNode(val[k])}</div>`).join('');
+      return `<span onclick="tog('${id}')" style="cursor:pointer;color:#888;margin-right:3px">▾</span>{<span id="${id}h" style="display:none;color:#555;font-size:11px">${keys.length} keys}</span><div id="${id}">${rows}</div><span id="${id}e">}</span>`;
+    }
+    return esc(String(val));
+  }
+
+  function tog(id){
+    const el=document.getElementById(id), h=document.getElementById(id+'h'), e=document.getElementById(id+'e'), t=el.previousElementSibling;
+    const collapsed=el.style.display==='none';
+    el.style.display=collapsed?'':'none'; h.style.display=collapsed?'none':''; 
+    if(e) e.style.display=collapsed?'':'none';
+    t.textContent=collapsed?'▾':'▸';
+  }
+
+  function expandAll(){ document.querySelectorAll('[id^="n"]').forEach(el=>{ if(!el.id.endsWith('h')&&!el.id.endsWith('e')){ el.style.display=''; const h=document.getElementById(el.id+'h'); if(h) h.style.display='none'; const e=document.getElementById(el.id+'e'); if(e) e.style.display=''; if(el.previousElementSibling) el.previousElementSibling.textContent='▾'; }})}
+
+  function collapseAll(){ document.querySelectorAll('[id^="n"]').forEach(el=>{ if(!el.id.endsWith('h')&&!el.id.endsWith('e')){ el.style.display='none'; const h=document.getElementById(el.id+'h'); if(h) h.style.display=''; const e=document.getElementById(el.id+'e'); if(e) e.style.display='none'; if(el.previousElementSibling) el.previousElementSibling.textContent='▸'; }})}
+
+  function renderJsonTree(){ 
+    searchQuery=(document.getElementById('jsonSearch')?.value||'').toLowerCase();
+    nodeId=0; 
+    document.getElementById('jsonViewer').innerHTML=buildNode(LOG_DATA); 
+  }
+
+  renderJsonTree();
+</script>
 
 </html>

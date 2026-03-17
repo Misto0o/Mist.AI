@@ -21,6 +21,6 @@
 
   [[redirects]]
   from = "/credits"
-  to = "/Credits/index.html"
+  to = "/credits/index.html"
   status = 200
   force = true

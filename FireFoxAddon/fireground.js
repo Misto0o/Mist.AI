@@ -75,7 +75,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   try {
     const response = await fetch(MISTAI_API, {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: prompt, model: "gemini" })
+      body: JSON.stringify({ message: prompt, model: "cohere" })
     });
     const data = await response.json();
     sendToTab(tab.id, { type: "SIDEBAR_RESULT", result: data.response || data.error || "No response." });

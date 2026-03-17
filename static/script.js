@@ -189,7 +189,7 @@ async function typeBotMessage(message, containerClass = "bot-message") {
 // =========================
 // Global State
 // =========================
-let currentModel = "cohere";
+let currentModel = "gemini";
 let canSendMessage = true;
 let isSwapping = false;
 let chatMemory = [];
