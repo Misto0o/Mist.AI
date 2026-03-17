@@ -24,6 +24,7 @@ const IS_FIREFOX = typeof InstallTrigger !== "undefined" || navigator.userAgent.
 // Persist toggles via chrome.storage
 // ─────────────────────────────────────────
 function loadSettings() {
+    if (typeof chrome === "undefined" || !chrome.storage?.local) return;
     chrome.storage.local.get(["silentMode", "autoSuggestEnabled"], (result) => {
         silentMode = result.silentMode ?? false;
         autoSuggestEnabled = result.autoSuggestEnabled ?? false;
@@ -32,6 +33,7 @@ function loadSettings() {
 }
 
 function saveSetting(key, value) {
+    if (typeof chrome === "undefined" || !chrome.storage?.local) return;
     chrome.storage.local.set({ [key]: value });
 }
 
@@ -179,18 +181,18 @@ function getRadioLabel(radio) {
 // ─────────────────────────────────────────
 function extractJSON(raw) {
     raw = raw.replace(/```json|```/g, "").trim();
-    try { return JSON.parse(raw); } catch {}
+    try { return JSON.parse(raw); } catch { }
     const match = raw.match(/\{[\s\S]*?\}/);
-    if (match) { try { return JSON.parse(match[0]); } catch {} }
-    try { return JSON.parse(raw.replace(/'/g, '"')); } catch {}
+    if (match) { try { return JSON.parse(match[0]); } catch { } }
+    try { return JSON.parse(raw.replace(/'/g, '"')); } catch { }
     return null;
 }
 
 function extractJSONArray(raw) {
     raw = raw.replace(/```json|```/g, "").trim();
-    try { return JSON.parse(raw); } catch {}
+    try { return JSON.parse(raw); } catch { }
     const match = raw.match(/\[[\s\S]*?\]/);
-    if (match) { try { return JSON.parse(match[0]); } catch {} }
+    if (match) { try { return JSON.parse(match[0]); } catch { } }
     return null;
 }
 

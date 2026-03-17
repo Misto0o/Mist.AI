@@ -2,7 +2,7 @@
   "manifest_version": 2,
   "name": "Mist.AI",
   "description": "Ask Mist.AI anything, right-click text for help, auto-fill forms, and answer questions.",
-  "version": "2.5",
+  "version": "3.0",
   "permissions": [
     "contextMenus",
     "activeTab",
