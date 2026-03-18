@@ -6,7 +6,8 @@
   "permissions": [
     "contextMenus",
     "activeTab",
-    "<all_urls>"
+    "<all_urls>",
+    "storage"
   ],
   "background": {
     "scripts": ["fireground.js"],

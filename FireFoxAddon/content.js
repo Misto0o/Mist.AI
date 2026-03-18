@@ -1,7 +1,8 @@
 // ─────────────────────────────────────────
-// Mist.AI Content Script v3.4
-// + 🔇 Silent Mode (persistent toggle)
+// Mist.AI Content Script v3.0
+// + 🔇 Silent Mode — cross-tab persistent (storage.onChanged)
 // + ✨ Auto-suggest toggle
+// + 🛡️ Robust JSON parser (no more parse errors)
 // + Firefox-safe hotkeys (Ctrl+Shift instead of Alt)
 // ─────────────────────────────────────────
 
@@ -22,6 +23,7 @@ const IS_FIREFOX = typeof InstallTrigger !== "undefined" || navigator.userAgent.
 
 // ─────────────────────────────────────────
 // Persist toggles via chrome.storage
+// + Real-time cross-tab sync via onChanged
 // ─────────────────────────────────────────
 function loadSettings() {
     if (typeof chrome === "undefined" || !chrome.storage?.local) return;
@@ -32,30 +34,77 @@ function loadSettings() {
     });
 }
 
+// Heartbeat — re-attach silent indicator if it got wiped (every 2s)
+setInterval(() => {
+    if (silentMode && !document.getElementById("mistai-silent-indicator")) {
+        silentIndicator = null;
+        showSilentIndicator();
+        silentMode = true; // re-trigger storage update to sync across tabs
+    }
+}, 2000);
+
 function saveSetting(key, value) {
     if (typeof chrome === "undefined" || !chrome.storage?.local) return;
     chrome.storage.local.set({ [key]: value });
 }
 
-loadSettings();
+// ── Cross-tab sync: when another tab toggles silent mode,
+//    this tab's indicator updates immediately ──────────────
+if (typeof chrome !== "undefined" && chrome.storage?.onChanged) {
+    chrome.storage.onChanged.addListener((changes, area) => {
+        if (area !== "local") return;
+
+        if ("silentMode" in changes) {
+            silentMode = changes.silentMode.newValue ?? false;
+            if (silentMode) {
+                showSilentIndicator();
+            } else {
+                hideSilentIndicator();
+            }
+        }
+
+        if ("autoSuggestEnabled" in changes) {
+            autoSuggestEnabled = changes.autoSuggestEnabled.newValue ?? false;
+            if (!autoSuggestEnabled) removeAutoSuggest();
+        }
+    });
+}
+
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", loadSettings, { once: true });
+} else {
+    loadSettings();
+}
 
 // ─────────────────────────────────────────
 // Silent Mode indicator
 // ─────────────────────────────────────────
 function showSilentIndicator() {
+    // Clear ref if element got detached from DOM
+    if (silentIndicator && !document.body?.contains(silentIndicator)) {
+        silentIndicator = null;
+    }
     if (silentIndicator) return;
-    silentIndicator = document.createElement("div");
-    silentIndicator.id = "mistai-silent-indicator";
-    silentIndicator.innerHTML = `🔇 Silent Mode <span style="font-size:8px;opacity:0.6;">${IS_FIREFOX ? "Ctrl+Shift+S to exit" : "Alt+S to exit"}</span>`;
-    document.body.appendChild(silentIndicator);
+    const attach = () => {
+        if (!document.body) return;
+        silentIndicator = document.createElement("div");
+        silentIndicator.id = "mistai-silent-indicator";
+        silentIndicator.innerHTML = `🔇 Silent Mode <span style="font-size:8px;opacity:0.6;">${IS_FIREFOX ? "Ctrl+Shift+S to exit" : "Alt+S to exit"}</span>`;
+        document.body.appendChild(silentIndicator);
+    };
+    if (document.body) {
+        attach();
+    } else {
+        document.addEventListener("DOMContentLoaded", attach, { once: true });
+    }
 }
-
 function hideSilentIndicator() {
     if (silentIndicator) { silentIndicator.remove(); silentIndicator = null; }
 }
 
 function toggleSilentMode() {
     silentMode = !silentMode;
+    // saveSetting broadcasts to ALL tabs via onChanged listener above
     saveSetting("silentMode", silentMode);
     if (silentMode) {
         showSilentIndicator();
@@ -177,22 +226,79 @@ function getRadioLabel(radio) {
 }
 
 // ─────────────────────────────────────────
-// JSON extractor — handles messy model output
+// 🛡️ Robust JSON extractor v2
+// Handles: markdown fences, trailing commas, single quotes,
+// truncated output, extra text before/after JSON, newlines in values
 // ─────────────────────────────────────────
+function cleanJsonString(raw) {
+    return raw
+        .replace(/```json[\s\S]*?```/g, (m) => m.replace(/```json|```/g, "").trim()) // strip fences
+        .replace(/```[\s\S]*?```/g, (m) => m.replace(/```/g, "").trim())
+        .replace(/,(\s*[}\]])/g, "$1")   // trailing commas
+        .trim();
+}
+
 function extractJSON(raw) {
-    raw = raw.replace(/```json|```/g, "").trim();
-    try { return JSON.parse(raw); } catch { }
-    const match = raw.match(/\{[\s\S]*?\}/);
-    if (match) { try { return JSON.parse(match[0]); } catch { } }
-    try { return JSON.parse(raw.replace(/'/g, '"')); } catch { }
+    if (!raw) return null;
+
+    // 1. Strip markdown fences and trailing commas
+    let cleaned = cleanJsonString(raw);
+
+    // 2. Direct parse
+    try { return JSON.parse(cleaned); } catch { /* continue */ }
+
+    // 3. Find the first {...} block (handles preamble text)
+    const objMatch = cleaned.match(/\{[\s\S]*\}/);
+    if (objMatch) {
+        try { return JSON.parse(objMatch[0]); } catch { /* continue */ }
+        // 3a. Try removing trailing commas from the matched block
+        try { return JSON.parse(objMatch[0].replace(/,(\s*[}\]])/g, "$1")); } catch { /* continue */ }
+    }
+
+    // 4. Single → double quotes (only for simple cases)
+    try {
+        const singleToDouble = cleaned
+            .replace(/'/g, '"')
+            .replace(/,(\s*[}\]])/g, "$1");
+        return JSON.parse(singleToDouble);
+    } catch { /* continue */ }
+
+    // 5. Key-value extraction fallback — build object from "key": "value" pairs
+    try {
+        const kvPairs = {};
+        const kvRegex = /"?(\w+)"?\s*:\s*("(?:[^"\\]|\\.)*"|\d+|true|false|null)/g;
+        let match;
+        while ((match = kvRegex.exec(cleaned)) !== null) {
+            try { kvPairs[match[1]] = JSON.parse(match[2]); } catch { kvPairs[match[1]] = match[2]; }
+        }
+        if (Object.keys(kvPairs).length > 0) return kvPairs;
+    } catch { /* continue */ }
+
+    // 6. Nothing worked — log for debugging
+    console.warn("[Mist.AI] extractJSON failed on:", raw.slice(0, 300));
     return null;
 }
 
 function extractJSONArray(raw) {
-    raw = raw.replace(/```json|```/g, "").trim();
-    try { return JSON.parse(raw); } catch { }
-    const match = raw.match(/\[[\s\S]*?\]/);
-    if (match) { try { return JSON.parse(match[0]); } catch { } }
+    if (!raw) return null;
+    let cleaned = cleanJsonString(raw);
+
+    // 1. Direct parse
+    try { return JSON.parse(cleaned); } catch { /* continue */ }
+
+    // 2. Find [...] block
+    const arrMatch = cleaned.match(/\[[\s\S]*\]/);
+    if (arrMatch) {
+        try { return JSON.parse(arrMatch[0]); } catch { /* continue */ }
+        try { return JSON.parse(arrMatch[0].replace(/,(\s*[}\]])/g, "$1")); } catch { /* continue */ }
+    }
+
+    // 3. Single → double quotes
+    try {
+        return JSON.parse(cleaned.replace(/'/g, '"').replace(/,(\s*[}\]])/g, "$1"));
+    } catch { /* continue */ }
+
+    console.warn("[Mist.AI] extractJSONArray failed on:", raw.slice(0, 300));
     return null;
 }
 
@@ -206,15 +312,14 @@ async function answerQuestion(questionText, optionInputs) {
     const options = optionInputs.map((inp, i) => ({ inp, label: getRadioLabel(inp) || `Option ${i + 1}` }));
     const optionsText = options.map((o, i) => `${i + 1}. ${o.label}`).join("\n");
 
-    const prompt = `You are a knowledgeable assistant answering a quiz/homework question.
+    // Tighter prompt to reduce JSON parse failures
+    const prompt = `Quiz question: "${questionText}"
 
-Question: "${questionText}"
-
-Answer options:
+Options:
 ${optionsText}
 
-Pick the BEST correct answer. Return ONLY a JSON object, no other text outside the JSON:
-{"index": 1, "answer": "exact option text", "explanation": "why this is correct (1-2 sentences)"}`;
+Respond with ONLY this exact JSON (no markdown, no extra text):
+{"index":1,"answer":"exact option text here","explanation":"one sentence why"}`;
 
     showSidebar("❓ Answering…", true);
 
@@ -222,15 +327,35 @@ Pick the BEST correct answer. Return ONLY a JSON object, no other text outside t
     const raw = response?.result?.trim() || "";
     const parsed = extractJSON(raw);
 
-    if (!parsed) {
-        setResult(`⚠️ Couldn't parse answer. Raw:\n${raw.slice(0, 200)}`);
+    if (!parsed || parsed.index === undefined) {
+        // Last resort: try to pick by keyword match in raw text
+        const fallbackIndex = tryKeywordMatch(raw, options);
+        if (fallbackIndex !== -1) {
+            applyAnswer(options, fallbackIndex, "(Matched from response text)", questionText);
+        } else {
+            setResult(`⚠️ Couldn't parse answer.\n\nRaw response:\n${raw.slice(0, 300)}`);
+        }
         return;
     }
 
     const chosenIndex = Math.max(0, (parsed.index || 1) - 1);
-    const chosenOption = options[chosenIndex] || options[0];
-    const explanation = parsed.explanation || "";
+    applyAnswer(options, chosenIndex, parsed.explanation || "", questionText);
+}
 
+function tryKeywordMatch(raw, options) {
+    const lower = raw.toLowerCase();
+    let bestScore = 0;
+    let bestIndex = -1;
+    options.forEach((o, i) => {
+        const words = o.label.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+        const score = words.filter(w => lower.includes(w)).length;
+        if (score > bestScore) { bestScore = score; bestIndex = i; }
+    });
+    return bestScore > 0 ? bestIndex : -1;
+}
+
+function applyAnswer(options, chosenIndex, explanation, questionText) {
+    const chosenOption = options[Math.min(chosenIndex, options.length - 1)];
     showSidebar("❓ Answer", false);
     resultEl.style.display = "block";
     document.getElementById("mistai-loading").style.display = "none";
@@ -385,7 +510,7 @@ async function runAutoFill(fields, userContext) {
         userContext.extra ? `Extra: ${userContext.extra}` : "",
     ].filter(Boolean).join("\n");
 
-    const prompt = `You are an AI form-filling assistant filling out a form on "${pageTitle}".
+    const prompt = `You are an AI form-filling assistant on "${pageTitle}".
 
 User info:
 ${contextStr || "No info — use realistic placeholder data."}
@@ -393,11 +518,9 @@ ${contextStr || "No info — use realistic placeholder data."}
 Form fields:
 ${formSummary}
 
-Return a JSON array. Each item:
-- "index": field number (1-based)
-- "value": value to fill (for radio/checkbox/select use EXACTLY one of the listed options)
-
-Return ONLY valid JSON array, no markdown.
+Return a JSON array ONLY, no markdown, no extra text.
+Each item: {"index":1,"value":"the value"}
+For radio/checkbox/select use EXACTLY one listed option.
 Example: [{"index":1,"value":"John"},{"index":2,"value":"Business"}]`;
 
     const response = await chrome.runtime.sendMessage({ type: "API_CALL", prompt });
@@ -405,7 +528,7 @@ Example: [{"index":1,"value":"John"},{"index":2,"value":"Business"}]`;
     const instructions = extractJSONArray(raw);
 
     if (!instructions) {
-        setResult(`⚠️ Unexpected response.\n\n${raw.slice(0, 200)}`);
+        setResult(`⚠️ Unexpected response. Please try again.\n\nDebug:\n${raw.slice(0, 200)}`);
         return;
     }
 
@@ -612,7 +735,7 @@ function getClickableElements() {
 }
 
 function escapeHtml(str) {
-    return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
 // ─────────────────────────────────────────
@@ -913,7 +1036,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 //  M → Home menu
 //  B → Button clicker
 //  F → Auto-fill form
-//  S → Toggle Silent Mode
+//  S → Toggle Silent Mode  (syncs to ALL tabs instantly)
 //  A → Answer highlighted question (silent mode)
 // ─────────────────────────────────────────
 document.addEventListener("keydown", (e) => {
@@ -933,7 +1056,7 @@ document.addEventListener("keydown", (e) => {
 });
 
 // ─────────────────────────────────────────
-// 🔇 Silent auto-answer
+// 🔇 Silent auto-answer (improved JSON robustness)
 // ─────────────────────────────────────────
 async function silentAutoAnswer() {
     if (!silentMode) return;
@@ -955,19 +1078,26 @@ async function silentAutoAnswer() {
     const options = optionInputs.map((inp, i) => ({ inp, label: getRadioLabel(inp) || `Option ${i + 1}` }));
     const optionsText = options.map((o, i) => `${i + 1}. ${o.label}`).join("\n");
 
-    const prompt = `You are answering a quiz question.
-Question: "${questionText}"
-Options:\n${optionsText}
-Return ONLY JSON, no other text outside the JSON object: {"index":1,"answer":"exact option text","explanation":"1 sentence why"}`;
+    const prompt = `Quiz question: "${questionText}"
+Options:
+${optionsText}
+
+Respond with ONLY this JSON (no markdown, no extra text):
+{"index":1,"answer":"exact option text","explanation":"one sentence why"}`;
 
     const response = await chrome.runtime.sendMessage({ type: "API_CALL", prompt });
     const raw = response?.result?.trim() || "";
     const parsed = extractJSON(raw);
 
-    if (!parsed) { showToast("⚠️ Couldn't parse answer"); return; }
+    let chosenIndex;
+    if (!parsed || parsed.index === undefined) {
+        chosenIndex = tryKeywordMatch(raw, options);
+        if (chosenIndex === -1) { showToast("⚠️ Couldn't parse answer"); return; }
+    } else {
+        chosenIndex = Math.max(0, (parsed.index || 1) - 1);
+    }
 
-    const chosenIndex = Math.max(0, (parsed.index || 1) - 1);
-    const chosenOption = options[chosenIndex] || options[0];
+    const chosenOption = options[Math.min(chosenIndex, options.length - 1)];
 
     chosenOption.inp.scrollIntoView({ behavior: "smooth", block: "center" });
     setTimeout(() => {
@@ -975,7 +1105,6 @@ Return ONLY JSON, no other text outside the JSON object: {"index":1,"answer":"ex
         chosenOption.inp.dispatchEvent(new Event("change", { bubbles: true }));
         chosenOption.inp.style.outline = "3px solid #7dd3fc";
         setTimeout(() => { chosenOption.inp.style.outline = ""; }, 1500);
-        showToast(`✅ "${chosenOption.label}"`);
     }, 200);
 }
 
@@ -1002,7 +1131,7 @@ function openHome() {
       <p class="mistai-fill-label" style="margin-top:16px;">Toggles</p>
       <div style="display:flex;flex-direction:column;gap:8px;">
         <div style="display:flex;justify-content:space-between;align-items:center;">
-          <span style="font-size:13px;color:#ccc;">🔇 Silent Mode</span>
+          <span style="font-size:13px;color:#ccc;">🔇 Silent Mode <span style="font-size:10px;opacity:0.5;">(all tabs)</span></span>
           <button id="toggle-silent" style="
             padding:4px 14px;border-radius:20px;font-size:12px;font-weight:600;
             border:none;cursor:pointer;transition:all 0.15s;
@@ -1034,7 +1163,7 @@ function openHome() {
       <div class="mistai-fill-value" style="font-size:12.5px;line-height:1.6;">
         📌 <strong>Select any text</strong> on the page to see the Mist.AI tooltip<br><br>
         ❓ <strong>Select a quiz question</strong> — the tooltip shows an Answer button if choices are nearby<br><br>
-        🔇 <strong>Silent Mode</strong> — highlight a question then press <strong>${modKey}+A</strong> to silently select the answer<br><br>
+        🔇 <strong>Silent Mode</strong> — syncs across all tabs instantly. Highlight a question then press <strong>${modKey}+A</strong> to silently select the answer<br><br>
         ✨ <strong>Click an empty input field</strong> to see the auto-fill bubble
       </div>
     </div>
@@ -1051,7 +1180,7 @@ function openHome() {
         btn.style.color = silentMode ? '#0d0d0d' : '#666';
     });
 
-    document.getElementById("toggle-autosugFgest")?.addEventListener("click", (e) => {
+    document.getElementById("toggle-autosuggest")?.addEventListener("click", (e) => {
         autoSuggestEnabled = !autoSuggestEnabled;
         saveSetting("autoSuggestEnabled", autoSuggestEnabled);
         const btn = e.currentTarget;

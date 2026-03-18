@@ -5,7 +5,8 @@
     "version": "3.0",
     "permissions": [
       "contextMenus",
-      "activeTab"
+      "activeTab",
+      "storage"
     ],
     "host_permissions": [
       "<all_urls>"
