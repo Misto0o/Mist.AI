@@ -1,8 +1,9 @@
 // ─────────────────────────────────────────
-// Mist.AI Content Script v3.0
+// Mist.AI Content Script v3.1
 // + 🔇 Silent Mode — cross-tab persistent (storage.onChanged)
 // + ✨ Auto-suggest toggle
 // + 🛡️ Robust JSON parser (no more parse errors)
+// + 📸 Screnshot suport for question answering
 // + Firefox-safe hotkeys (Ctrl+Shift instead of Alt)
 // ─────────────────────────────────────────
 
@@ -1028,10 +1029,175 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 });
 
 // ─────────────────────────────────────────
+// 📸 Screenshot Answer (Alt+Q / Ctrl+Shift+Q)
+// Works on cross-origin iframes, canvas, anything
+// ─────────────────────────────────────────
+let cropOverlay = null;
+
+function startScreenshotCapture() {
+    if (cropOverlay) return;
+    cropOverlay = document.createElement("div");
+    cropOverlay.id = "mistai-crop-overlay";
+    cropOverlay.style.cssText = `
+        position:fixed;top:0;left:0;width:100%;height:100%;
+        background:rgba(0,0,0,0.20);z-index:2147483647;cursor:crosshair;
+    `;
+
+    const selection = document.createElement("div");
+
+    if (silentMode) {
+        selection.style.cssText = `
+        position:fixed;
+        border:1px dashed rgba(255,255,255,0.4);
+        background:rgba(255,255,255,0.04);
+        box-shadow:none;
+        pointer-events:none;
+        display:none;
+        border-radius:2px;
+    `;
+    } else {
+        selection.style.cssText = `
+        position:fixed;
+        border:2px solid #7dd3fc;
+        background:rgba(125,211,252,0.1);
+        pointer-events:none;
+        display:none;
+    `;
+    }
+    cropOverlay.appendChild(selection);
+    document.body.appendChild(cropOverlay);
+
+    let startX, startY, dragging = false;
+
+    cropOverlay.addEventListener("mousedown", (e) => {
+        startX = e.clientX; startY = e.clientY; dragging = true;
+        selection.style.display = "block";
+        selection.style.left = startX + "px";
+        selection.style.top = startY + "px";
+        selection.style.width = "0px";
+        selection.style.height = "0px";
+    });
+
+    cropOverlay.addEventListener("mousemove", (e) => {
+        if (!dragging) return;
+        const x = Math.min(e.clientX, startX);
+        const y = Math.min(e.clientY, startY);
+        const w = Math.abs(e.clientX - startX);
+        const h = Math.abs(e.clientY - startY);
+        selection.style.left = x + "px";
+        selection.style.top = y + "px";
+        selection.style.width = w + "px";
+        selection.style.height = h + "px";
+    });
+
+    cropOverlay.addEventListener("mouseup", async (e) => {
+        if (!dragging) return;
+        dragging = false;
+
+        const x = Math.min(e.clientX, startX);
+        const y = Math.min(e.clientY, startY);
+        const w = Math.abs(e.clientX - startX);
+        const h = Math.abs(e.clientY - startY);
+
+        cropOverlay.remove(); cropOverlay = null;
+
+        if (w < 20 || h < 20) { showToast("⚠️ Selection too small"); return; }
+        await processScreenshotRegion(x, y, w, h);
+    });
+
+    const escHandler = (e) => {
+        if (e.key === "Escape") {
+            cropOverlay?.remove();
+            cropOverlay = null;
+            document.removeEventListener("keydown", escHandler);
+        }
+    };
+    document.addEventListener("keydown", escHandler);
+}
+
+async function processScreenshotRegion(x, y, w, h) {
+    try {
+        const dataUrl = await chrome.runtime.sendMessage({
+            type: "CAPTURE_SCREENSHOT", x, y, w, h,
+            devicePixelRatio: window.devicePixelRatio || 1
+        });
+
+        if (!dataUrl) { showToast("⚠️ Screenshot failed"); return; }
+
+        const inputs = Array.from(document.querySelectorAll('input[type="radio"], input[type="checkbox"]'));
+        const options = inputs.map((inp, i) => ({ inp, label: getRadioLabel(inp) || `Option ${i + 1}` }));
+        const optionsText = options.length > 0
+            ? options.map((o, i) => `${i + 1}. ${o.label}`).join("\n")
+            : "(no radio/checkbox options found on page)";
+
+        // Only show sidebar if NOT in silent mode
+        if (!silentMode) showSidebar("📸 Analyzing...", true);
+        else showToast("Analyzing");
+
+        const response = await chrome.runtime.sendMessage({
+            type: "API_CALL_IMAGE",
+            imageDataUrl: dataUrl,
+            prompt: `Quiz question from screenshot.
+${options.length > 0 ? `\nClickable options on page:\n${optionsText}` : ""}
+
+Respond with ONLY this JSON (no markdown):
+{"question":"the question text","index":1,"answer":"exact matching option text","explanation":"one sentence why"}`
+        });
+
+        const raw = response?.result?.trim() || "";
+        const parsed = extractJSON(raw);
+
+        if (!parsed) {
+            if (!silentMode) setResult(`⚠️ Couldn't parse response.\n\n${raw.slice(0, 200)}`);
+            else showToast("⚠️ Couldn't parse answer");
+            return;
+        }
+
+        if (options.length > 0 && parsed.index !== undefined) {
+            const chosenIndex = Math.max(0, (parsed.index || 1) - 1);
+
+            if (silentMode) {
+                const chosenOption = options[Math.min(chosenIndex, options.length - 1)];
+                const letters = ["A", "B", "C", "D", "E", "F"];
+                const answerLabel = letters[chosenIndex] ?? `#${chosenIndex + 1}`;
+                chosenOption.inp.scrollIntoView({ behavior: "smooth", block: "center" });
+                setTimeout(() => {
+                    chosenOption.inp.click();
+                    chosenOption.inp.dispatchEvent(new Event("change", { bubbles: true }));
+                    chosenOption.inp.style.outline = "3px solid #7dd3fc";
+                    setTimeout(() => { chosenOption.inp.style.outline = ""; }, 1500);
+                    showToast(`✅ ${answerLabel}`);
+                }, 300);
+            } else {
+                applyAnswer(options, chosenIndex, parsed.explanation || "", parsed.question || "Screenshot question");
+            }
+        } else {
+            // No clickable options found — still respect silent mode using toast answer instead of sidebar
+            if (silentMode) {
+                showToast(`✅ ${parsed.answer || "?"}`);
+            } else {
+                showSidebar("📸 Answer", false);
+                setResult(`📸 **Question:** ${parsed.question || "?"}\n\n✅ **Answer:** ${parsed.answer || "?"}\n\n**Why:** ${parsed.explanation || "?"}`);
+            }
+        }
+    } catch (err) {
+        if (!silentMode) setResult(`⚠️ Screenshot error: ${err.message}`);
+        else showToast(`⚠️ Error: ${err.message}`);
+    }
+}
+
+// Add Q to keyboard shortcuts
+document.addEventListener("keydown", (e) => { // ADD THIS INSIDE YOUR EXISTING KEYDOWN, don't replace it
+    const triggered = IS_FIREFOX ? (e.ctrlKey && e.shiftKey) : (e.altKey && !e.ctrlKey && !e.shiftKey);
+    if (!triggered) return;
+    if (e.key.toUpperCase() === "Q") { e.preventDefault(); startScreenshotCapture(); }
+});
+
+// ─────────────────────────────────────────
 // ⌨️ Keyboard Shortcuts
 //
-//  Chrome:  Alt+M / Alt+B / Alt+F / Alt+S / Alt+A
-//  Firefox: Ctrl+Shift+M / Ctrl+Shift+B / Ctrl+Shift+F / Ctrl+Shift+S / Ctrl+Shift+A
+//  Chrome:  Alt+M / Alt+B / Alt+F / Alt+S / Alt+A / Alt+Q
+//  Firefox: Ctrl+Shift+M / Ctrl+Shift+B / Ctrl+Shift+F / Ctrl+Shift+S / Ctrl+Shift+A / Ctrl+Shift+Q
 //
 //  M → Home menu
 //  B → Button clicker
@@ -1099,12 +1265,16 @@ Respond with ONLY this JSON (no markdown, no extra text):
 
     const chosenOption = options[Math.min(chosenIndex, options.length - 1)];
 
+    const letters = ["A", "B", "C", "D", "E", "F"];
+    const answerLabel = letters[chosenIndex] ?? `#${chosenIndex + 1}`;
+
     chosenOption.inp.scrollIntoView({ behavior: "smooth", block: "center" });
     setTimeout(() => {
         chosenOption.inp.click();
         chosenOption.inp.dispatchEvent(new Event("change", { bubbles: true }));
         chosenOption.inp.style.outline = "3px solid #7dd3fc";
         setTimeout(() => { chosenOption.inp.style.outline = ""; }, 1500);
+        showToast(`✅ ${answerLabel}`);
     }, 200);
 }
 
@@ -1157,6 +1327,7 @@ function openHome() {
         <div class="mistai-shortcut-row"><span>Click a button</span><span class="mistai-kbd"><kbd>${modKey}</kbd><kbd>B</kbd></span></div>
         <div class="mistai-shortcut-row"><span>Toggle Silent Mode</span><span class="mistai-kbd"><kbd>${modKey}</kbd><kbd>S</kbd></span></div>
         <div class="mistai-shortcut-row"><span>Answer (silent)</span><span class="mistai-kbd"><kbd>${modKey}</kbd><kbd>A</kbd></span></div>
+        <div class="mistai-shortcut-row"><span>Screenshot answer</span><span class="mistai-kbd"><kbd>${modKey}</kbd><kbd>Q</kbd></span></div>
       </div>
 
       <p class="mistai-fill-label" style="margin-top:16px;">Tips</p>

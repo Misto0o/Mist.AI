@@ -2,11 +2,12 @@
     "manifest_version": 3,
     "name": "Mist.AI",
     "description": "Ask Mist.AI anything, right-click text for help, or summarize any page.",
-    "version": "3.0",
+    "version": "3.1",
     "permissions": [
       "contextMenus",
       "activeTab",
-      "storage"
+      "storage",
+      "tabs"
     ],
     "host_permissions": [
       "<all_urls>"

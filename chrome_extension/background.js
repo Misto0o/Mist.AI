@@ -102,5 +102,63 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       .catch(() => sendResponse({ result: "⚠️ Failed." }));
     return true;
   }
-});
 
+  if (msg.type === "CAPTURE_SCREENSHOT") {
+    chrome.tabs.captureVisibleTab(null, { format: "png" }, (dataUrl) => {
+      if (chrome.runtime.lastError || !dataUrl) { sendResponse(null); return; }
+      const dpr = msg.devicePixelRatio || 1;
+      const canvas = new OffscreenCanvas(msg.w * dpr, msg.h * dpr);
+      const ctx = canvas.getContext("2d");
+      fetch(dataUrl).then(r => r.blob()).then(blob => createImageBitmap(blob)).then(bitmap => {
+        ctx.drawImage(bitmap, msg.x * dpr, msg.y * dpr, msg.w * dpr, msg.h * dpr, 0, 0, msg.w * dpr, msg.h * dpr);
+        canvas.convertToBlob({ type: "image/png" }).then(b => {
+          const reader = new FileReader();
+          reader.onload = () => sendResponse(reader.result);
+          reader.readAsDataURL(b);
+        });
+      });
+    });
+    return true;
+  }
+
+  if (msg.type === "API_CALL_IMAGE") {
+    // Async IIFE — lets us use await while still returning true synchronously
+    (async () => {
+      try {
+        // Step 1: OCR the image
+        const ocrResponse = await fetch(MISTAI_API, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message: "Extract ALL text from this image exactly as written. Return only the raw text, no commentary.",
+            img_url: msg.imageDataUrl,
+            model: "gemini"
+          })
+        });
+        const ocrData = await ocrResponse.json();
+        const extractedText = ocrData.response || "";
+
+        if (!extractedText || extractedText.startsWith("⚠️")) {
+          sendResponse({ result: "⚠️ OCR failed — couldn't read the image." });
+          return;
+        }
+
+        // Step 2: Answer using the extracted text
+        const answerResponse = await fetch(MISTAI_API, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message: `${msg.prompt}\n\nOCR text from screenshot:\n${extractedText}`,
+            model: "gemini"
+          })
+        });
+        const answerData = await answerResponse.json();
+        sendResponse({ result: answerData.response || answerData.error });
+
+      } catch (err) {
+        sendResponse({ result: `⚠️ Failed: ${err.message}` });
+      }
+    })();
+    return true; // keeps the message channel open while the IIFE runs
+  }
+});
