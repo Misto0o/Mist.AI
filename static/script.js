@@ -1,3 +1,15 @@
+// Replace the bare import + call at the top of script.js with this:
+document.addEventListener("DOMContentLoaded", () => {
+    if (typeof renderMathInElement !== "undefined") {
+        renderMathInElement(document.body, {
+            delimiters: [
+                { left: "$", right: "$", display: false },
+                { left: "$$", right: "$$", display: true }
+            ]
+        });
+    }
+});
+
 document.addEventListener("focusin", e => {
     if (!e.target.classList.contains("edit-textarea")) return;
     document.addEventListener("click", function exitEdit(ev) {
@@ -14,6 +26,21 @@ document.addEventListener("focusin", e => {
 const converter = new showdown.Converter({
     simpleLineBreaks: true,
     omitExtraWLInCodeBlocks: true,
+
+    tables: true,
+    ghCodeBlocks: true,        // GitHub-style code blocks
+    strikethrough: true,
+    tasklists: true,
+
+    smoothLivePreview: true,
+    smartIndentationFix: true,
+    simplifiedAutoLink: true,
+    openLinksInNewWindow: true,
+
+    literalMidWordUnderscores: true,
+    emoji: true,
+
+    disableForced4SpacesIndentedSublists: true,
 });
 
 function initializeCodeMirror(container, code, mode = "text") {

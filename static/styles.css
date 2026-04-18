@@ -626,6 +626,33 @@ body.hide-header .header {
     max-width: 100%;
 }
 
+table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 16px 0;
+    font-size: 14px;
+}
+
+th,
+td {
+    border: 1px solid #3a3a3a;
+    padding: 10px;
+    text-align: center;
+}
+
+th {
+    background: #1e1e1e;
+    font-weight: 600;
+}
+
+tr:nth-child(even) {
+    background: #252526;
+}
+
+tr:nth-child(odd) {
+    background: #1e1e1e;
+}
+
 .message-code-block .code-header {
     display: flex;
     align-items: center;

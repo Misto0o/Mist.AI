@@ -16,7 +16,7 @@
 [[redirects]]
   from = "/docs"
   to = "https://misto0o.github.io/MistAI-Desktop/docs.html"
-  status = 200
+  status = 301
   force = true
 
   [[redirects]]
