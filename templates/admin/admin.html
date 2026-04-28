@@ -238,41 +238,6 @@
       background-color: #1f1f1f;
     }
 
-    .model-badge {
-      display: inline-block;
-      padding: 0.15rem 0.5rem;
-      border-radius: 4px;
-      font-size: 0.75rem;
-      font-weight: bold;
-      background: #2a2a2a;
-      color: #aaa;
-    }
-
-    .model-badge.gemini {
-      background: #1a3a2a;
-      color: #4caf50;
-    }
-
-    .model-badge.cohere {
-      background: #1a2a3a;
-      color: #4da6ff;
-    }
-
-    .model-badge.mistral {
-      background: #2a1a3a;
-      color: #b47fff;
-    }
-
-    .grounded-yes {
-      color: #4caf50;
-      font-size: 0.8rem;
-    }
-
-    .grounded-no {
-      color: #555;
-      font-size: 0.8rem;
-    }
-
     .truncate {
       max-width: 200px;
       overflow: hidden;
@@ -313,7 +278,8 @@
       display: flex;
       gap: 0.75rem;
       flex-wrap: wrap;
-      margin-top: 1rem;
+      margin-bottom: 1rem;
+      align-items: center;
     }
 
     a {
@@ -332,6 +298,228 @@
 
     .logout-link:hover {
       color: #ff7777;
+    }
+
+    /* ── NEW: day/month log viewer ── */
+
+    #logViewer {
+      font-family: monospace;
+      font-size: 12.5px;
+    }
+
+    #logStats {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      margin-bottom: 1rem;
+    }
+
+    .log-stat {
+      background: #222;
+      border-radius: 8px;
+      padding: 0.6rem 1rem;
+      text-align: center;
+      flex: 1;
+      min-width: 80px;
+    }
+
+    .log-stat-n {
+      font-size: 1.4rem;
+      font-weight: bold;
+      color: #fff;
+    }
+
+    .log-stat-l {
+      font-size: 0.7rem;
+      color: #555;
+      margin-top: 0.1rem;
+    }
+
+    .month-block {
+      border: 1px solid #2a2a2a;
+      border-radius: 10px;
+      margin-bottom: 8px;
+      overflow: hidden;
+    }
+
+    .month-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      background: #1f1f1f;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .month-header:hover {
+      background: #252525;
+    }
+
+    .month-arrow {
+      font-size: 10px;
+      color: #555;
+      transition: transform 0.15s;
+      flex-shrink: 0;
+    }
+
+    .month-arrow.open {
+      transform: rotate(90deg);
+    }
+
+    .month-label {
+      font-size: 13px;
+      font-weight: bold;
+      color: #ff4d4d;
+    }
+
+    .month-count {
+      margin-left: auto;
+      font-size: 11px;
+      color: #555;
+      background: #111;
+      border: 1px solid #2a2a2a;
+      border-radius: 20px;
+      padding: 1px 8px;
+    }
+
+    .month-body {
+      display: none;
+    }
+
+    .month-body.open {
+      display: block;
+    }
+
+    .day-block {
+      border-top: 1px solid #222;
+    }
+
+    .day-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 14px 7px 28px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .day-header:hover {
+      background: #1f1f1f;
+    }
+
+    .day-arrow {
+      font-size: 9px;
+      color: #444;
+      transition: transform 0.15s;
+      flex-shrink: 0;
+    }
+
+    .day-arrow.open {
+      transform: rotate(90deg);
+    }
+
+    .day-date {
+      font-size: 11px;
+      font-weight: bold;
+      color: #aaa;
+      min-width: 110px;
+    }
+
+    .day-count {
+      margin-left: auto;
+      font-size: 11px;
+      color: #444;
+    }
+
+    .day-body {
+      display: none;
+      padding: 6px 14px 10px 42px;
+    }
+
+    .day-body.open {
+      display: block;
+    }
+
+    .log-entry {
+      background: #111;
+      border: 1px solid #222;
+      border-radius: 7px;
+      padding: 7px 10px;
+      margin-bottom: 5px;
+      line-height: 1.6;
+    }
+
+    .log-entry:last-child {
+      margin-bottom: 0;
+    }
+
+    .entry-header {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 4px;
+      flex-wrap: wrap;
+    }
+
+    .entry-ip {
+      color: #ff4d4d;
+      font-size: 11px;
+      font-weight: bold;
+    }
+
+    .entry-time {
+      color: #444;
+      font-size: 11px;
+      margin-left: auto;
+    }
+
+    .entry-fields {
+      font-size: 12px;
+    }
+
+    .entry-row {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 2px;
+    }
+
+    .entry-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .ek {
+      color: #4da6ff;
+      flex-shrink: 0;
+    }
+
+    .ev-str {
+      color: #4caf50;
+    }
+
+    .ev-num {
+      color: #ffaa44;
+    }
+
+    .ev-bool {
+      color: #ff7b72;
+    }
+
+    .ev-null {
+      color: #555;
+    }
+
+    .log-empty {
+      color: #444;
+      font-style: italic;
+      padding: 8px 0;
+      font-size: 12px;
+    }
+
+    mark {
+      background: rgba(255, 170, 68, 0.25);
+      border-radius: 2px;
+      color: inherit;
     }
 
     @media (max-width: 600px) {
@@ -427,16 +615,14 @@
       <a href="{{ url_for('download_logs') }}">
         <button type="button" class="green">📥 Download chat_logs.json</button>
       </a>
-      <input type="text" id="jsonSearch" placeholder="Search keys or values..." oninput="renderJsonTree()"
+      <input type="text" id="logSearch" placeholder="Search IPs, messages..." oninput="onSearch(this.value)"
         style="flex:1; min-width:140px;">
-      <button type="button" class="secondary small" onclick="expandAll()">Expand all</button>
-      <button type="button" class="secondary small" onclick="collapseAll()">Collapse all</button>
+      <button type="button" class="secondary small" onclick="setAll(true)">Expand all</button>
+      <button type="button" class="secondary small" onclick="setAll(false)">Collapse all</button>
     </div>
-    <div id="jsonViewer" style="
-  background:#111; border:1px solid #2a2a2a; border-radius:10px;
-  padding:1rem; font-family:monospace; font-size:12.5px;
-  max-height:500px; overflow-y:auto; line-height:1.8;
-"></div>
+
+    <div id="logStats"></div>
+    <div id="logViewer"></div>
 
     <!-- IP Activity Log -->
     <h2>📡 IP Activity Log</h2>
@@ -475,58 +661,230 @@
 
 <script id="log-data" type="application/json">{{ chat_logs | tojson }}</script>
 <script>
-  const LOG_DATA = JSON.parse(document.getElementById('log-data').textContent);
+  const RAW_DATA = (() => {
+    try { return JSON.parse(document.getElementById('log-data').textContent) || {}; }
+    catch (e) { return {}; }
+  })();
 
-  let nodeId = 0, searchQuery = '';
+  let searchQuery = '';
 
-  function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;') }
-  function hl(v){ 
-    const s = esc(String(v));
-    if(!searchQuery) return s;
-    const re = new RegExp('('+searchQuery.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','gi');
-    return s.replace(re,'<mark style="background:#ffaa4433;border-radius:2px">$1</mark>');
+  // ── helpers ──────────────────────────────────────────────────────────────
+
+  function esc(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
 
-  function buildNode(val){
-    if(val === null) return `<span style="color:#888">null</span>`;
-    if(typeof val === 'boolean') return `<span style="color:#ff7b72">${val}</span>`;
-    if(typeof val === 'number') return `<span style="color:#ffaa44">${hl(val)}</span>`;
-    if(typeof val === 'string') return `<span style="color:#4caf50">"${hl(val)}"</span>`;
-    if(Array.isArray(val)){
-      if(!val.length) return `<span style="color:#aaa">[]</span>`;
-      const id='n'+(nodeId++);
-      const rows=val.map(v=>`<div style="margin-left:16px">${buildNode(v)}</div>`).join('');
-      return `<span onclick="tog('${id}')" style="cursor:pointer;color:#888;margin-right:3px">▾</span>[<span id="${id}h" style="display:none;color:#555;font-size:11px">${val.length} items]</span><div id="${id}">${rows}</div><span id="${id}e">]</span>`;
+  function hl(s) {
+    if (!searchQuery) return esc(s);
+    const re = new RegExp('(' + searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
+    return esc(s).replace(re, '<mark>$1</mark>');
+  }
+
+  function parseDate(ts) {
+    if (!ts) return null;
+    const d = new Date(ts);
+    if (!isNaN(d.getTime())) return d;
+    const m = String(ts).match(/^(\d{4})[\/\-](\d{2})[\/\-](\d{2})/);
+    if (m) return new Date(+m[1], +m[2] - 1, +m[3]);
+    return null;
+  }
+
+  function getTimePart(ts) {
+    const m = String(ts).match(/(\d{2}:\d{2}(?::\d{2})?)/);
+    return m ? m[1] : '';
+  }
+
+  function monthLabel(key) {
+    const [y, mo] = key.split('-');
+    return new Date(+y, +mo - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  }
+
+  function dayLabel(key) {
+    const [y, mo, d] = key.split('-');
+    return new Date(+y, +mo - 1, +d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  }
+
+  // ── build grouped structure from raw data ────────────────────────────────
+  // Supports two shapes:
+  //   A) { "ip": [ { timestamp, message, ... } ] }   ← ip-keyed object
+  //   B) [ { timestamp, message, ip, ... } ]          ← flat array
+
+  function buildStructure(data) {
+    const months = {};
+
+    const addEntry = (ip, entry) => {
+      const ts = entry.timestamp || entry.time || entry.date || '';
+      const d = parseDate(ts);
+      if (!d) return;
+      const mk = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const dk = `${mk}-${String(d.getDate()).padStart(2, '0')}`;
+      if (!months[mk]) months[mk] = {};
+      if (!months[mk][dk]) months[mk][dk] = [];
+      months[mk][dk].push({ ip, ...entry, _ts: d });
+    };
+
+    if (Array.isArray(data)) {
+      data.forEach(e => addEntry(e.ip || '', e));
+    } else if (data && typeof data === 'object') {
+      for (const [ip, logs] of Object.entries(data)) {
+        if (Array.isArray(logs)) logs.forEach(e => addEntry(ip, e));
+      }
     }
-    if(typeof val === 'object'){
-      const keys=Object.keys(val);
-      if(!keys.length) return `<span style="color:#aaa">{}</span>`;
-      const id='n'+(nodeId++);
-      const rows=keys.map(k=>`<div style="margin-left:16px"><span style="color:#4da6ff">"${hl(k)}"</span>: ${buildNode(val[k])}</div>`).join('');
-      return `<span onclick="tog('${id}')" style="cursor:pointer;color:#888;margin-right:3px">▾</span>{<span id="${id}h" style="display:none;color:#555;font-size:11px">${keys.length} keys}</span><div id="${id}">${rows}</div><span id="${id}e">}</span>`;
+
+    // sort each day ascending
+    for (const days of Object.values(months))
+      for (const entries of Object.values(days))
+        entries.sort((a, b) => a._ts - b._ts);
+
+    return months;
+  }
+
+  // ── render a single log entry card ───────────────────────────────────────
+
+  function renderVal(v) {
+    if (v === null || v === undefined) return `<span class="ev-null">null</span>`;
+    if (typeof v === 'boolean') return `<span class="ev-bool">${v}</span>`;
+    if (typeof v === 'number') return `<span class="ev-num">${hl(v)}</span>`;
+    if (typeof v === 'string') return `<span class="ev-str">"${hl(v)}"</span>`;
+    if (typeof v === 'object') return `<span class="ev-null">{…}</span>`;
+    return esc(String(v));
+  }
+
+  function renderEntry(e) {
+    const skip = new Set(['ip', '_ts', 'timestamp', 'time', 'date']);
+    const time = getTimePart(e.timestamp || e.time || e.date || '');
+    const extraRows = Object.entries(e)
+      .filter(([k]) => !skip.has(k))
+      .map(([k, v]) => `<div class="entry-row"><span class="ek">${esc(k)}:</span> ${renderVal(v)}</div>`)
+      .join('');
+
+    // message gets its own prominent row if present
+    const msg = e.message != null
+      ? `<div class="entry-row"><span class="ek">message:</span> <span class="ev-str">"${hl(e.message)}"</span></div>`
+      : '';
+
+    return `<div class="log-entry">
+      <div class="entry-header">
+        <span class="entry-ip">${esc(e.ip || '—')}</span>
+        ${time ? `<span class="entry-time">${esc(time)}</span>` : ''}
+      </div>
+      <div class="entry-fields">
+        ${msg}
+        ${extraRows}
+      </div>
+    </div>`;
+  }
+
+  // ── filter check ─────────────────────────────────────────────────────────
+
+  function entryMatches(e) {
+    if (!searchQuery) return true;
+    return Object.values(e).some(v => String(v).toLowerCase().includes(searchQuery));
+  }
+
+  // ── main render ──────────────────────────────────────────────────────────
+
+  function render() {
+    const structure = buildStructure(RAW_DATA);
+    const monthKeys = Object.keys(structure).sort().reverse();
+
+    // stats
+    let totalMsgs = 0, totalDays = 0;
+    const uniqueIPs = new Set();
+    for (const [mk, days] of Object.entries(structure)) {
+      totalDays += Object.keys(days).length;
+      for (const entries of Object.values(days)) {
+        totalMsgs += entries.length;
+        entries.forEach(e => { if (e.ip) uniqueIPs.add(e.ip); });
+      }
     }
-    return esc(String(val));
+
+    document.getElementById('logStats').innerHTML = `
+      <div id="logStats" style="display:flex;gap:.75rem;flex-wrap:wrap;margin-bottom:1rem;">
+        <div class="log-stat"><div class="log-stat-n">${totalMsgs}</div><div class="log-stat-l">total messages</div></div>
+        <div class="log-stat"><div class="log-stat-n">${uniqueIPs.size}</div><div class="log-stat-l">unique IPs</div></div>
+        <div class="log-stat"><div class="log-stat-n">${totalDays}</div><div class="log-stat-l">active days</div></div>
+        <div class="log-stat"><div class="log-stat-n">${monthKeys.length}</div><div class="log-stat-l">months</div></div>
+      </div>`;
+
+    if (!monthKeys.length) {
+      document.getElementById('logViewer').innerHTML = `<p class="log-empty">No log entries found.</p>`;
+      return;
+    }
+
+    let html = '';
+
+    for (const mk of monthKeys) {
+      const days = structure[mk];
+      const dayKeys = Object.keys(days).sort().reverse();
+      const monthTotal = dayKeys.reduce((a, dk) => a + days[dk].length, 0);
+      const mId = 'M_' + mk;
+
+      let daysHtml = '';
+      let anyDayVisible = false;
+
+      for (const dk of dayKeys) {
+        const entries = days[dk];
+        const filtered = entries.filter(entryMatches);
+        if (searchQuery && !filtered.length) continue;
+        anyDayVisible = true;
+        const dId = 'D_' + dk;
+        const shown = searchQuery ? filtered : entries;
+
+        daysHtml += `
+          <div class="day-block">
+            <div class="day-header" onclick="togBlock('${dId}')">
+              <span class="day-arrow open" id="${dId}_a">&#9654;</span>
+              <span class="day-date">${dayLabel(dk)}</span>
+              <span class="day-count">${shown.length} message${shown.length !== 1 ? 's' : ''}</span>
+            </div>
+            <div class="day-body open" id="${dId}">
+              ${shown.map(renderEntry).join('')}
+            </div>
+          </div>`;
+      }
+
+      if (searchQuery && !anyDayVisible) continue;
+
+      html += `
+        <div class="month-block">
+          <div class="month-header" onclick="togBlock('${mId}')">
+            <span class="month-arrow open" id="${mId}_a">&#9654;</span>
+            <span class="month-label">${monthLabel(mk)}</span>
+            <span class="month-count">${monthTotal} msg${monthTotal !== 1 ? 's' : ''} &nbsp;·&nbsp; ${dayKeys.length} day${dayKeys.length !== 1 ? 's' : ''}</span>
+          </div>
+          <div class="month-body open" id="${mId}">
+            ${daysHtml}
+          </div>
+        </div>`;
+    }
+
+    document.getElementById('logViewer').innerHTML = html || `<p class="log-empty">No results match "${esc(searchQuery)}".</p>`;
   }
 
-  function tog(id){
-    const el=document.getElementById(id), h=document.getElementById(id+'h'), e=document.getElementById(id+'e'), t=el.previousElementSibling;
-    const collapsed=el.style.display==='none';
-    el.style.display=collapsed?'':'none'; h.style.display=collapsed?'none':''; 
-    if(e) e.style.display=collapsed?'':'none';
-    t.textContent=collapsed?'▾':'▸';
+  // ── toggle collapse ──────────────────────────────────────────────────────
+
+  function togBlock(id) {
+    const body = document.getElementById(id);
+    const arrow = document.getElementById(id + '_a');
+    if (!body) return;
+    const isOpen = body.classList.toggle('open');
+    if (arrow) arrow.classList.toggle('open', isOpen);
   }
 
-  function expandAll(){ document.querySelectorAll('[id^="n"]').forEach(el=>{ if(!el.id.endsWith('h')&&!el.id.endsWith('e')){ el.style.display=''; const h=document.getElementById(el.id+'h'); if(h) h.style.display='none'; const e=document.getElementById(el.id+'e'); if(e) e.style.display=''; if(el.previousElementSibling) el.previousElementSibling.textContent='▾'; }})}
-
-  function collapseAll(){ document.querySelectorAll('[id^="n"]').forEach(el=>{ if(!el.id.endsWith('h')&&!el.id.endsWith('e')){ el.style.display='none'; const h=document.getElementById(el.id+'h'); if(h) h.style.display=''; const e=document.getElementById(el.id+'e'); if(e) e.style.display='none'; if(el.previousElementSibling) el.previousElementSibling.textContent='▸'; }})}
-
-  function renderJsonTree(){ 
-    searchQuery=(document.getElementById('jsonSearch')?.value||'').toLowerCase();
-    nodeId=0; 
-    document.getElementById('jsonViewer').innerHTML=buildNode(LOG_DATA); 
+  function setAll(expand) {
+    document.querySelectorAll('.month-body, .day-body').forEach(el => el.classList.toggle('open', expand));
+    document.querySelectorAll('.month-arrow, .day-arrow').forEach(el => el.classList.toggle('open', expand));
   }
 
-  renderJsonTree();
+  function onSearch(val) {
+    searchQuery = val.trim().toLowerCase();
+    render();
+    if (searchQuery) setAll(true);
+  }
+
+  // initial render
+  render();
 </script>
 
 </html>
