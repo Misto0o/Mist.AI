@@ -655,7 +655,12 @@
       </table>
     </div>
 
-    <a href="{{ url_for('admin_logout') }}" class="logout-link">← Logout</a>
+    <h2>Admin Menu</h2>
+    <ul>
+      <li><a href="{{ url_for('admin_panel') }}">Dashboard</a></li>
+      <li><a href="{{ url_for('view_api_keys') }}">API Keys</a></li>
+      <li><a href="{{ url_for('admin_logout') }}">Logout</a></li>
+    </ul>
   </div>
 </body>
 

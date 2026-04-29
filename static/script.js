@@ -112,7 +112,7 @@ function renderMessage(message, className) {
     }
 
     const remaining = message.slice(lastIndex);
-    if (remaining.trim()) {
+    if (remaining.trim()) {p
         const seg = document.createElement("div");
         seg.innerHTML = converter.makeHtml(remaining);
         messageElement.appendChild(seg);

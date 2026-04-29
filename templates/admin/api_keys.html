@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Keys - Mist.AI Admin</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #0f0f1e;
+            color: #e0e0e0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            margin-bottom: 30px;
+            color: #fff;
+        }
+
+        .card {
+            background: #1a1a2e;
+            border: 1px solid #2a2a3e;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            padding: 10px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #2563eb;
+            transform: translateY(-2px);
+        }
+
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 6px;
+            color: #b0b0c0;
+            font-size: 14px;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #2a2a3e;
+            border-radius: 6px;
+            background: #0f0f1e;
+            color: #e0e0e0;
+            font-size: 14px;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .alert {
+            padding: 12px 16px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        .alert-success {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #6ee7b7;
+        }
+
+        .alert-error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fca5a5;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        th {
+            background: #0f0f1e;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            border-bottom: 1px solid #2a2a3e;
+            color: #999;
+        }
+
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #2a2a3e;
+        }
+
+        tr:hover {
+            background: #0a0a1a;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .status-active {
+            background: rgba(16, 185, 129, 0.2);
+            color: #10b981;
+        }
+
+        .status-inactive {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+        }
+
+        .key-short {
+            color: #10b981;
+            font-family: monospace;
+            font-size: 12px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #666;
+        }
+
+        .empty-state h3 {
+            margin-bottom: 10px;
+            color: #999;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            color: #999;
+            padding: 20px;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #2a2a3e;
+            border-top: 3px solid #3b82f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: #1a1a2e;
+            border: 1px solid #2a2a3e;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 32px;
+            font-weight: bold;
+            color: #3b82f6;
+        }
+
+        .stat-label {
+            color: #999;
+            font-size: 13px;
+            margin-top: 5px;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 8px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>🔐 API Keys Management</h1>
+
+        <!-- Stats -->
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-number" id="totalKeys">-</div>
+                <div class="stat-label">Total Keys</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="activeKeys">-</div>
+                <div class="stat-label">Active Keys</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="revokedKeys">-</div>
+                <div class="stat-label">Revoked Keys</div>
+            </div>
+        </div>
+
+        <!-- Alert Messages -->
+        <div id="alert-container"></div>
+
+        <!-- Keys Table -->
+        <div class="card">
+            <h2 style="margin-bottom: 20px; font-size: 18px;">All API Keys (User Generated)</h2>
+
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>Loading keys...</p>
+            </div>
+
+            <div id="keys-table-container">
+                <table id="keys-table">
+                    <thead>
+                        <tr>
+                            <th>Key Preview</th>
+                            <th>Name</th>
+                            <th>User ID</th>
+                            <th>Status</th>
+                            <th>Created</th>
+                            <th>Last Used</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="keys-tbody">
+                        <tr>
+                            <td colspan="7" class="empty-state">
+                                <h3>No API keys yet</h3>
+                                <p>Keys created by users will appear here</p>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Info Card -->
+        <div class="card">
+            <h3>📚 About User API Keys</h3>
+            <p style="margin-bottom: 15px; color: #b0b0c0; font-size: 13px;">
+                Users generate API keys through the /auth page. Each key is stored in Supabase and can be used to make
+                authenticated requests to the /api/v1/chat endpoint. Keys can be revoked here to disable access.
+            </p>
+        </div>
+    </div>
+    <script>
+        // Load API keys on page load
+        document.addEventListener('DOMContentLoaded', loadApiKeys);
+
+        // Replace the loadApiKeys function with this:
+        async function loadApiKeys() {
+            const loading = document.getElementById('loading');
+            loading.style.display = 'block';
+
+            try {
+                const response = await fetch('/admin/api-keys', {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                });
+
+                const data = await response.json();
+                const keys = data.api_keys || [];
+
+                loading.style.display = 'none';
+                const tbody = document.getElementById('keys-tbody');
+                tbody.innerHTML = '';
+
+                if (keys.length === 0) {
+                    tbody.innerHTML = `
+                <tr>
+                    <td colspan="7" class="empty-state">
+                        <h3>No API keys yet</h3>
+                        <p>Keys created by users will appear here</p>
+                    </td>
+                </tr>`;
+                    updateStats(keys);
+                    return;
+                }
+
+                keys.forEach(key => {
+                    const created = key.created_at ? new Date(key.created_at).toLocaleDateString() : 'N/A';
+                    const lastUsed = key.last_used ? new Date(key.last_used).toLocaleDateString() : 'Never';
+                    const statusBadge = key.is_active ?
+                        '<span class="status-badge status-active">✓ Active</span>' :
+                        '<span class="status-badge status-inactive">✗ Revoked</span>';
+                    const keyPreview = key.api_key ? key.api_key.substring(0, 16) + '...' + key.api_key.slice(-4) : 'N/A';
+                    const userId = key.user_id ? key.user_id.substring(0, 8) + '...' : 'N/A';
+
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                <td><code class="key-short">${keyPreview}</code></td>
+                <td>${key.name}</td>
+                <td style="font-size: 12px; color: #999;">${userId}</td>
+                <td>${statusBadge}</td>
+                <td style="font-size: 13px; color: #999;">${created}</td>
+                <td style="font-size: 13px; color: #999;">${lastUsed}</td>
+                <td>
+                    <div class="action-buttons">
+                        ${key.is_active ? `
+                            <button class="btn btn-danger" onclick="revokeKey('${key.id}', '${key.name}')">
+                                Revoke
+                            </button>
+                        ` : '<span style="color: #999; font-size: 12px;">Already revoked</span>'}
+                    </div>
+                </td>`;
+                    tbody.appendChild(row);
+                });
+
+                updateStats(keys);
+
+            } catch (error) {
+                loading.style.display = 'none';
+                showAlert('Failed to load: ' + error.message, 'error');
+            }
+        }
+
+        function updateStats(active, all) {
+            const totalKeys = all ? all.length : 0;
+            const activeCount = all ? all.filter(k => k.is_active).length : 0;
+            const revokedCount = totalKeys - activeCount;
+
+            document.getElementById('totalKeys').textContent = totalKeys;
+            document.getElementById('activeKeys').textContent = activeCount;
+            document.getElementById('revokedKeys').textContent = revokedCount;
+        }
+
+        async function revokeKey(keyId, keyName) {
+            if (!confirm(`Revoke "${keyName}"?`)) return;
+
+            try {
+                const response = await fetch(`/admin/api-keys/${keyId}/revoke`, {
+                    method: 'POST'
+                });
+                if (!response.ok) throw new Error('Failed to revoke');
+                showAlert(`"${keyName}" revoked`, 'success');
+                loadApiKeys();
+            } catch (error) {
+                showAlert('Error: ' + error.message, 'error');
+            }
+        }
+
+        function showAlert(message, type = 'info') {
+            const container = document.getElementById('alert-container');
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type}`;
+            alertDiv.textContent = message;
+
+            container.appendChild(alertDiv);
+
+            setTimeout(() => {
+                alertDiv.remove();
+            }, 5000);
+        }
+    </script>
+</body>
+
+</html>

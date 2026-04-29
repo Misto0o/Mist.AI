@@ -75,7 +75,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   try {
     const response = await fetch(MISTAI_API, {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: prompt, model: "cohere" })
+      body: JSON.stringify({ message: prompt, model: "cohere", source: "extension" })
     });
     const data = await response.json();
     sendToTab(tab.id, { type: "SIDEBAR_RESULT", result: data.response || data.error || "No response." });
@@ -90,14 +90,14 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     const prompt = msg.action === "summarize"
       ? `Summarize this web page content concisely:\n\n${truncated}`
       : `Explain what this web page is about:\n\n${truncated}`;
-    fetch(MISTAI_API, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: prompt, model: "gemini" }) })
+    fetch(MISTAI_API, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: prompt, model: "cohere", source: "extension" }) })
       .then(r => r.json()).then(data => sendResponse({ result: data.response || data.error }))
       .catch(() => sendResponse({ result: "⚠️ Failed." }));
     return true;
   }
 
   if (msg.type === "API_CALL") {
-    fetch(MISTAI_API, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: msg.prompt, model: "gemini" }) })
+    fetch(MISTAI_API, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: msg.prompt, model: "cohere", source: "extension" }) })
       .then(r => r.json()).then(data => sendResponse({ result: data.response || data.error }))
       .catch(() => sendResponse({ result: "⚠️ Failed." }));
     return true;
@@ -132,7 +132,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           body: JSON.stringify({
             message: "Extract ALL text from this image exactly as written. Return only the raw text, no commentary.",
             img_url: msg.imageDataUrl,
-            model: "gemini"
+            model: "cohere",
+            source: "extension"
           })
         });
         const ocrData = await ocrResponse.json();
@@ -149,7 +150,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             message: `${msg.prompt}\n\nOCR text from screenshot:\n${extractedText}`,
-            model: "gemini"
+            model: "cohere",
+            source: "extension"
           })
         });
         const answerData = await answerResponse.json();
@@ -159,6 +161,6 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         sendResponse({ result: `⚠️ Failed: ${err.message}` });
       }
     })();
-    return true; // keeps the message channel open while the IIFE runs
+    return true; // keeps the message channel open while the IIFE  runs
   }
 });

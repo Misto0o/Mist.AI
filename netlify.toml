@@ -13,12 +13,6 @@
   status = 200
   force = true
 
-[[redirects]]
-  from = "/docs"
-  to = "https://misto0o.github.io/MistAI-Desktop/docs.html"
-  status = 301
-  force = true
-
   [[redirects]]
   from = "/credits"
   to = "/credits/index.html"

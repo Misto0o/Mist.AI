@@ -17,6 +17,8 @@ import queue as queue_module
 from datetime import datetime
 from functools import wraps
 import hashlib
+import supabase
+from supabase import create_client
 
 # ─────────────────────
 # Flask & Web
@@ -65,6 +67,20 @@ import sympy
 from sympy.parsing.mathematica import parse_mathematica
 
 # ─────────────────────
+# API Key Management
+# ─────────────────────
+from api_key_system import (
+    generate_api_key,
+    create_api_key,
+    get_api_key_info,
+    revoke_api_key,
+    list_api_keys,
+    check_rate_limit,
+    hash_api_key,
+    log_api_usage,
+    require_api_key,
+)
+
 load_dotenv()
 
 if (
@@ -78,6 +94,8 @@ if (
     or not os.getenv("ADMIN_PASSWORD")
     or not os.getenv("FLASK_SECRET_KEY")
     or not os.getenv("TAVILY_API_KEY")
+    or not os.getenv("SUPABASE_URL")
+    or not os.getenv("SUPABASE_KEY")
 ):
     raise ValueError("Missing required API keys in environment variables.")
 
@@ -516,12 +534,26 @@ FAVICONS = {
 def serve_favicon(filename):
     return app.send_static_file(f"mistaifaviocn/{filename}")
 
+@app.route("/docs")
+def docs():
+    return app.send_static_file("docs/index.html")
+
+@app.route("/auth")
+def auth():
+    return render_template("auth.html")
+
+@app.route("/dashboard")
+def dashboard():
+    return render_template("dashboard.html")
 
 @app.route("/favicon.ico")
 def favicon():
-    size = request.args.get("size", None)
-    filename = FAVICONS.get(size, FAVICONS["default"])
-    return app.send_static_file(f"mistaifaviocn/{filename}")
+    try:
+        size = request.args.get("size", None)
+        filename = FAVICONS.get(size, FAVICONS["default"])
+        return app.send_static_file(f"mistaifaviocn/{filename}")
+    except:
+        return ("", 204)
 
 
 @app.route("/")
@@ -540,6 +572,7 @@ def root_files(filename):
         "service-worker.js",
         "privacy.html",
         "manifest.json",
+        "docs",
     ]
     if filename in allowed:
         return app.send_static_file(filename)
@@ -673,7 +706,6 @@ def check_easter_eggs(user_message):
 # =========================
 # Clients & Config
 # =========================
-# weather_session only needs last_city; last_data was never used.
 weather_session = {"last_city": None}
 
 co = cohere.ClientV2(os.getenv("COHERE_API_KEY"))
@@ -687,6 +719,9 @@ temperatureUnit = "imperial"
 
 TAVILY_CLIENT = TavilyClient(os.getenv("TAVILY_API_KEY"))
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+supabase_client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 
 # =========================
@@ -1050,6 +1085,56 @@ def admin_logout():
 
 
 # =========================
+# API Key Management Routes
+# =========================
+@app.route("/admin/api-keys", methods=["GET"])
+@login_required
+def view_api_keys():
+    keys = list_api_keys()
+    
+    # If JavaScript is requesting JSON, return JSON
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return jsonify({"api_keys": keys})
+    
+    # Otherwise render the HTML page
+    return render_template("admin/api_keys.html", api_keys=keys)
+
+
+@app.route("/admin/api-keys/create", methods=["POST"])
+@login_required
+def create_api_key_admin():
+    """Admin: create a new API key."""
+    data = request.get_json() or {}
+    name = data.get("name", "Unnamed Key").strip()
+
+    if not name:
+        return jsonify({"error": "Key name required"}), 400
+
+    api_key, key_name = create_api_key(name)
+    if not api_key:
+        return jsonify({"error": "Failed to create key"}), 500
+
+    return (
+        jsonify(
+            {
+                "success": True,
+                "api_key": api_key,
+                "name": key_name,
+                "message": "⚠️ SAVE THIS KEY IMMEDIATELY — You won't see it again!",
+            }
+        ),
+        201,
+    )
+
+
+@app.route("/admin/api-keys/<key_hash>/revoke", methods=["POST"])
+@login_required
+def revoke_api_key_admin(key_hash):
+    """Admin: revoke an API key."""
+    return jsonify({"success": True, "message": "Key revoked"}), 200
+
+
+# =========================
 # Startup
 # =========================
 def startup():
@@ -1215,6 +1300,137 @@ async def tavily_route():
         log_err(f"Tavily error: {e}")
         return jsonify({"error": "Tavily search failed."}), 500
 
+# =========================
+# Protected API Endpoint (API key required)
+# =========================
+@app.route("/api/v1/chat", methods=["POST"])
+async def api_v1_chat():
+    """
+    Protected chat endpoint that requires API key authentication.
+
+    This is separate from the existing /chat route used by the web UI.
+    Both will work — one requires an API key, one doesn't.
+    """
+
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        return (
+            jsonify(
+                {
+                    "error": "Missing Authorization header",
+                    "example": "Authorization: Bearer mistai_xxxxx",
+                }
+            ),
+            401,
+        )
+
+    api_key = auth_header.replace("Bearer ", "").strip()
+
+    # Validate key
+    key_info = get_api_key_info(api_key)
+    if not key_info or not key_info["is_active"]:
+        return jsonify({"error": "Invalid or revoked API key"}), 403
+
+    # Check rate limit (30 requests per minute)
+    allowed, current_count, limit = check_rate_limit(api_key, limit_per_minute=30)
+    if not allowed:
+        return (
+            jsonify(
+                {
+                    "error": "Rate limit exceeded",
+                    "current": current_count,
+                    "limit": limit,
+                    "message": "Max 30 requests per minute",
+                }
+            ),
+            429,
+        )
+
+    # Get chat data
+    data = request.get_json()
+    if not data or "message" not in data:
+        return jsonify({"error": "Missing 'message' field"}), 400
+
+    user_message = data.get("message", "").strip()
+    model_choice = data.get("model", "gemini").lower()
+
+    if not user_message:
+        return jsonify({"error": "Message cannot be empty"}), 400
+
+    valid_models = ["gemini", "cohere", "mistral"]
+    if model_choice not in valid_models:
+        return (
+            jsonify(
+                {"error": f"Invalid model. Choose from: {', '.join(valid_models)}"}
+            ),
+            400,
+        )
+
+    try:
+        # Get response using your existing functions
+        if model_choice == "gemini":
+            response_content = get_gemini_response(user_message)
+        elif model_choice == "cohere":
+            response_content = get_cohere_response(user_message)
+        else:
+            response_content = await get_mistral_response(user_message)
+
+        # Log usage
+        log_api_usage(
+            api_key,
+            model=model_choice,
+            message_length=len(user_message),
+            response_length=len(response_content),
+            status_code=200,
+        )
+
+        return (
+            jsonify(
+                {
+                    "success": True,
+                    "response": response_content,
+                    "model": model_choice,
+                    "timestamp": datetime.now().isoformat(),
+                }
+            ),
+            200,
+        )
+
+    except Exception as e:
+        log_err(f"API error: {e}")
+        log_api_usage(
+            api_key,
+            model=model_choice,
+            message_length=len(user_message),
+            response_length=0,
+            status_code=500,
+        )
+        return jsonify({"success": False, "error": str(e)}), 500
+    
+    
+@app.route("/api/status/key", methods=["GET"])
+def api_key_status():
+    """Check if an API key is valid without making a request."""
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        return jsonify({
+            "error": "Missing Authorization header"
+        }), 401
+    
+    api_key = auth_header.replace("Bearer ", "").strip()
+    key_info = get_api_key_info(api_key)
+    
+    if not key_info:
+        return jsonify({"error": "Invalid API key"}), 403
+    
+    return jsonify({
+        "valid": True,
+        "name": key_info["name"],
+        "is_active": key_info["is_active"],
+        "requests_total": key_info["requests_total"],
+        "last_used": key_info["last_used"]
+    }), 200
+
 
 # =========================
 # Main Chat Route
@@ -1234,6 +1450,7 @@ async def chat():
             return jsonify({"error": "Invalid request"}), 400
 
         data = request.get_json(silent=True) or {}
+        is_extension = data.get("source") == "extension"
 
         user_message = (data.get("message") or "").strip()
         img_url = data.get("img_url")
@@ -1395,28 +1612,29 @@ async def chat():
             or request.headers.get("X-Forwarded-For")
             or request.remote_addr
         )
-
-        ip_log.setdefault(user_ip, []).append(
-            {
-                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                "message": log_message,
-            }
-        )
-
-        log_chat(user_ip, model_choice, log_message, response_content)
+        if not is_extension:
+            ip_log.setdefault(user_ip, []).append(
+                {
+                    "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "message": log_message,
+                }
+            )
+        if not is_extension:
+            log_chat(user_ip, model_choice, log_message, response_content)
 
         # Log to disk AFTER the response is delivered to the client.
         # The 30-second flush delay in _log_writer_thread ensures the file
         # is written long after the browser has finished rendering.
         @after_this_request
-        def log_after_response(response):  # noqa: F841
-            safe_log_chat(
-                user_ip,
-                model_choice,
-                log_message,
-                response_content,
-                bool(grounding_text),
-            )
+        def log_after_response(response):
+            if not is_extension:
+                safe_log_chat(
+                    user_ip,
+                    model_choice,
+                    log_message,
+                    response_content,
+                    bool(grounding_text),
+                )
             return response
 
         return jsonify({"response": response_content})

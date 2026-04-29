@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MistAI Desktop — Documentation</title>
+    <link rel="stylesheet" href="/docs/docs.css">
+    <meta name="description"
+        content="MistAI Desktop Assistant — voice control, screen vision, and intelligent automation for Windows, macOS, and Linux." />
+    <meta name="keywords" content="MistAI, desktop assistant, AI-powered assistant, voice control, Nova, Sage, Flux" />
+    <meta name="author" content="Kristian Cook" />
+    <meta property="og:image" content="static/docs/images/mistai_imresizer.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:title" content="MistAI Desktop — Documentation" />
+    <meta property="og:type" content="website" />
+    <link rel="canonical" href="https://mistai.org/docs/" />
+    <link rel="icon" href="mistaifaviocn\favicon.ico" type="image/x-icon" />
+    <link rel="icon" href="favicon-32x32.png" type="image/png" sizes="32x32" />
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-GLT3T5YYE9"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
+        gtag('config', 'G-GLT3T5YYE9');
+    </script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.9.4/css/bulma.min.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.css" />
+    <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+</head>
+
+<body>
+    <nav class="navbar" role="navigation" aria-label="main navigation">
+        <div class="navbar-brand">
+            <a class="navbar-item logo-link" href="static/docs/index.html">
+                <span class="logo-text">MistAI Desktop</span>
+            </a>
+            <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false" data-target="navbarBasic">
+                <span aria-hidden="true"></span>
+                <span aria-hidden="true"></span>
+                <span aria-hidden="true"></span>
+            </a>
+        </div>
+        <div id="navbarBasic" class="navbar-menu">
+            <div class="navbar-end">
+                <a class="navbar-item" href="https://mistai.org">Home</a>
+                <a class="navbar-item" href="#features">Features</a>
+                <a class="navbar-item" href="#installation">Download</a>
+                <a class="navbar-item" href="/auth">Get API Key</a>
+                <a class="navbar-item" href="#api">API Information</a>
+                <a class="navbar-item" href="#faq">FAQ</a>
+                <a class="navbar-item" href="https://github.com/Misto0o/MistAI-Desktop" target="_blank">GitHub</a>
+            </div>
+        </div>
+    </nav>
+
+    <section class="hero-section">
+        <div class="hero-inner">
+            <div class="hero-tag">Beta 1.5</div>
+            <h1>MistAI Desktop Assistant</h1>
+            <p class="hero-sub">Voice control, screen vision, and intelligent automation — powered by Nova, Sage, and
+                Flux.</p>
+            <div class="hero-badges">
+                <span class="badge">Voice Control</span>
+                <span class="badge">Screen Vision</span>
+                <span class="badge">3 AI Personalities</span>
+                <span class="badge">Live Captions</span>
+            </div>
+            <div class="hero-cta">
+                <a href="https://github.com/Misto0o/MistAI-Desktop/releases" class="btn-hero" target="_blank">Download
+                    for Windows</a>
+                <a href="#overview" class="btn-outline">View Docs</a>
+                <a href="/auth" class="btn btn-primary">Get Free API Key</a>
+                <a href="#api" class="btn-outline">API Docs</a>
+            </div>
+        </div>
+    </section>
+
+    <div class="documentation-container">
+        <div class="container-wide">
+
+            <section id="overview" class="section-grid" data-aos="fade-up">
+                <div class="grid-2">
+                    <div class="content-card">
+                        <h2 class="card-title">What is MistAI Desktop?</h2>
+                        <p>MistAI Desktop brings your AI assistant out of the browser and onto your system — listening
+                            for your voice, watching your screen, and taking action in real time.</p>
+                        <p>Built by Kristian, it expands the MistAI ecosystem with multiple AI personalities powered by
+                            different LLM backends, each optimized for speed, reasoning, or balanced performance.</p>
+                    </div>
+                    <div class="content-card">
+                        <h2 class="card-title">The Three Personalities</h2>
+                        <div class="personality-list">
+                            <div class="personality-item">
+                                <div class="personality-icon gemini-icon">N</div>
+                                <div>
+                                    <h4>Nova</h4>
+                                    <p>Fast, lightweight, creative. Powered by Gemini 2.5 Flash.</p>
+                                </div>
+                            </div>
+                            <div class="personality-item">
+                                <div class="personality-icon cohere-icon">S</div>
+                                <div>
+                                    <h4>Sage</h4>
+                                    <p>Strong reasoning and memory. Runs on Command-R7B.</p>
+                                </div>
+                            </div>
+                            <div class="personality-item">
+                                <div class="personality-icon mistral-icon">F</div>
+                                <div>
+                                    <h4>Flux</h4>
+                                    <p>Balanced speed and performance. Powered by Mistral.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="features" class="section-grid" data-aos="fade-up">
+                <h2 class="section-title-center">Core Features</h2>
+                <div class="grid-4">
+                    <div class="feature-card-compact">
+                        <div class="feature-label">Wake Detection</div>
+                        <p>Say "Mist" or "Hey Mist" to activate hands-free. Includes fuzzy matching for natural speech.
+                        </p>
+                    </div>
+                    <div class="feature-card-compact">
+                        <div class="feature-label">Screen Vision</div>
+                        <p>Reads and clicks on UI elements using advanced OCR and computer vision.</p>
+                    </div>
+                    <div class="feature-card-compact">
+                        <div class="feature-label">Live Captions</div>
+                        <p>Real-time overlays of what MistAI is saying and doing at the bottom of your screen.</p>
+                    </div>
+                    <div class="feature-card-compact">
+                        <div class="feature-label">Proactive Mode</div>
+                        <p>Smart suggestions based on what you're working on — before you even ask.</p>
+                    </div>
+                    <div class="feature-card-compact">
+                        <div class="feature-label">App Control</div>
+                        <p>Opens and focuses applications instantly with voice or text commands.</p>
+                    </div>
+                    <div class="feature-card-compact">
+                        <div class="feature-label">Multi-Step Actions</div>
+                        <p>Chain multiple commands together for complex workflows.</p>
+                    </div>
+                    <div class="feature-card-compact">
+                        <div class="feature-label">Context Memory</div>
+                        <p>Remembers conversations, tracks apps, and knows what you're working on.</p>
+                    </div>
+                    <div class="feature-card-compact">
+                        <div class="feature-label">Smart Recovery</div>
+                        <p>When actions fail, MistAI consults its AI brain for recovery strategies.</p>
+                    </div>
+                </div>
+            </section>
+
+            <section id="installation" class="section-grid" data-aos="fade-up">
+                <h2 class="section-title-center">Installation</h2>
+                <div class="grid-2">
+                    <div class="content-card">
+                        <h3>Download MistAI Desktop</h3>
+                        <p>Available as a standalone executable for Windows, macOS, and Linux. No Python installation
+                            required — just download and run.</p>
+                        <div class="download-box-compact">
+                            <a href="https://github.com/Misto0o/MistAI-Desktop/releases" class="btn-download"
+                                target="_blank">
+                                <i class="fab fa-github"></i> Download Latest Release
+                            </a>
+                            <p class="download-note">Windows · macOS · Linux · ~50MB · Built with PyInstaller</p>
+                        </div>
+                        <div class="notice-box warning-notice">
+                            <strong>OCR Limitation:</strong> Bundled Tesseract OCR (screen vision) only works on
+                            Windows. macOS and Linux builds function normally but without OCR unless you install
+                            Tesseract separately.
+                        </div>
+                    </div>
+                    <div class="content-card">
+                        <h3>Requirements</h3>
+                        <ul class="requirement-list">
+                            <li><i class="fab fa-windows"></i> <strong>Windows 10/11</strong> or <i
+                                    class="fab fa-apple"></i> <strong>macOS</strong> or <i class="fab fa-linux"></i>
+                                <strong>Linux</strong>
+                            </li>
+                            <li><i class="fas fa-microphone"></i> <strong>Microphone</strong> — for voice control</li>
+                            <li><i class="fas fa-wifi"></i> <strong>Internet connection</strong> — required for AI
+                                processing</li>
+                            <li><i class="fas fa-eye"></i> <strong>Vision OCR (optional)</strong> — Windows: built-in |
+                                macOS/Linux: <a href="https://github.com/tesseract-ocr/tesseract"
+                                    target="_blank">install Tesseract</a></li>
+                        </ul>
+                        <div class="notice-box info-notice">
+                            <strong>About screen vision:</strong> Windows builds include Tesseract bundled. macOS/Linux
+                            users can install it separately to enable OCR features. All other features (voice,
+                            automation, captions) work normally without it.
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="section-grid" data-aos="fade-up">
+                <div class="content-card">
+                    <h2 class="card-title">Caption System</h2>
+                    <div class="grid-2">
+                        <div>
+                            <p>The caption system provides real-time visual feedback for everything MistAI says and
+                                does. Captions appear at the bottom of your screen in non-intrusive overlays.</p>
+                            <ul class="caption-features">
+                                <li><strong>Assistant messages</strong> — green background for MistAI responses</li>
+                                <li><strong>System notifications</strong> — yellow background for status updates</li>
+                                <li><strong>Proactive suggestions</strong> — purple background for smart tips</li>
+                                <li><strong>Privacy first</strong> — user messages are never shown in captions</li>
+                            </ul>
+                        </div>
+                        <div class="caption-preview-box">
+                            <div class="caption-example assistant-caption">
+                                <strong>Assistant:</strong> Opening Firefox now
+                            </div>
+                            <div class="caption-example system-caption">
+                                <strong>System:</strong> Wake word detection enabled
+                            </div>
+                            <div class="caption-example suggestion-caption">
+                                <strong>Suggestion:</strong> Would you like me to maximize this window?
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="usage" class="section-grid" data-aos="fade-up">
+                <div class="grid-2">
+                    <div class="content-card">
+                        <h2 class="card-title">How to Use</h2>
+                        <h4>Wake words</h4>
+                        <div class="wake-words-compact">
+                            <span class="wake-badge">Mist</span>
+                            <span class="wake-badge">Hey Mist</span>
+                            <span class="wake-badge">MistAI</span>
+                            <span class="wake-badge">Mist AI</span>
+                        </div>
+                        <h4 class="mt-4">Example commands</h4>
+                        <div class="example-list">
+                            <div class="example-item">"Hey Mist, open Discord"</div>
+                            <div class="example-item">"Mist, click on Settings"</div>
+                            <div class="example-item">"Search YouTube for AI tutorials"</div>
+                            <div class="example-item">"Scroll down"</div>
+                        </div>
+                    </div>
+                    <div class="content-card" id="actions">
+                        <h2 class="card-title">Available Actions</h2>
+                        <div class="action-list-compact">
+                            <div class="action-item-compact"><strong>open_app</strong> — Open/focus applications</div>
+                            <div class="action-item-compact"><strong>click_on_text</strong> — Find and click UI elements
+                            </div>
+                            <div class="action-item-compact"><strong>type_search</strong> — Type and submit text</div>
+                            <div class="action-item-compact"><strong>scroll</strong> — Scroll up or down</div>
+                            <div class="action-item-compact"><strong>volume</strong> — Control system volume</div>
+                            <div class="action-item-compact"><strong>press_key</strong> — Press keyboard keys</div>
+                            <div class="action-item-compact"><strong>maximize</strong> — Maximize current window</div>
+                            <div class="action-item-compact"><strong>fullscreen</strong> — Toggle fullscreen (F11)</div>
+                            <div class="action-item-compact"><strong>multi_step</strong> — Chain multiple actions</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="api" class="section-grid" data-aos="fade-up">
+
+                <!-- Header -->
+                <div class="section-header" style="text-align:center; max-width:800px; margin:0 auto;">
+                    <h2 class="section-title-center">MistAI API</h2>
+                    <p>
+                        Integrate MistAI into your applications using a simple REST API.
+                        Send messages, select a model, and receive intelligent responses — including optional structured
+                        actions.
+                    </p>
+                </div>
+
+                <!-- Grid Layout -->
+                <div class="grid-2">
+
+                    <!-- LEFT COLUMN -->
+                    <div class="content-card">
+                        <h3>🔐 Authentication</h3>
+                        <p>
+                            All API requests require an API key. Include it in the Authorization header using the Bearer
+                            scheme.
+                        </p>
+
+                        <div class="code-label">Base URL</div>
+                        <div class="code-example">https://mistai.org/api/v1</div>
+
+                        <div class="code-label">Headers</div>
+                        <div class="code-example">
+                            Authorization: Bearer YOUR_API_KEY
+                            Content-Type: application/json
+                        </div>
+
+                        <div class="notice-box info-notice">
+                            You can generate and manage your API key from the dashboard.
+                        </div>
+                    </div>
+
+                    <div class="content-card">
+                        <h3>⚡ Rate Limits</h3>
+                        <p>Free tier includes:</p>
+                        <ul>
+                            <li><strong>30 requests per minute</strong></li>
+                            <li><strong>No fixed monthly cap</strong> (fair use applies)</li>
+                        </ul>
+
+                        <div class="notice-box warning-notice">
+                            Excessive usage may be temporarily limited to ensure system stability.
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Endpoint Section -->
+                <div class="content-card">
+                    <h3>💬 POST /chat</h3>
+                    <p>
+                        Send a message to MistAI and receive a response from the selected model.
+                        This is the primary endpoint for interacting with the API.
+                    </p>
+
+                    <div class="grid-2">
+
+                        <div>
+                            <div class="code-label">Request Body</div>
+                            <div class="code-example">
+                                {
+                                "message": "Explain quantum computing simply",
+                                "model": "nova"
+                                }
+                            </div>
+                        </div>
+
+                        <div>
+                            <div class="code-label">Response</div>
+                            <div class="code-example">
+                                {
+                                "response": "Quantum computing uses qubits...",
+                                "model": "nova",
+                                "usage": {
+                                "tokens": 123
+                                }
+                                }
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <div class="content-card">
+                    <h3>🖥️ Using the API with MistAI Desktop</h3>
+
+                    <p>
+                        MistAI Desktop is powered by the same API, meaning your API key can be used seamlessly across
+                        both
+                        the web and desktop environments.
+                    </p>
+
+                    <ul>
+                        <li>Use your API key to connect the desktop assistant to your account</li>
+                        <li>All voice commands and automation requests are processed through the API</li>
+                        <li>Switch between <strong>Nova, Sage, and Flux</strong> directly from the desktop app</li>
+                    </ul>
+
+                    <div class="notice-box info-notice">
+                        The desktop app acts as a real-time interface for the API — combining voice input,
+                        screen context, and automation with AI responses.
+                    </div>
+
+                    <p style="margin-top:10px;">
+                        This means you can build with the API and use the same intelligence inside MistAI Desktop
+                        without any additional setup.
+                    </p>
+                </div>
+
+            </section>
+
+            <section id="faq" class="section-grid" data-aos="fade-up">
+                <h2 class="section-title-center">Frequently asked questions</h2>
+                <div class="faq-grid">
+                    <div class="faq-item">
+                        <div class="faq-question"><i class="fas fa-chevron-right"></i> Is MistAI free to use?</div>
+                        <div class="faq-answer">Yes — MistAI Desktop is completely free and open-source. The backend API
+                            is also free to use.</div>
+                    </div>
+                    <div class="faq-item">
+                        <div class="faq-question"><i class="fas fa-chevron-right"></i> Does MistAI work offline?</div>
+                        <div class="faq-answer">No, an internet connection is required for the AI backend. Computer
+                            vision and automation features work locally.</div>
+                    </div>
+                    <div class="faq-item">
+                        <div class="faq-question"><i class="fas fa-chevron-right"></i> Is my data private?</div>
+                        <div class="faq-answer">MistAI only sends voice commands and screen text to the AI backend.
+                            Screenshots are processed locally and not uploaded. Conversations are not stored
+                            permanently.</div>
+                    </div>
+                    <div class="faq-item">
+                        <div class="faq-question"><i class="fas fa-chevron-right"></i> Can I use MistAI on Mac or Linux?
+                        </div>
+                        <div class="faq-answer">Yes. Bundled Tesseract OCR is Windows-only, but macOS and Linux users
+                            can install Tesseract separately. Voice control, app automation, and captions all work
+                            cross-platform.</div>
+                    </div>
+                    <div class="faq-item">
+                        <div class="faq-question"><i class="fas fa-chevron-right"></i> How accurate is wake word
+                            detection?</div>
+                        <div class="faq-answer">MistAI uses Google's speech recognition with fuzzy matching. It's quite
+                            accurate in quiet environments but may struggle with heavy background noise.</div>
+                    </div>
+                    <div class="faq-item">
+                        <div class="faq-question"><i class="fas fa-chevron-right"></i> What's the difference between
+                            Nova, Sage, and Flux?</div>
+                        <div class="faq-answer"><strong>Nova:</strong> Fast and efficient for general tasks (Gemini 2.5
+                            Flash)<br><strong>Sage:</strong> Better at complex reasoning
+                            (Command-R7B)<br><strong>Flux:</strong> Balanced performance (Mistral)</div>
+                    </div>
+                    <div class="faq-item">
+                        <div class="faq-question"><i class="fas fa-chevron-right"></i> Do I need to know Python?</div>
+                        <div class="faq-answer">No — the executable requires zero coding knowledge. Just download and
+                            run.</div>
+                    </div>
+                    <div class="faq-item">
+                        <div class="faq-question"><i class="fas fa-chevron-right"></i> Can I contribute to the project?
+                        </div>
+                        <div class="faq-answer">Absolutely. MistAI is open-source — check the GitHub repo, submit
+                            issues, or open a pull request.</div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="section-grid" data-aos="fade-up">
+                <div class="grid-2">
+                    <div class="content-card" id="troubleshooting">
+                        <h2 class="card-title">Troubleshooting</h2>
+                        <div class="trouble-list-compact">
+                            <div class="trouble-item-compact">
+                                <h4>Wake word not responding</h4>
+                                <p>Check microphone permissions and ensure wake word toggle is enabled in the UI.</p>
+                            </div>
+                            <div class="trouble-item-compact">
+                                <h4>OCR not finding text</h4>
+                                <p><strong>Windows:</strong> OCR is bundled and should work automatically.
+                                    <strong>macOS/Linux:</strong> Install <a
+                                        href="https://github.com/tesseract-ocr/tesseract" target="_blank">Tesseract</a>
+                                    separately. All other features work without it.
+                                </p>
+                            </div>
+                            <div class="trouble-item-compact">
+                                <h4>No text-to-speech</h4>
+                                <p>Check system volume settings and restart MistAI if the issue persists.</p>
+                            </div>
+                            <div class="trouble-item-compact">
+                                <h4>Connection errors</h4>
+                                <p>Verify your internet connection. The status indicator in the UI shows connectivity.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="content-card" id="roadmap">
+                        <h2 class="card-title">Roadmap</h2>
+                        <div class="roadmap-list">
+                            <div class="roadmap-item"><strong>v1.5</strong> — Enhanced proactive suggestions with
+                                smarter context awareness</div>
+                            <div class="roadmap-item"><strong>v2.0</strong> — Cross-application workflows (e.g.,
+                                "Screenshot and email it")</div>
+                            <div class="roadmap-item"><strong>v2.5</strong> — Custom wake word training</div>
+                            <div class="roadmap-item"><strong>v3.0</strong> — Plugin system for custom actions</div>
+                            <div class="roadmap-item"><strong>v4.0</strong> — Multi-monitor support with per-screen
+                                awareness</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="section-grid" data-aos="fade-up">
+                <div class="content-card footer-card">
+                    <div class="footer-content-grid">
+                        <div>
+                            <h3>Get started</h3>
+                            <p>Download MistAI Desktop and bring AI to your desktop.</p>
+                            <a href="https://github.com/Misto0o/MistAI-Desktop/releases" class="btn-primary"
+                                target="_blank">
+                                <i class="fab fa-github"></i> Download Now
+                            </a>
+                        </div>
+                        <div>
+                            <h3>Links</h3>
+                            <ul class="footer-links">
+                                <li><a href="https://mistai.org">MistAI Web</a></li>
+                                <li><a href="https://github.com/Misto0o/MistAI-Desktop">Desktop GitHub</a></li>
+                                <li><a href="https://github.com/Misto0o/Mist.AI">Web GitHub</a></li>
+                                <li><a href="https://builtbykristian.netlify.app">Built by Kristian</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="footer-bottom">
+                        <p>Built by Kristian · MistAI Desktop © 2026</p>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+    </div>
+
+    <button id="backToTop" class="back-to-top">
+        <i class="fas fa-arrow-up"></i>
+    </button>
+    <script src="/docs/docs.js"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+</body>
+
+</html>
