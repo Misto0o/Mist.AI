@@ -4,7 +4,35 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>API Dashboard - MistAI</title>
+    <title>MistAI API Dashboard</title>
+
+    <meta name="description"
+        content="Access your MistAI API dashboard. Manage API keys, monitor usage, and integrate powerful AI models like Nova, Sage, and Flux." />
+
+    <meta name="keywords"
+        content="MistAI, AI API, developer dashboard, API keys, Nova AI, Sage AI, Flux AI, AI integration" />
+
+    <meta name="author" content="Kristian Cook" />
+
+    <meta property="og:title" content="MistAI API Dashboard" />
+    <meta property="og:description"
+        content="Manage your MistAI API keys, monitor usage, and integrate advanced AI models in one place." />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="/static/images/mistai_imresizer.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+
+    <link rel="canonical" href="https://mistai.org/dashboard" />
+
+    <link rel="icon" href="/mistaifaviocn/favicon.ico" type="image/x-icon" />
+    <link rel="icon" href="/favicon-32x32.png" type="image/png" sizes="32x32" />
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-GLT3T5YYE9"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
+        gtag('config', 'G-GLT3T5YYE9');
+    </script>
     <style>
         * {
             margin: 0;
@@ -268,7 +296,7 @@
     <div class="container">
         <header>
             <h1>🔑 API Dashboard</h1>
-            <button class="logout-btn" onclick="logout()">Logout</button>
+            <button class="logout-btn" onclick="logout()">Back Home</button>
         </header>
 
         <div class="hero-section">
@@ -491,7 +519,7 @@
 
         function logout() {
             localStorage.removeItem('mistai_api_key');
-            window.location.href = '/auth';
+            window.location.href = 'https://mistai.org';
         }
     </script>
 </body>

@@ -65,8 +65,8 @@ body {
     display: flex;
     flex-direction: column;
     gap: 3px;
-    padding-top: 45px;
-    align-items: center !important;
+    padding-top: 70px;
+    align-items: center;
 }
 
 .sidebar-icon {
