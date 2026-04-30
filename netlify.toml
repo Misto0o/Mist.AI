@@ -1,13 +1,13 @@
 [build]
   publish = "static"
 
-[[redirects]]
+  [[redirects]]
   from = "/status-page"
   to = "https://mist-ai.fly.dev/status-page"
   status = 200
   force = true
 
-[[redirects]]
+  [[redirects]]
   from = "/status"
   to = "https://mist-ai.fly.dev/status"
   status = 200
@@ -16,5 +16,17 @@
   [[redirects]]
   from = "/credits"
   to = "/credits/index.html"
+  status = 200
+  force = true
+
+  [[redirects]]
+  from = "/auth"
+  to = "https://mist-ai.fly.dev/auth"
+  status = 200
+  force = true
+
+  [[redirects]]
+  from = "/dashboard"
+  to = "https://mist-ai.fly.dev/dashboard"
   status = 200
   force = true
