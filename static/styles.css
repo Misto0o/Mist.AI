@@ -528,6 +528,8 @@ body.hide-header .header {
     justify-content: center;
     transition: background 0.15s ease, transform 0.1s ease;
     flex-shrink: 0;
+    pointer-events: auto !important;
+    z-index: 101 !important;
 }
 
 .send-btn:hover {

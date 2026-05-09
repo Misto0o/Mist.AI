@@ -1550,6 +1550,15 @@ function renderUserMessageWithChips(typedText, items) {
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
 }
 
+// Mobile send button fix
+const sendBtn = document.querySelector('.send-btn');
+if (sendBtn) {
+    sendBtn.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        sendMessage();
+    }, { passive: false });
+}
+
 // Convenience shortcuts for quick actions
 function showRandomPrompt() { sendMessage("random prompt"); }
 function showFunFact() { sendMessage("fun fact"); }
