@@ -1344,11 +1344,11 @@ async def api_v1_chat():
 
         # Log usage
         log_api_usage(
-            api_key,
-            model=model_choice,
-            message_length=len(user_message),
-            response_length=len(response_content),
-            status_code=200,
+            api_key,                      # ✓ Position 1: api_key
+            model_choice,                 # ✓ Position 2: model
+            len(user_message),            # ✓ Position 3: message_len
+            len(response_content),        # ✓ Position 4: response_len
+            200,                          # ✓ Position 5: status
         )
 
         return (
