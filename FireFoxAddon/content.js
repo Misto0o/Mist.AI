@@ -1,15 +1,7 @@
-// ─────────────────────────────────────────
 // Mist.AI Content Script v3.1
-// + 🔇 Silent Mode — cross-tab persistent (storage.onChanged)
-// + ✨ Auto-suggest toggle
-// + 🛡️ Robust JSON parser (no more parse errors)
-// + 📸 Screnshot suport for question answering
-// + Firefox-safe hotkeys (Ctrl+Shift instead of Alt)
-// ─────────────────────────────────────────
+// Features: Silent Mode (cross-tab sync), Auto-suggest, Robust JSON parsing, Screenshot support
 
-// ─────────────────────────────────────────
-// State
-// ─────────────────────────────────────────
+// Global state variables
 let sidebarEl = null;
 let resultEl = null;
 let titleEl = null;
@@ -19,13 +11,10 @@ let silentMode = false;
 let autoSuggestEnabled = false;
 let silentIndicator = null;
 
-// Detect Firefox
+// Browser detection for platform-specific hotkeys
 const IS_FIREFOX = typeof InstallTrigger !== "undefined" || navigator.userAgent.includes("Firefox");
 
-// ─────────────────────────────────────────
-// Persist toggles via chrome.storage
-// + Real-time cross-tab sync via onChanged
-// ─────────────────────────────────────────
+// Load settings from chrome.storage and sync across tabs in real-time
 function loadSettings() {
     if (typeof chrome === "undefined" || !chrome.storage?.local) return;
     chrome.storage.local.get(["silentMode", "autoSuggestEnabled"], (result) => {
@@ -35,7 +24,7 @@ function loadSettings() {
     });
 }
 
-// Heartbeat — re-attach silent indicator if it got wiped (every 2s)
+// Periodic check: re-attach silent indicator if it was removed (every 2s)
 setInterval(() => {
     if (silentMode && !document.getElementById("mistai-silent-indicator")) {
         silentIndicator = null;
@@ -49,8 +38,7 @@ function saveSetting(key, value) {
     chrome.storage.local.set({ [key]: value });
 }
 
-// ── Cross-tab sync: when another tab toggles silent mode,
-//    this tab's indicator updates immediately ──────────────
+// Sync settings across tabs when storage changes
 if (typeof chrome !== "undefined" && chrome.storage?.onChanged) {
     chrome.storage.onChanged.addListener((changes, area) => {
         if (area !== "local") return;
@@ -77,9 +65,7 @@ if (document.readyState === "loading") {
     loadSettings();
 }
 
-// ─────────────────────────────────────────
-// Silent Mode indicator
-// ─────────────────────────────────────────
+// Display silent mode indicator badge
 function showSilentIndicator() {
     // Clear ref if element got detached from DOM
     if (silentIndicator && !document.body?.contains(silentIndicator)) {
@@ -116,9 +102,7 @@ function toggleSilentMode() {
     }
 }
 
-// ─────────────────────────────────────────
-// Track last focused field
-// ─────────────────────────────────────────
+// Track last focused input field for context
 document.addEventListener("focusin", (e) => {
     const el = e.target;
     if (isEditableField(el)) {
@@ -147,9 +131,7 @@ function isEditableField(el) {
     return false;
 }
 
-// ─────────────────────────────────────────
-// Auto-suggest bubble
-// ─────────────────────────────────────────
+// Display AI-powered auto-suggest bubble when field is empty
 let autoSuggestEl = null;
 
 function maybeShowAutoSuggest(field) {
@@ -175,9 +157,7 @@ function removeAutoSuggest() {
     if (autoSuggestEl) { autoSuggestEl.remove(); autoSuggestEl = null; }
 }
 
-// ─────────────────────────────────────────
-// Describe a single field
-// ─────────────────────────────────────────
+// Extracts field label from various sources (for, aria-label, placeholder, etc.)
 function describeField(field) {
     if (field.id) {
         const label = document.querySelector(`label[for="${field.id}"]`);
@@ -191,9 +171,7 @@ function describeField(field) {
     return "this field";
 }
 
-// ─────────────────────────────────────────
-// Find nearby radio/checkbox options
-// ─────────────────────────────────────────
+// Finds nearby radio/checkbox options for form field context
 function findNearbyOptions(anchorEl) {
     const containers = [
         anchorEl?.closest("fieldset"),
@@ -226,11 +204,8 @@ function getRadioLabel(radio) {
     return radio.value || "";
 }
 
-// ─────────────────────────────────────────
-// 🛡️ Robust JSON extractor v2
-// Handles: markdown fences, trailing commas, single quotes,
-// truncated output, extra text before/after JSON, newlines in values
-// ─────────────────────────────────────────
+// Robust JSON extraction: handles markdown fences, trailing commas, malformed JSON
+// Supports: markdown fences, trailing commas, single quotes, truncated output, extra text
 function cleanJsonString(raw) {
     return raw
         .replace(/```json[\s\S]*?```/g, (m) => m.replace(/```json|```/g, "").trim()) // strip fences

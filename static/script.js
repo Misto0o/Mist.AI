@@ -1,4 +1,3 @@
-// Replace the bare import + call at the top of script.js with this:
 document.addEventListener("DOMContentLoaded", () => {
     if (typeof renderMathInElement !== "undefined") {
         renderMathInElement(document.body, {
@@ -20,15 +19,13 @@ document.addEventListener("focusin", e => {
     });
 });
 
-// =========================
-// Markdown / CodeMirror
-// =========================
+// Initialize Markdown converter with GitHub-flavored options
 const converter = new showdown.Converter({
     simpleLineBreaks: true,
     omitExtraWLInCodeBlocks: true,
 
     tables: true,
-    ghCodeBlocks: true,        // GitHub-style code blocks
+    ghCodeBlocks: true,
     strikethrough: true,
     tasklists: true,
 
@@ -78,9 +75,7 @@ function initializeCodeMirror(container, code, mode = "text") {
     document.head.appendChild(style);
 }
 
-// =========================
-// Shared helper — creates an edit button and attaches it to a message element
-// =========================
+// Attaches an edit button to allow users to edit their messages
 function attachEditButton(messageElement, content) {
     const btn = document.createElement("i");
     btn.classList.add("fas", "fa-pen", "edit-button");
@@ -184,14 +179,14 @@ async function typeBotMessage(message, containerClass = "bot-message") {
     const wordCount = message.trim().split(/\s+/).length;
     const hasCode = /```[\s\S]*?```/.test(message);
 
-    // Long or code responses → instant render
+    // Long or code-heavy responses render instantly for better UX
     if (wordCount > 80 || hasCode) {
         renderMessage(message, containerClass);
         messagesDiv.scrollTop = messagesDiv.scrollHeight;
         return message;
     }
 
-    // Short responses → animated typing
+    // Short responses animate with typing effect for engagement
     const tempEl = document.createElement("div");
     tempEl.classList.add("message", containerClass);
     messagesDiv.appendChild(tempEl);
@@ -213,9 +208,7 @@ async function typeBotMessage(message, containerClass = "bot-message") {
     return message;
 }
 
-// =========================
-// Global State
-// =========================
+// Global application state
 let currentModel = "gemini";
 let canSendMessage = true;
 let isSwapping = false;
@@ -228,12 +221,9 @@ let currentThread = null;
 
 const PASTED_THRESHOLD = 200;
 const MAX_PASTES = 5;
-// Single source of truth for pasted content: an array of strings.
 let pastedItems = [];
 
-// =========================
-// Banned Words / Safety
-// =========================
+// Safety filter to prevent harmful content
 const bannedWords = [
     "CP", "rape", "pedophile", "bestiality", "necrophilia", "zoophilia", "gore",
     "loli", "shota", "noncon", "incest", "molest", "p0rn", "porn", "porno",
@@ -251,9 +241,7 @@ function containsBannedWords(message) {
     return bannedWords.some(word => new RegExp(`\\b${word}\\b`, "i").test(message));
 }
 
-// =========================
-// Dev Bypass
-// =========================
+// Developer mode for testing and bypassing restrictions
 window.MistAIDev = async function () {
     localStorage.setItem("devBypass", "true");
     console.log("🛠️ Dev mode activated.");
@@ -278,9 +266,7 @@ document.getElementById("toggleDevBypassBtn")?.addEventListener("click", async (
     }
 });
 
-// =========================
-// Utility: IP & Token
-// =========================
+// Fetches user's public IP address for analytics and moderation
 async function getUserIP() {
     try {
         const response = await fetch("https://api.ipify.org?format=json");
@@ -301,9 +287,7 @@ function getUserToken() {
     return token;
 }
 
-// =========================
-// Ban Helpers
-// =========================
+// Ban system helpers for IP-based moderation
 function storeBannedIP(userIP) {
     let bannedIPs = JSON.parse(localStorage.getItem("bannedIPs")) || [];
     if (!bannedIPs.includes(userIP)) bannedIPs.push(userIP);
@@ -347,9 +331,7 @@ function enableChat() {
     }
 }
 
-// =========================
-// Ban Check on Load
-// =========================
+// Checks if user's IP is banned when page loads
 async function checkBanOnLoad() {
     const userIP = await getUserIP();
     const token = getUserToken();
@@ -371,9 +353,7 @@ async function checkBanOnLoad() {
     }
 }
 
-// =========================
-// Single Load Handler
-// =========================
+// Initialize application when page fully loads
 window.addEventListener("load", async () => {
     const state = loadState();
     if (state.currentThread) switchThread(state.currentThread);
@@ -401,9 +381,7 @@ window.addEventListener("beforeunload", () => {
     if (ui) localStorage.setItem("mistai-draft", ui.value || "");
 });
 
-// =========================
-// Offense Tracking
-// =========================
+// Tracks policy violations per IP to enforce bans after multiple offenses
 async function handleUserMessage(message) {
     if (localStorage.getItem("devBypass") === "true") return;
     const userIP = await getUserIP();
@@ -420,9 +398,7 @@ async function handleUserMessage(message) {
     }
 }
 
-// =========================
-// Grounding
-// =========================
+// Detects if user is asking for sources/citations (grounding)
 function userWantsGrounding(message) {
     const msg = message.toLowerCase();
     return (
@@ -432,9 +408,7 @@ function userWantsGrounding(message) {
     );
 }
 
-// =========================
-// sendMessage
-// =========================
+// Main function to send user message and handle bot response
 async function sendMessage(userMessage = null) {
     const _t = localStorage.getItem("mistai-theme") || "dark";
     document.body.classList.remove(
@@ -456,7 +430,7 @@ async function sendMessage(userMessage = null) {
 
     if (!userMessage) userMessage = userInput.value.trim();
 
-    // Snapshot current pasted items before clearing
+    // Capture pasted items before clearing to include them in payload
     const pastedSnapshot = pastedItems.length > 0 ? [...pastedItems] : null;
     const pastedText = pastedSnapshot ? pastedSnapshot.join("\n\n") : null;
 
@@ -601,9 +575,7 @@ async function sendMessage(userMessage = null) {
     userInput.focus();
 }
 
-// =========================
-// Paste Detection
-// =========================
+// Detects large text pastes (>200 chars) and displays them as pasted blocks
 function initPasteDetection() {
     const input = document.getElementById("user-input");
     if (!input) return;
@@ -665,15 +637,10 @@ function clearPastedItems() {
     pastedItems = [];
 }
 
-// =========================
-// Thread / Message Helpers
-// =========================
+// Message and thread management system
 
-/**
- * Core message-storage function.
- * silent=true  → only store in state/memory, do NOT call renderMessage.
- * silent=false → store AND render.
- */
+// Core message storage: silent=true stores without rendering, silent=false stores and renders
+// This is the backbone of the chat persistence system
 function _storeNewMessage(text, sender = "user", file = null, silent = false) {
     let state = loadState();
     if (!state.currentThread) {
@@ -760,9 +727,7 @@ function showMessageWithImage(text, file, sender = "user") {
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
 }
 
-// =========================
-// Storage System
-// =========================
+// LocalStorage-based persistence for threads and messages
 const STORAGE_KEY = "mistai-state";
 
 function generateUUID() {
@@ -813,9 +778,7 @@ function addMessage(threadId, message) {
     saveState(state);
 }
 
-// =========================
-// Thread CRUD
-// =========================
+// Thread creation, switching, and deletion operations
 function createThread(name) {
     const state = loadState();
     const id = generateUUID();
@@ -890,9 +853,7 @@ function deleteChat(threadId) {
     else document.getElementById("chat-box").innerHTML = "";
 }
 
-// =========================
-// Thread List UI
-// =========================
+// Renders the sidebar list of chat threads
 function renderThreads() {
     const threads = getThreads();
     const list = document.getElementById("chat-threads-list");
@@ -922,9 +883,7 @@ function renderThreads() {
     });
 }
 
-// =========================
-// DOMContentLoaded Init
-// =========================
+// Initialize UI and event listeners after DOM is ready
 document.addEventListener("DOMContentLoaded", () => {
     const state = loadState();
 
@@ -944,7 +903,6 @@ document.addEventListener("DOMContentLoaded", () => {
         headerEl.style.display = activeThread.hideHeader ? "none" : "block";
     }
 
-    // New thread button
     const btn = document.getElementById("new-thread-btn");
     if (btn) {
         btn.addEventListener("click", () => {
@@ -957,7 +915,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    // Enter / Shift+Enter
+    // Handle Enter (send) and Shift+Enter (newline) in textarea
     document.getElementById("user-input").addEventListener("keydown", function (event) {
         const textarea = document.getElementById("user-input");
         if (event.key === "Enter") {
@@ -1005,7 +963,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    // Image preview
+    // Display preview of selected image before sending
     function previewImage(file) {
         uploadedFile = file;
         const previewContainer = document.getElementById("image-preview");
@@ -1024,7 +982,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    // Document upload
+    // Upload document to backend for text extraction
     async function uploadFile(file, text = "") {
         const formData = new FormData();
         formData.append("file", file);
@@ -1066,7 +1024,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // Drag & Drop
+    // Enable drag-and-drop file upload
     const dropZone = document.getElementById("chat-box");
     dropZone.addEventListener("dragover", e => { e.preventDefault(); dropZone.classList.add("drag-over"); });
     dropZone.addEventListener("dragleave", () => dropZone.classList.remove("drag-over"));
@@ -1085,7 +1043,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // Paste image
+    // Handle images pasted directly from clipboard
     function handleImagePaste(e) {
         const items = e.clipboardData.items;
         for (let item of items) {
@@ -1101,7 +1059,7 @@ document.addEventListener("DOMContentLoaded", () => {
     document.addEventListener("paste", handleImagePaste);
     document.getElementById("chat-box").addEventListener("paste", handleImagePaste);
 
-    // Service Worker
+    // Register service worker for offline PWA mode
     if ("serviceWorker" in navigator) {
         navigator.serviceWorker.register("/service-worker.js")
             .then(async reg => {
@@ -1118,14 +1076,14 @@ document.addEventListener("DOMContentLoaded", () => {
             .catch(err => console.error("❌ SW failed:", err));
     }
 
-    // Sidebar
+    // Toggle sidebar visibility
     const sidebar = document.querySelector(".sidebar");
     const sidebarToggle = document.getElementById("sidebarToggle");
     const closeSidebar = document.getElementById("closeSidebar");
     if (sidebarToggle) sidebarToggle.addEventListener("click", () => sidebar.classList.toggle("expanded"));
     if (closeSidebar) closeSidebar.addEventListener("click", () => sidebar.classList.remove("expanded"));
 
-    // README modal
+    // Load and display README from GitHub
     const readmeModal = document.getElementById("readme-modal");
     const readmeContent = document.getElementById("readme-content");
     const closeBtn = document.getElementById("close-btn");
@@ -1142,9 +1100,7 @@ document.addEventListener("DOMContentLoaded", () => {
     window.addEventListener("click", event => { if (event.target === readmeModal) readmeModal.style.display = "none"; });
 });
 
-// =========================
-// Input / Word Counter
-// =========================
+// Word counter and input validation system
 const input = document.getElementById("user-input");
 const computedStyle = getComputedStyle(input);
 const maxHeight = parseInt(computedStyle.maxHeight);
@@ -1210,9 +1166,7 @@ input.addEventListener("input", e => {
     }
 });
 
-// =========================
-// Edit / Save Messages
-// =========================
+// Message editing functionality
 function enableEditMode(messageElement, originalContent) {
     const textarea = document.createElement("textarea");
     textarea.classList.add("edit-textarea");
@@ -1250,9 +1204,7 @@ function saveEditedMessage(messageElement, newContent) {
     updateMemory("user", newContent);
 }
 
-// =========================
-// Thinking Bubble
-// =========================
+// Animated thinking indicator displayed while waiting for bot response
 function createThinkingBubble() {
     const bubble = document.createElement("div");
     bubble.classList.add("message", "bot-message", "thinking");
@@ -1279,9 +1231,7 @@ function getRandomDelayMessage() {
     return messages[Math.floor(Math.random() * messages.length)];
 }
 
-// =========================
-// Capabilities Ticker
-// =========================
+// Rotating carousel of feature highlights
 const capabilities = [
     "Version 10 - Launched February 2026 🚀",
     "Chat Threads for organized conversations 🧵",
@@ -1309,7 +1259,7 @@ const capabilities = [
 const subtitleEl = document.getElementById("micro-subtitle");
 let capIndex = 0;
 
-// Safe iterative ticker — no recursion, no call-stack growth
+// Iterative ticker implementation avoids recursion and call-stack growth
 function startCapabilitiesTicker() {
     function typeNext() {
         const text = capabilities[capIndex];
@@ -1331,9 +1281,7 @@ function startCapabilitiesTicker() {
 
 startCapabilitiesTicker();
 
-// =========================
-// Memory
-// =========================
+// Manages conversation context memory (limited to last 25 messages per thread)
 function updateMemory(role, content) {
     if (!currentThread) return;
     let threadMemory = JSON.parse(localStorage.getItem(`chatMemory-${currentThread}`)) || [];
@@ -1345,9 +1293,7 @@ function updateMemory(role, content) {
     chatMemory = threadMemory;
 }
 
-// =========================
-// Backend URLs  (single source of truth)
-// =========================
+// Determines backend URL based on environment (localhost vs production)
 function getBackendBase() {
     const hostname = window.location.hostname;
     const isLocal = hostname === "localhost" || hostname === "127.0.0.1";
@@ -1355,9 +1301,7 @@ function getBackendBase() {
     return isFileUrl || isLocal ? "http://127.0.0.1:5000" : "https://mist-ai.fly.dev";
 }
 
-// =========================
-// Down Mode Check
-// =========================
+// Periodically checks if backend is down and redirects to status page
 async function checkDownMode() {
     try {
         const res = await fetch(`${getBackendBase()}/status`, {
@@ -1375,9 +1319,7 @@ async function checkDownMode() {
 checkDownMode();
 setInterval(checkDownMode, 60000);
 
-// =========================
-// Model Swap
-// =========================
+// Handles switching between different AI models
 function swapModel(selectElement) {
     const selectedValue = selectElement.value;
     if (isSwapping || selectedValue === currentModel) return;
@@ -1388,9 +1330,7 @@ function swapModel(selectElement) {
     setTimeout(() => { isSwapping = false; }, 1300);
 }
 
-// =========================
-// Notification Toast
-// =========================
+// Displays animated toast notification for user feedback
 function showNotification(message) {
     const notification = document.createElement("div");
     notification.classList.add("notification");
@@ -1409,9 +1349,7 @@ function showNotification(message) {
     });
 }
 
-// =========================
-// Slash Commands
-// =========================
+// Slash commands system with autocomplete suggestions
 const inputField = document.getElementById("user-input");
 const slashButton = document.getElementById("slash-button");
 
@@ -1461,10 +1399,9 @@ document.addEventListener("click", e => {
     }
 });
 
-// =========================
-// Konami Code
-// =========================
+// Easter egg: Hidden Konami code unlocks special theme
 document.addEventListener("DOMContentLoaded", () => {
+    // Konami code: ↑ ↑ ↓ ↓ ← → ← → B A or type it out
     const konamiCodeArrow = ["ArrowUp", "ArrowUp", "ArrowDown", "ArrowDown", "ArrowLeft", "ArrowRight", "ArrowLeft", "ArrowRight", "b", "a"];
     const konamiCodeText = "up up down down left right left right b a start";
     let konamiInputArrow = [];
@@ -1502,9 +1439,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 });
 
-// =========================
-// Tools Menu
-// =========================
+// Dropdown menu for upload tools (image, document)
 const toolsToggle = document.getElementById("tools-toggle");
 const toolsMenu = document.getElementById("tools-menu");
 const fileInputs = document.querySelectorAll(".upload-input");
@@ -1530,9 +1465,7 @@ fileInputs.forEach(input => {
     });
 });
 
-// =========================
-// showMessage
-// =========================
+// Displays a message in chat (used for system messages)
 function showMessage(message, sender = "user") {
     const chatBox = document.getElementById("chat-box");
     if (!chatBox) return;
@@ -1546,9 +1479,7 @@ function showMessage(message, sender = "user") {
     chatBox.scrollTop = chatBox.scrollHeight;
 }
 
-// =========================
-// Push Notifications
-// =========================
+// Push notification system for tips and GitHub updates
 const DAILY_NOTIF_KEY = "mistai_last_tip_day";
 const COMMIT_NOTIF_KEY = "mistai_last_commit_day";
 const LAST_TIP_INDEX_KEY = "mistai_last_tip_index";
@@ -1587,9 +1518,7 @@ async function initNotifications() {
     }
 }
 
-// =========================
-// Render User Message With Chips
-// =========================
+// Displays user message with pasted content as separate visual chips
 function renderUserMessageWithChips(typedText, items) {
     const messagesDiv = document.getElementById("chat-box");
     const messageElement = document.createElement("div");
@@ -1621,13 +1550,9 @@ function renderUserMessageWithChips(typedText, items) {
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
 }
 
-// =========================
-// Shortcut Functions
-// =========================
+// Convenience shortcuts for quick actions
 function showRandomPrompt() { sendMessage("random prompt"); }
 function showFunFact() { sendMessage("fun fact"); }
 
-// =========================
-// Init
-// =========================
+// Initialize all systems
 initPasteDetection();

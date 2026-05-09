@@ -1,6 +1,4 @@
-# ─────────────────────
-# Standard Library
-# ─────────────────────
+# Standard library imports
 import os
 import sys
 import io
@@ -20,9 +18,7 @@ import hashlib
 import supabase
 from supabase import create_client
 
-# ─────────────────────
-# Flask & Web
-# ─────────────────────
+# Flask and web framework imports
 from flask import (
     Flask,
     request,
@@ -39,36 +35,26 @@ from flask import (
 from flask_cors import CORS
 from werkzeug.exceptions import NotFound
 
-# ─────────────────────
-# Environment & HTTP
-# ─────────────────────
+# Environment and HTTP utilities
 from dotenv import load_dotenv
 import requests
 import httpx
 import pytz
 
-# ─────────────────────
-# AI / LLM APIs
-# ─────────────────────
+# AI/LLM provider APIs
 import google.generativeai as genai
 import cohere
 from tavily import TavilyClient
 
-# ─────────────────────
-# File & Document Processing
-# ─────────────────────
+# File and document processing libraries
 import fitz  # PyMuPDF
 from docx import Document
 
-# ─────────────────────
-# Math / Parsing
-# ─────────────────────
+# Mathematical expression parsing
 import sympy
 from sympy.parsing.mathematica import parse_mathematica
 
-# ─────────────────────
-# API Key Management
-# ─────────────────────
+# API key and rate limiting management
 from api_key_system import (
     generate_api_key,
     create_api_key,
@@ -104,9 +90,7 @@ app = Flask(
 )
 
 
-# =========================
-# Logging setup
-# =========================
+# Configure logging with custom formatter and UTF-8 support
 class StreamToUTF8(logging.StreamHandler):
     def emit(self, record):
         try:
@@ -166,7 +150,7 @@ class FilterFlyLogs(logging.Filter):
         return True
 
 
-# ── single module-level logger — use `log` everywhere instead of app.logger ──
+# Module-level logger instance used throughout the application
 log = logging.getLogger("mistai")
 log.setLevel(logging.INFO)
 log.propagate = False
@@ -177,7 +161,7 @@ log.addHandler(_handler)
 logging.getLogger("werkzeug").disabled = True
 
 
-# Convenience helpers — call these instead of log.info / log.error directly
+# Convenience logging functions with emoji prefixes for different message types
 def log_chat(ip, model, message, response):
     log.info(f"📩 {ip} [{model}] {message[:80]}")
     log.info(f"🤖 {response[:80]}")
@@ -211,9 +195,7 @@ logging.getLogger("werkzeug").disabled = True
 
 CORS(app, resources={r"/*": {"origins": "*"}})
 
-# =========================
-# Chat Log File
-# =========================
+# Chat log persistence system with batched disk writes
 LOG_DIR = (
     "/app/data" if os.path.exists("/app/data") else os.path.join(os.getcwd(), "data")
 )
@@ -223,15 +205,9 @@ LOG_FILE = os.path.join(LOG_DIR, "chat_logs.json")
 log_queue = queue_module.Queue()
 log_thread_running = False
 
-
+# Background thread that batches and writes logs to disk
+# Uses a 50-second flush delay to prevent page refreshes during bot message rendering
 def _log_writer_thread():
-    """
-    Background thread that batches and writes logs to disk.
-    Deliberately uses a long flush delay (30 seconds minimum) so that disk
-    writes happen well AFTER the HTTP response has been delivered to the
-    client.  This prevents VS Code's file-watcher from triggering a browser
-    refresh mid-render and cutting off the bot message on screen.
-    """
     global log_thread_running
     log_thread_running = True
     batch = []
@@ -246,9 +222,8 @@ def _log_writer_thread():
                 pass
 
             current_time = time.time()
-            # Only flush after 50 seconds have passed OR the batch is very large.
-            # The long delay ensures the frontend has fully rendered the bot
-            # response before any file-system event can trigger a page reload.
+            # Only flush after 50 seconds have passed OR batch is very large
+            # Long delay ensures frontend fully renders before file-system events trigger page reload
             should_flush = len(batch) >= 50 or (
                 len(batch) > 0 and (current_time - last_write) >= 50
             )
@@ -284,7 +259,7 @@ def _log_writer_thread():
 
 
 def safe_log_chat(user_ip, model_choice, message, response, grounded):
-    """Queue a chat log entry for batched writing. Never raises."""
+    # Queues a chat log entry for batched writing (thread-safe)
     try:
         entry = {
             "timestamp": datetime.now().isoformat(),
@@ -299,15 +274,14 @@ def safe_log_chat(user_ip, model_choice, message, response, grounded):
         log_warn(f"⚠️ Failed to queue log entry: {e}")
 
 
-# =========================
-# Down Mode State
-# =========================
+# Down mode state (prevents most routes from accepting requests)
 IS_DOWN = False
 DOWN_REASON = None
 DOWN_TIMESTAMP = None
 
 
 def set_down_mode(reason: str):
+    # Activates down mode with a reason and timestamp
     global IS_DOWN, DOWN_REASON, DOWN_TIMESTAMP
     IS_DOWN = True
     DOWN_REASON = reason
@@ -315,9 +289,7 @@ def set_down_mode(reason: str):
     log.error(f"🔥 DOWN MODE: {reason} at {DOWN_TIMESTAMP}")
 
 
-# =========================
-# Before Request
-# =========================
+# Intercepts all requests to check down mode status before routing
 @app.before_request
 def before_request_down_mode():
     global IS_DOWN
@@ -329,6 +301,7 @@ def before_request_down_mode():
         "reset_down_test",
         "api_chat",
         "api_status",
+        "api_v1_chat",
     ]
     endpoint = request.endpoint or ""
     if IS_DOWN and endpoint not in allowed_routes:
@@ -359,9 +332,7 @@ def before_request_down_mode():
         return render_template("mistai_status.html"), 503
 
 
-# =========================
-# Public API Routes
-# =========================
+# Public API endpoints for chat and status checks
 @app.route("/api/chat", methods=["POST"])
 def api_chat():
     try:
@@ -464,9 +435,7 @@ def api_status():
     ), (200 if not IS_DOWN else 503)
 
 
-# =========================
-# Status Routes
-# =========================
+# Status and health check endpoints
 @app.route("/status", methods=["GET"])
 def status():
     response = jsonify(
@@ -490,11 +459,9 @@ def mistai_status():
     return render_template("mistai_status.html"), 503 if IS_DOWN else 200
 
 
-# =========================
-# Production Detection
-# =========================
+# Determines if running on Fly.io production or local development
 def is_production():
-    # Fly.io sets FLY_APP_NAME; that's the only check we need in practice.
+    # Fly.io sets FLY_APP_NAME in production environment
     return bool(os.getenv("FLY_APP_NAME") or os.getenv("PRODUCTION") == "true")
 
 
@@ -1809,7 +1776,7 @@ Greet users on first interaction with: '{greeting}'
 
 # Recommended global settings
 TEMPERATURE = 0.3
-MAX_TOKENS = 1024
+MAX_TOKENS = 2045
 
 
 def get_gemini_response(prompt, max_tokens=MAX_TOKENS):

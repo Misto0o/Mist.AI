@@ -5,15 +5,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MistAI API Dashboard</title>
-
     <meta name="description"
         content="Access your MistAI API dashboard. Manage API keys, monitor usage, and integrate powerful AI models like Nova, Sage, and Flux." />
-
     <meta name="keywords"
         content="MistAI, AI API, developer dashboard, API keys, Nova AI, Sage AI, Flux AI, AI integration" />
-
     <meta name="author" content="Kristian Cook" />
-
     <meta property="og:title" content="MistAI API Dashboard" />
     <meta property="og:description"
         content="Manage your MistAI API keys, monitor usage, and integrate advanced AI models in one place." />
@@ -21,9 +17,7 @@
     <meta property="og:image" content="/static/images/mistai_imresizer.jpg" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-
     <link rel="canonical" href="https://mistai.org/dashboard" />
-
     <link rel="icon" href="/mistaifaviocn/favicon.ico" type="image/x-icon" />
     <link rel="icon" href="/favicon-32x32.png" type="image/png" sizes="32x32" />
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-GLT3T5YYE9"></script>
@@ -184,6 +178,16 @@
             margin-bottom: 20px;
         }
 
+        .info-box {
+            background: rgba(59, 130, 246, 0.1);
+            border-left: 4px solid #3b82f6;
+            padding: 12px;
+            border-radius: 6px;
+            color: #93c5fd;
+            font-size: 13px;
+            margin-top: 12px;
+        }
+
         .code-example {
             background: #0f0f1e;
             border: 1px solid #2a2a3e;
@@ -194,6 +198,7 @@
             color: #10b981;
             overflow-x: auto;
             margin-bottom: 12px;
+            line-height: 1.4;
         }
 
         .code-label {
@@ -289,6 +294,15 @@
             color: #999;
             padding: 20px;
         }
+
+        .endpoint-info {
+            background: #0f0f1e;
+            border: 1px solid #2a2a3e;
+            padding: 12px;
+            border-radius: 6px;
+            margin-top: 8px;
+            font-size: 12px;
+        }
     </style>
 </head>
 
@@ -298,17 +312,14 @@
             <h1>🔑 API Dashboard</h1>
             <button class="logout-btn" onclick="logout()">Back Home</button>
         </header>
-
         <div class="hero-section">
             <p>Build with MistAI — one API, multiple AI models.</p>
             <p style="font-size:13px;opacity:0.7;">Fast, affordable access to Nova, Sage, and Flux.</p>
         </div>
-
         <div class="success-box">
             <strong>🎉 Your API is live!</strong> You're ready to send your first request and start building with
             MistAI.
         </div>
-
         <!-- Key Management Card -->
         <div class="grid">
             <div class="card">
@@ -320,7 +331,6 @@
                     <strong>Keep this secret.</strong> Never expose your API key in client-side code or public repos.
                 </div>
             </div>
-
             <!-- Usage Stats Card -->
             <div class="card">
                 <h2>📊 Usage This Month</h2>
@@ -333,7 +343,6 @@
                     🔄 Refresh Stats
                 </button>
             </div>
-
             <!-- Quick Start Card -->
             <div class="card">
                 <h2>🚀 Quick Start</h2>
@@ -341,35 +350,35 @@
                     Send your first request in seconds:
                 </p>
                 <div class="code-label">cURL</div>
-                <div class="code-example">curl -X POST https://mistai.org/api/v1/chat \
+                <div class="code-example">curl -X POST https://api.mistai.org/api/v1/chat \
                     -H "Authorization: Bearer YOUR_KEY" \
                     -H "Content-Type: application/json" \
                     -d '{"message": "Hello!", "model": "gemini"}'</div>
                 <a href="/docs" class="link-btn">Full Documentation →</a>
             </div>
         </div>
-
         <!-- Code Examples Tabs -->
         <div class="card">
             <h2>💻 Code Examples</h2>
-
             <div class="tabs">
                 <button class="tab-btn active" onclick="switchTab('curl')">cURL</button>
                 <button class="tab-btn" onclick="switchTab('python')">Python</button>
                 <button class="tab-btn" onclick="switchTab('js')">JavaScript</button>
             </div>
-
             <div id="curl" class="tab-content active">
                 <div class="code-label">cURL Example</div>
-                <div class="code-example">curl -X POST https://mistai.org/api/v1/chat \
+                <div class="code-example">curl -X POST https://api.mistai.org/api/v1/chat \
                     -H "Authorization: Bearer YOUR_API_KEY" \
                     -H "Content-Type: application/json" \
                     -d '{
                     "message": "What is AI?",
                     "model": "gemini"
                     }'</div>
+                <div class="endpoint-info">
+                    <strong>Endpoint:</strong> <code>https://api.mistai.org/api/v1/chat</code><br>
+                    <strong>Fallback:</strong> <code>https://mist-ai.fly.dev/api/v1/chat</code>
+                </div>
             </div>
-
             <div id="python" class="tab-content">
                 <div class="code-label">Python Example</div>
                 <div class="code-example">import requests
@@ -378,27 +387,26 @@
                     "Authorization": "Bearer YOUR_API_KEY",
                     "Content-Type": "application/json"
                     }
-
                     data = {
                     "message": "What is AI?",
                     "model": "gemini"
                     }
-
                     response = requests.post(
-                    "https://mistai.org/api/v1/chat",
+                    "https://api.mistai.org/api/v1/chat",
                     headers=headers,
                     json=data
                     )
-
                     print(response.json())</div>
+                <div class="endpoint-info">
+                    <strong>Endpoint:</strong> <code>https://api.mistai.org/api/v1/chat</code><br>
+                    <strong>Fallback:</strong> <code>https://mist-ai.fly.dev/api/v1/chat</code>
+                </div>
             </div>
-
             <div id="js" class="tab-content">
                 <div class="code-label">JavaScript Example</div>
                 <div class="code-example">const apiKey = "YOUR_API_KEY";
-
                     const response = await fetch(
-                    "https://mistai.org/api/v1/chat",
+                    "https://api.mistai.org/api/v1/chat",
                     {
                     method: "POST",
                     headers: {
@@ -407,39 +415,91 @@
                     },
                     body: JSON.stringify({
                     message: "What is AI?",
-                    model: "gemini"
+                    model: "mistral"
                     })
                     }
                     );
-
                     const data = await response.json();
                     console.log(data);</div>
+                <div class="endpoint-info">
+                    <strong>Endpoint:</strong> <code>https://api.mistai.org/api/v1/chat</code><br>
+                    <strong>Fallback:</strong> <code>https://mist-ai.fly.dev/api/v1/chat</code>
+                </div>
             </div>
         </div>
-
-        <!-- Available Models Card -->
+        <!-- API Response Format Card -->
         <div class="card" style="margin-top: 20px;">
-            <h2>🤖 Choose Your Models</h2>
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
-                <div style="padding: 12px; background: #0f0f1e; border-radius: 6px;">
+            <h2>📨 API Response Format</h2>
+            <div class="code-label">Success Response (200)</div>
+            <div class="code-example">{
+                "success": true,
+                "response": "Your AI response here",
+                "model": "cohere",
+                "timestamp": "2026-05-09T13:48:31.123456"
+                }</div>
+            <div class="code-label" style="margin-top: 16px;">Available Models</div>
+            <div
+                style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-top: 12px;">
+                <div style="padding: 12px; background: #0f0f1e; border-radius: 6px; border-left: 3px solid #10b981;">
                     <div style="font-weight: 600; color: #10b981;">Nova</div>
-                    <div style="font-size: 12px; color: #999;">Fast & lightweight (Gemini 2.5)</div>
+                    <div style="font-size: 12px; color: #999;">Fast & lightweight (Gemini)</div>
                 </div>
-                <div style="padding: 12px; background: #0f0f1e; border-radius: 6px;">
+                <div style="padding: 12px; background: #0f0f1e; border-radius: 6px; border-left: 3px solid #3b82f6;">
                     <div style="font-weight: 600; color: #3b82f6;">Sage</div>
-                    <div style="font-size: 12px; color: #999;">Strong reasoning (Command-R7B)</div>
+                    <div style="font-size: 12px; color: #999;">Strong reasoning (Command-R)</div>
                 </div>
-                <div style="padding: 12px; background: #0f0f1e; border-radius: 6px;">
+                <div style="padding: 12px; background: #0f0f1e; border-radius: 6px; border-left: 3px solid #f59e0b;">
                     <div style="font-weight: 600; color: #f59e0b;">Flux</div>
-                    <div style="font-size: 12px; color: #999;">Balanced (Mistral)</div>
+                    <div style="font-size: 12px; color: #999;">Fast & lightweight (Mistral)</div>
+                </div>
+            </div>
+            <div class="info-box" style="margin-top: 16px;">
+                Use <strong>model: "gemini"</strong>, <strong>"cohere"</strong>, or <strong>"mistral"</strong> in your
+                requests. All models support the same API interface.
+            </div>
+        </div>
+        <!-- Authentication Info Card -->
+        <div class="card" style="margin-top: 20px;">
+            <h2>🔐 Authentication</h2>
+            <p style="color: #b0b0c0; font-size: 13px; margin-bottom: 16px;">
+                Include your API key in the Authorization header using the Bearer scheme:
+            </p>
+            <div class="code-label">Header Format</div>
+            <div class="code-example">Authorization: Bearer mistai_YOUR_API_KEY_HERE</div>
+            <div class="info-box">
+                <strong>Important:</strong> Always use HTTPS (never HTTP). Rate limit is 30 requests per minute per API
+                key.
+            </div>
+        </div>
+        <!-- Troubleshooting Card -->
+        <div class="card" style="margin-top: 20px;">
+            <h2>❓ Troubleshooting</h2>
+            <div style="space: 16px;">
+                <div style="margin-bottom: 16px;">
+                    <strong style="color: #fff;">DNS Issues?</strong>
+                    <p style="color: #b0b0c0; font-size: 13px; margin-top: 4px;">
+                        If <code>api.mistai.org</code> doesn't resolve, use the fallback:
+                        <code>https://mist-ai.fly.dev/api/v1/chat</code>
+                    </p>
+                </div>
+                <div style="margin-bottom: 16px;">
+                    <strong style="color: #fff;">Invalid API Key?</strong>
+                    <p style="color: #b0b0c0; font-size: 13px; margin-top: 4px;">
+                        Make sure your key starts with <code>mistai_</code> and is correctly placed in the Authorization
+                        header.
+                    </p>
+                </div>
+                <div>
+                    <strong style="color: #fff;">Rate Limited?</strong>
+                    <p style="color: #b0b0c0; font-size: 13px; margin-top: 4px;">
+                        You're sending more than 30 requests per minute. Wait a minute and retry.
+                    </p>
                 </div>
             </div>
         </div>
     </div>
-
     <script>
         let currentApiKey = null;
-
         // Load API key from localStorage or session
         window.onload = async () => {
             const storedKey = localStorage.getItem('mistai_api_key');
@@ -462,11 +522,9 @@
                 }
             }
         };
-
         function displayApiKey() {
             document.getElementById('apiKeyDisplay').textContent = currentApiKey;
         }
-
         function copyApiKey() {
             navigator.clipboard.writeText(currentApiKey).then(() => {
                 const btn = document.querySelector('.copy-btn');
@@ -477,7 +535,6 @@
                 }, 2000);
             });
         }
-
         async function loadStats() {
             try {
                 const response = await fetch('/api/status/key', {
@@ -485,7 +542,6 @@
                         'Authorization': `Bearer ${currentApiKey}`
                     }
                 });
-
                 if (response.ok) {
                     const data = await response.json();
                     document.getElementById('requestsUsed').textContent =
@@ -498,11 +554,9 @@
                 document.getElementById('requestsUsed').textContent = '—';
             }
         }
-
         function refreshStats() {
             loadStats();
         }
-
         function switchTab(tabName) {
             // Hide all tabs
             document.querySelectorAll('.tab-content').forEach(el => {
@@ -511,12 +565,10 @@
             document.querySelectorAll('.tab-btn').forEach(el => {
                 el.classList.remove('active');
             });
-
             // Show selected tab
             document.getElementById(tabName).classList.add('active');
             event.target.classList.add('active');
         }
-
         function logout() {
             localStorage.removeItem('mistai_api_key');
             window.location.href = 'https://mistai.org';

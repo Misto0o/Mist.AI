@@ -293,7 +293,7 @@
                         </p>
 
                         <div class="code-label">Base URL</div>
-                        <div class="code-example">https://mistai.org/api/v1</div>
+                        <div class="code-example">https://api.mistai.org/api/v1</div>
 
                         <div class="code-label">Headers</div>
                         <div class="code-example">
@@ -336,7 +336,7 @@
                             <div class="code-example">
                                 {
                                 "message": "Explain quantum computing simply",
-                                "model": "nova"
+                                "model": "cohere"
                                 }
                             </div>
                         </div>
@@ -345,11 +345,10 @@
                             <div class="code-label">Response</div>
                             <div class="code-example">
                                 {
-                                "response": "Quantum computing uses qubits...",
-                                "model": "nova",
-                                "usage": {
-                                "tokens": 123
-                                }
+                                "success": true,
+                                "response": "Here's a simple explanation of quantum computing...",
+                                "model": "cohere",
+                                "timestamp": "2026-05-09T13:48:31.123456"
                                 }
                             </div>
                         </div>

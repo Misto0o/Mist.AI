@@ -1,6 +1,4 @@
-# =========================
-# API Key & Rate Limiting System for Mist.AI (Supabase Only)
-# =========================
+# API Key & Rate Limiting System for Mist.AI (Supabase)
 
 import os
 import secrets
@@ -11,9 +9,6 @@ from flask import request, jsonify
 from supabase import create_client
 from dotenv import load_dotenv
 
-# =========================
-# Setup
-# =========================
 load_dotenv()
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
@@ -22,9 +17,7 @@ SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 supabase_client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 
-# =========================
-# API Key Generation
-# =========================
+# Generates a unique API key with mistai_ prefix
 def generate_api_key():
     return f"mistai_{secrets.token_hex(24)}"
 
@@ -35,9 +28,7 @@ def hash_api_key(api_key):
     return hashlib.sha256(api_key.encode()).hexdigest()
 
 
-# =========================
-# API Key Lookup
-# =========================
+# Fetches API key info from Supabase by key string
 def get_api_key_info(api_key: str):
     try:
         res = (
@@ -57,9 +48,7 @@ def get_api_key_info(api_key: str):
         return None
 
 
-# =========================
-# Rate Limiting (Supabase)
-# =========================
+# Rate limiting per API key (30 requests per minute by default)
 def check_rate_limit(api_key: str, limit_per_minute: int = 30):
     bucket = int(time.time() // 60)
 
@@ -94,9 +83,7 @@ def check_rate_limit(api_key: str, limit_per_minute: int = 30):
         return True, 0, limit_per_minute  # fail open
 
 
-# =========================
-# Usage Logging
-# =========================
+# Logs API usage statistics and increments request count
 def log_api_usage(api_key, model, message_len, response_len, status):
     try:
         # Insert usage log
@@ -110,7 +97,7 @@ def log_api_usage(api_key, model, message_len, response_len, status):
             }
         ).execute()
 
-        # Increment usage count
+        # Increment total request count for this key
         key_data = get_api_key_info(api_key)
         if key_data:
             supabase_client.table("api_keys").update(
@@ -124,9 +111,7 @@ def log_api_usage(api_key, model, message_len, response_len, status):
         print("Usage log error:", e)
 
 
-# =========================
-# Revoke Key
-# =========================
+# Deactivates an API key to prevent further use
 def revoke_api_key(api_key: str):
     try:
         supabase_client.table("api_keys").update({"is_active": False}).eq(
@@ -137,9 +122,7 @@ def revoke_api_key(api_key: str):
         return False
 
 
-# =========================
-# Decorator
-# =========================
+# Flask decorator to validate API key and enforce rate limits on protected routes
 def require_api_key(f):
     @wraps(f)
     def decorated(*args, **kwargs):
@@ -181,6 +164,7 @@ def require_api_key(f):
     return decorated
 
 
+# Creates a new API key for a user
 def create_api_key(name: str):
     api_key = generate_api_key()
     try:

@@ -8,9 +8,8 @@ function sendToTab(tabId, message) {
   });
 }
 
+// Initialize context menu on extension install
 chrome.runtime.onInstalled.addListener(() => {
-
-  // ── Root ──────────────────────────────────────────────────
   chrome.contextMenus.create({
     id: "mistai-root",
     title: "Mist.AI",
@@ -26,7 +25,7 @@ chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({ id: "askWithMistAI", title: "🚨 Ask a Question", parentId: "mistai-root", contexts: ["selection"] });
   chrome.contextMenus.create({ id: "answerQuestion", title: "❓ Answer this Question", parentId: "mistai-root", contexts: ["selection"] });
 
-  // ── Page ──────────────────────────────────────────────────
+  // Page-level context menu options
   chrome.contextMenus.create({ id: "sep-page", type: "separator", parentId: "mistai-root", contexts: ["page", "selection"] });
   chrome.contextMenus.create({ id: "label-page", title: "── Page ──", parentId: "mistai-root", contexts: ["page", "selection"], enabled: false });
   chrome.contextMenus.create({ id: "summarizePage", title: "📄 Summarize Page", parentId: "mistai-root", contexts: ["page", "selection"] });
@@ -34,7 +33,7 @@ chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({ id: "autoFillPage", title: "🤖 Auto-fill Form", parentId: "mistai-root", contexts: ["page", "selection", "editable"] });
   chrome.contextMenus.create({ id: "buttonPanel", title: "🖱️ Click a Button", parentId: "mistai-root", contexts: ["page", "selection", "editable"] });
 
-  // ── Editable Field ────────────────────────────────────────
+  // Editable field context menu options
   chrome.contextMenus.create({ id: "sep-field", type: "separator", parentId: "mistai-root", contexts: ["editable"] });
   chrome.contextMenus.create({ id: "label-field", title: "── Field ──", parentId: "mistai-root", contexts: ["editable"], enabled: false });
   chrome.contextMenus.create({ id: "fillFieldAI", title: "✨ Fill this field", parentId: "mistai-root", contexts: ["editable"] });
@@ -122,7 +121,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
 
   if (msg.type === "API_CALL_IMAGE") {
-    // Async IIFE — lets us use await while still returning true synchronously
+    // Two-step process: extract text via OCR, then answer the question
     (async () => {
       try {
         // Step 1: OCR the image
@@ -161,6 +160,6 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         sendResponse({ result: `⚠️ Failed: ${err.message}` });
       }
     })();
-    return true; // keeps the message channel open while the IIFE  runs
+    return true; // Keep message channel open while async work completes
   }
 });
