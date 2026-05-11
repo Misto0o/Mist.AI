@@ -425,7 +425,9 @@ async function sendMessage(userMessage = null) {
     if (!userInput || !messagesDiv || !canSendMessage) return;
 
     if (Notification.permission === "default") {
-        await Notification.requestPermission();
+        Notification.requestPermission().catch(err => {
+            console.warn("Notification permission request failed:", err);
+        });
     }
 
     if (!userMessage) userMessage = userInput.value.trim();
@@ -1495,16 +1497,36 @@ const NOTIF_MESSAGES = [
 ];
 
 async function initNotifications() {
-    const permission = await Notification.requestPermission();
-    if (permission !== "granted") return;
+    // Check if notifications are already denied
+    if (Notification.permission === "denied") {
+        console.log("Notifications are denied by user");
+        return;
+    }
+
+    // Request permission but don't block on it
+    if (Notification.permission === "default") {
+        Notification.requestPermission().catch(err => {
+            console.warn("Notification request failed:", err);
+        });
+        return; // Don't wait for the result
+    }
+
+    // Only create notifications if permission is granted
+    if (Notification.permission !== "granted") return;
+
     const today = new Date().toDateString();
     const lastTipDay = localStorage.getItem(DAILY_NOTIF_KEY);
     if (lastTipDay !== today) {
         localStorage.setItem(DAILY_NOTIF_KEY, today);
         let nextIndex = (parseInt(localStorage.getItem(LAST_TIP_INDEX_KEY) ?? "-1") + 1) % NOTIF_MESSAGES.length;
         localStorage.setItem(LAST_TIP_INDEX_KEY, nextIndex);
-        new Notification("✨ Mist.AI", { body: NOTIF_MESSAGES[nextIndex], icon: "/mistaifaviocn/android-chrome-192x192.png" });
+        new Notification("✨ Mist.AI", {
+            body: NOTIF_MESSAGES[nextIndex],
+            icon: "/mistaifaviocn/android-chrome-192x192.png"
+        });
     }
+
+    // Commit notification logic...
     const lastCommitDay = localStorage.getItem(COMMIT_NOTIF_KEY);
     const daysSinceCommit = lastCommitDay ? Math.floor((new Date() - new Date(lastCommitDay)) / (1000 * 60 * 60 * 24)) : 999;
     if (daysSinceCommit >= 5) {
@@ -1513,8 +1535,13 @@ async function initNotifications() {
             const res = await fetch("https://api.github.com/repos/Misto0o/Mist.AI/commits?per_page=1");
             const data = await res.json();
             const short = (data[0]?.commit?.message || "New update pushed!").split("\n")[0].slice(0, 80);
-            new Notification("🛠️ Mist.AI Updated", { body: short, icon: "/mistaifaviocn/android-chrome-192x192.png" });
-        } catch (e) { console.warn("GitHub fetch failed:", e); }
+            new Notification("🛠️ Mist.AI Updated", {
+                body: short,
+                icon: "/mistaifaviocn/android-chrome-192x192.png"
+            });
+        } catch (e) {
+            console.warn("GitHub fetch failed:", e);
+        }
     }
 }
 
