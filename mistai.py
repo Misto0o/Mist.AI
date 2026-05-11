@@ -1367,10 +1367,10 @@ async def api_v1_chat():
         log_err(f"API error: {e}")
         log_api_usage(
             api_key,
-            model=model_choice,
-            message_length=len(user_message),
-            response_length=0,
-            status_code=500,
+            model_choice,
+            len(user_message),
+            0,
+            500,
         )
         return jsonify({"success": False, "error": str(e)}), 500
     
