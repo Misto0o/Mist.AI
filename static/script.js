@@ -372,7 +372,7 @@ window.addEventListener("load", async () => {
     await checkBanOnLoad();
     if (userIP && isIPBanned(userIP)) disableChat();
     setTimeout(() => {
-        if (Notification.permission === "granted") initNotifications();
+        if (typeof Notification !== "undefined" && Notification.permission === "granted") initNotifications();
     }, 3000);
 });
 
@@ -424,10 +424,16 @@ async function sendMessage(userMessage = null) {
     const userIP = await getUserIP();
     if (!userInput || !messagesDiv || !canSendMessage) return;
 
-    if (Notification.permission === "default") {
-        Notification.requestPermission().catch(err => {
-            console.warn("Notification permission request failed:", err);
-        });
+    try {
+        if (typeof Notification !== "undefined" && Notification.permission === "default") {
+            Notification.requestPermission().catch(err => {
+                console.warn("Notification request failed:", err);
+            });
+        }
+    } catch (e) {
+        // Some platforms have Notification API quirks - this handles them gracefully
+        // This prevents the "Can't find variable: Notification" error on iOS PWA
+        console.debug("Notification check error (may be iOS PWA):", e.message);
     }
 
     if (!userMessage) userMessage = userInput.value.trim();
