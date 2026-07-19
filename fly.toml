@@ -13,13 +13,13 @@ primary_region = "iad"
   auto_start_machines = true
   min_machines_running = 0
   processes = ["app"]
-
+  
   [[http_service.checks]]
-  interval = "20s"
-  timeout = "15s"
-  grace_period = "120s"
-  method = "GET"
-  path = "/status"
+    interval = "20s"
+    timeout = "15s"
+    grace_period = "120s"
+    method = "GET"
+    path = "/status"
 
 [[vm]]
   memory = "512MB"

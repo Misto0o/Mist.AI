@@ -133,7 +133,10 @@ function renderMessage(message, className) {
     }
 
     messagesDiv.appendChild(messageElement);
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    // Batch scroll: use requestAnimationFrame
+    requestAnimationFrame(() => {
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    });
 }
 
 function buildCodeBlock(lang, code) {
@@ -237,8 +240,13 @@ const bannedWords = [
     "c.p.", "p*dophile", "l0li", "sh0ta", "r@pe", "pr0n", "n0ncon", "g@re", "p3d0",
 ];
 
+const bannedWordsRegex = new RegExp(
+    `\\b(${bannedWords.join("|")})\\b`,
+    "i"
+);
+
 function containsBannedWords(message) {
-    return bannedWords.some(word => new RegExp(`\\b${word}\\b`, "i").test(message));
+    return bannedWordsRegex.test(message);
 }
 
 // Developer mode for testing and bypassing restrictions
@@ -332,10 +340,15 @@ function enableChat() {
 }
 
 // Checks if user's IP is banned when page loads
+let banCheckPending = false;
+
 async function checkBanOnLoad() {
+    if (banCheckPending) return;
+    banCheckPending = true;
+
     const userIP = await getUserIP();
     const token = getUserToken();
-    if (!userIP) return;
+    if (!userIP) { banCheckPending = false; return; }
 
     try {
         const resp = await fetch(getBackendBase() + "/is-banned", {
@@ -350,6 +363,8 @@ async function checkBanOnLoad() {
     } catch (err) {
         console.error("Ban check failed:", err);
         enableChat();
+    } finally {
+        banCheckPending = false;
     }
 }
 
@@ -1269,22 +1284,21 @@ let capIndex = 0;
 
 // Iterative ticker implementation avoids recursion and call-stack growth
 function startCapabilitiesTicker() {
-    function typeNext() {
-        const text = capabilities[capIndex];
-        let j = 0;
-        subtitleEl.textContent = "";
+    async function ticker() {
+        while (true) {
+            const text = capabilities[capIndex];
+            subtitleEl.textContent = "";
 
-        const typing = setInterval(() => {
-            subtitleEl.textContent += text[j];
-            j++;
-            if (j === text.length) {
-                clearInterval(typing);
-                capIndex = (capIndex + 1) % capabilities.length;
-                setTimeout(typeNext, 1500);
+            for (let j = 0; j < text.length; j++) {
+                subtitleEl.textContent += text[j];
+                await new Promise(res => setTimeout(res, 50));
             }
-        }, 50);
+
+            await new Promise(res => setTimeout(res, 1500));
+            capIndex = (capIndex + 1) % capabilities.length;
+        }
     }
-    typeNext();
+    ticker();
 }
 
 startCapabilitiesTicker();
@@ -1296,7 +1310,10 @@ function updateMemory(role, content) {
     const last = threadMemory[threadMemory.length - 1];
     if (last?.role === role && last?.content === content) return;
     threadMemory.push({ role, content });
-    if (threadMemory.length > 25) threadMemory.shift();
+
+    // Cap at 50 messages, not 25
+    if (threadMemory.length > 50) threadMemory.shift();
+
     localStorage.setItem(`chatMemory-${currentThread}`, JSON.stringify(threadMemory));
     chatMemory = threadMemory;
 }

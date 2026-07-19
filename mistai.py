@@ -695,27 +695,42 @@ supabase_client = create_client(SUPABASE_URL, SUPABASE_KEY)
 # Image Analysis
 # =========================
 async def analyze_image_with_gemini(img_url_or_bytes):
-    if isinstance(img_url_or_bytes, str):
-        if img_url_or_bytes.startswith("http"):
-            image_bytes = requests.get(img_url_or_bytes).content
-        elif img_url_or_bytes.startswith("data:image/"):
-            header, b64data = img_url_or_bytes.split(",", 1)
-            image_bytes = base64.b64decode(b64data)
+    try:
+        if isinstance(img_url_or_bytes, str):
+            if img_url_or_bytes.startswith("http"):
+                response = requests.get(img_url_or_bytes, timeout=10)
+                response.raise_for_status()
+                image_bytes = response.content
+
+            elif img_url_or_bytes.startswith("data:image/"):
+                _, b64data = img_url_or_bytes.split(",", 1)
+                image_bytes = base64.b64decode(b64data)
+
+            else:
+                with open(img_url_or_bytes, "rb") as f:
+                    image_bytes = f.read()
         else:
-            with open(img_url_or_bytes, "rb") as f:
-                image_bytes = f.read()
-    else:
-        image_bytes = img_url_or_bytes
+            image_bytes = img_url_or_bytes
 
-    from PIL import Image
+        from PIL import Image  # ← Move this OUTSIDE the else block
+        image = Image.open(io.BytesIO(image_bytes))
 
-    image = Image.open(io.BytesIO(image_bytes))
-    model = genai.GenerativeModel("gemini-2.5-flash")
-    response = model.generate_content(
-        ["Extract any text and describe the image in detail.", image]
-    )
-    return response.text.strip()
+        model = genai.GenerativeModel("gemini-2.5-flash")
+        response = model.generate_content([
+            "Extract any text and describe the image in detail.",
+            image,
+        ])
 
+        return response.text.strip()
+
+    except ValueError as e:
+        if (
+            "reciting from copyrighted material" in str(e)
+            or "finish_reason" in str(e)
+        ):
+            log_warn(f"⚠️ Gemini image filter: {str(e)[:80]}")  # ← Add emoji + truncate
+            return "⚠️ Unable to analyze this image — it may contain copyrighted material."  # ← Better message
+        raise
 
 # =========================
 # GoFile Upload
@@ -932,7 +947,7 @@ def is_banned(ip=None, token=None):
 # In-Memory IP Log
 # =========================
 ip_log = {}
-
+ip_log_lock = threading.Lock()
 
 # =========================
 # Auth
@@ -1104,7 +1119,12 @@ def revoke_api_key_admin(key_hash):
 # =========================
 # Startup
 # =========================
-def startup():
+# =========================
+# Startup
+# =========================
+def _startup_async():
+    """Run heavy initialization in background after app starts."""
+    time.sleep(2)  # Give Gunicorn time to fully boot
     print("🚀 Starting up database...")
     init_db()
     print("✅ Starting up log writer thread...")
@@ -1112,8 +1132,9 @@ def startup():
     log_writer.start()
     print("✅ Startup complete.")
 
-
-startup()
+# Start immediately in a background thread
+startup_thread = threading.Thread(target=_startup_async, daemon=True)
+startup_thread.start()
 
 ROUTER_MODEL = "command-r7b-12-2024"
 
@@ -1580,12 +1601,13 @@ async def chat():
             or request.remote_addr
         )
         if not is_extension:
-            ip_log.setdefault(user_ip, []).append(
-                {
-                    "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    "message": log_message,
-                }
-            )
+            with ip_log_lock:
+                ip_log.setdefault(user_ip, []).append(
+                    {
+                        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        "message": log_message,
+                    }
+                )
         if not is_extension:
             log_chat(user_ip, model_choice, log_message, response_content)
 
@@ -1607,12 +1629,23 @@ async def chat():
         return jsonify({"response": response_content})
 
     except Exception as e:
-        log_err(f"Chat route error: {type(e).__name__}: {e}")
-        set_down_mode(type(e).__name__)
+        error_msg = str(e)
+        
+        # Don't trigger down mode for copyright errors
+        if "reciting from copyrighted material" in error_msg or "finish_reason" in error_msg:
+            log_warn(f"⚠️ Gemini copyright filter: {error_msg[:80]}")
+            return jsonify({
+                "response": "I can't answer that question — it involves copyrighted material I'm not able to reproduce.",
+                "is_down": False,
+            }), 200
+        
+        # Real errors → down mode
+        log_err(f"Chat route error: {type(e).__name__}: {error_msg[:100]}")
+        set_down_mode(type(e).__name__)  # ← Only call once
         return (
             jsonify(
                 {
-                    "error": str(e),
+                    "error": error_msg,
                     "is_down": True,
                     "reason": DOWN_REASON,
                     "timestamp": DOWN_TIMESTAMP,
@@ -1620,7 +1653,6 @@ async def chat():
             ),
             503,
         )
-
 
 # =========================
 # Command Handler
@@ -1783,21 +1815,30 @@ def get_gemini_response(prompt, max_tokens=MAX_TOKENS):
     system_prompt = build_system_prompt(
         "Mist.AI Nova", "Hey, I'm Mist.AI Nova! How can I help? ✨"
     )
-
     full_prompt = f"{system_prompt}\n{prompt}"
-
+    
     model = genai.GenerativeModel("gemini-2.5-flash")
     chat_session = model.start_chat()
-
-    response = chat_session.send_message(
-        full_prompt,
-        generation_config=genai.types.GenerationConfig(
-            temperature=TEMPERATURE,
-            max_output_tokens=max_tokens,
-        ),
-    )
-
-    return response.text.strip()
+    
+    try:
+        response = chat_session.send_message(
+            full_prompt,
+            generation_config=genai.types.GenerationConfig(
+                temperature=TEMPERATURE,
+                max_output_tokens=max_tokens,
+            ),
+        )
+        
+        # Check if response has valid content
+        if not response.text or response.text.strip() == "":
+            return "I can't answer that question — it involves copyrighted material I'm not able to reproduce."
+        
+        return response.text.strip()
+    
+    except ValueError as e:
+        if "reciting from copyrighted material" in str(e):
+            return "I can't answer that question — it involves copyrighted material I'm not able to reproduce."
+        raise
 
 
 def get_cohere_response(prompt: str, max_tokens=MAX_TOKENS):
