@@ -394,7 +394,7 @@
 
 /* ==================== ACTIVE THREAD STYLES ==================== */
 
-body:not([class*="-theme"] ) .active-thread .thread-link {
+body:not([class*="-theme"]) .active-thread .thread-link {
     background: linear-gradient(135deg, #43ed8d, #38ecb0);
     color: #fff;
     font-weight: 600;
@@ -533,4 +533,16 @@ body.cherry-theme .icon-button:hover {
 body.light-theme .icon-button:hover {
     background: rgba(0, 0, 0, 0.15) !important;
     color: #000000 !important;
+}
+
+/* Pin icon follows the active theme's primary color */
+[class*="-theme"] .pin-btn:hover,
+[class*="-theme"] .pin-btn.pinned {
+    color: var(--primary) !important;
+}
+
+/* Galaxy uses accent instead of primary for better contrast against its gradient */
+.galaxy-theme .pin-btn:hover,
+.galaxy-theme .pin-btn.pinned {
+    color: var(--accent) !important;
 }

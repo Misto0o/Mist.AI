@@ -805,7 +805,7 @@ function addMessage(threadId, message) {
 function createThread(name) {
     const state = loadState();
     const id = generateUUID();
-    const thread = { id, name: name || `New Chat ${state.threads.length + 1}`, hideHeader: false };
+    const thread = { id, name: name || `New Chat ${state.threads.length + 1}`, hideHeader: false, pinned: false };
     state.threads.push(thread);
     state.chats[id] = [];
     state.currentThread = id;
@@ -877,33 +877,74 @@ function deleteChat(threadId) {
 }
 
 // Renders the sidebar list of chat threads
+// Toggles a thread's pinned status
+function togglePinThread(threadId) {
+    const state = loadState();
+    const thread = state.threads.find(t => t.id === threadId);
+    if (!thread) return;
+    thread.pinned = !thread.pinned;
+    saveState(state);
+    renderThreads();
+}
+
+// Builds one <li> for a thread (shared by pinned + regular lists)
+function buildThreadListItem(thread, state) {
+    const li = document.createElement("li");
+    li.className = thread.id === state.currentThread ? "active-thread" : "";
+
+    const link = document.createElement("button");
+    link.className = "thread-link";
+    link.dataset.threadId = thread.id;
+    link.textContent = thread.name;
+    link.addEventListener("click", () => switchThread(thread.id));
+
+    const pin = document.createElement("button");
+    pin.className = "delete-btn pin-btn";
+    pin.title = thread.pinned ? "Unpin" : "Pin";
+    pin.innerHTML = `<i class="fa-solid fa-thumbtack"></i>`;
+    if (thread.pinned) pin.classList.add("pinned");
+    pin.addEventListener("click", e => { e.stopPropagation(); togglePinThread(thread.id); });
+
+    const del = document.createElement("button");
+    del.className = "delete-btn";
+    del.textContent = "×";
+    del.addEventListener("click", e => { e.stopPropagation(); deleteChat(thread.id); });
+
+    link.appendChild(pin);
+    li.appendChild(link);
+    li.appendChild(del);
+    return li;
+}
+
+// Renders the sidebar list of chat threads, split into Pinned and Chats
 function renderThreads() {
     const threads = getThreads();
     const list = document.getElementById("chat-threads-list");
-    if (!list) return;
+    const pinnedSection = document.getElementById("pinned-threads-section");
+    const pinnedList = document.getElementById("pinned-threads-list");
+    if (!list || !pinnedList || !pinnedSection) return;
+
     list.innerHTML = "";
-    if (threads.length === 0) { list.innerHTML = "<li><em>No chats yet</em></li>"; return; }
+    pinnedList.innerHTML = "";
+
+    if (threads.length === 0) {
+        list.innerHTML = "<li><em>No chats yet</em></li>";
+        pinnedSection.style.display = "none";
+        return;
+    }
 
     const state = loadState();
-    threads.forEach(thread => {
-        const li = document.createElement("li");
-        li.className = thread.id === state.currentThread ? "active-thread" : "";
+    const pinned = threads.filter(t => t.pinned);
+    const regular = threads.filter(t => !t.pinned);
 
-        const link = document.createElement("button");
-        link.className = "thread-link";
-        link.dataset.threadId = thread.id;
-        link.textContent = thread.name;
-        link.addEventListener("click", () => switchThread(thread.id));
+    pinnedSection.style.display = pinned.length ? "block" : "none";
+    pinned.forEach(thread => pinnedList.appendChild(buildThreadListItem(thread, state)));
 
-        const del = document.createElement("button");
-        del.className = "delete-btn";
-        del.textContent = "×";
-        del.addEventListener("click", e => { e.stopPropagation(); deleteChat(thread.id); });
-
-        li.appendChild(link);
-        li.appendChild(del);
-        list.appendChild(li);
-    });
+    if (regular.length === 0) {
+        list.innerHTML = "<li><em>No chats yet</em></li>";
+    } else {
+        regular.forEach(thread => list.appendChild(buildThreadListItem(thread, state)));
+    }
 }
 
 // Initialize UI and event listeners after DOM is ready
@@ -924,6 +965,17 @@ document.addEventListener("DOMContentLoaded", () => {
     const activeThread = state.threads.find(t => t.id === state.currentThread);
     if (headerEl && activeThread) {
         headerEl.style.display = activeThread.hideHeader ? "none" : "block";
+    }
+
+    const threadSearch = document.getElementById("thread-search");
+    if (threadSearch) {
+        threadSearch.addEventListener("input", () => {
+            const query = threadSearch.value.trim().toLowerCase();
+            document.querySelectorAll("#chat-threads-list li, #pinned-threads-list li").forEach(li => {
+                const label = li.querySelector(".thread-link")?.textContent?.toLowerCase() || "";
+                li.style.display = label.includes(query) ? "" : "none";
+            });
+        });
     }
 
     const btn = document.getElementById("new-thread-btn");
@@ -1121,6 +1173,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (closeBtn) closeBtn.onclick = () => { readmeModal.style.display = "none"; };
     window.addEventListener("click", event => { if (event.target === readmeModal) readmeModal.style.display = "none"; });
+
+    // Settings modal
+    const settingsModal = document.getElementById("settings-modal");
+    const closeSettingsBtn = document.getElementById("close-settings-btn");
+
+    window.openSettingsModal = function () {
+        settingsModal.style.display = "flex";
+    };
+
+    if (closeSettingsBtn) closeSettingsBtn.onclick = () => { settingsModal.style.display = "none"; };
+    window.addEventListener("click", event => { if (event.target === settingsModal) settingsModal.style.display = "none"; });
 });
 
 // Word counter and input validation system

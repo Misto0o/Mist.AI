@@ -94,25 +94,45 @@
         </div>
         <!-- Menu Content (Hidden when collapsed) -->
         <div class="sidebar-content">
-            <!-- Chat Threads Section -->
-            <p id="chat-thread-label" class="menu-label has-text-centered is-size-4">Chat Threads</p>
-            <ul class="menu-list" id="chat-threads-list">
-                <!-- Threads appear here -->
-            </ul>
-            <button id="new-thread-btn" class="button is-small is-fullwidth is-success">+ New Thread</button>
-            <hr>
-            <p class="menu-label has-text-centered has-text-success is-size-4">MistAI Information</p>
-            <ul class="menu-list">
-                <li><a href="https://github.com/Misto0o/Mist.AI" target="_blank"><i class="fas fa-code"></i> My
-                        GitHub Code!</a></li>
-                <li><a href="https://mistai.org/status-page" target="_blank"><i class="fa-solid fa-signal"></i> MistAI
-                        Status Page</a></li>
-                <li><a href="/credits/"><i class="fa-solid fa-star"></i> Credits</a></li>
-                <li><a href="https://mistai.org/docs" target="_blank"><i
-                            class="fa-solid fa-book"></i> Docs And API</a></li>
-                <li><a onclick="openReadmeModal()"><i class="fa-solid fa-circle-question"></i> Help / README</a>
-                </li>
-            </ul>
+            <!-- Fixed header: New Chat + quick actions + search -->
+            <div class="sidebar-header">
+                <button id="new-thread-btn" class="button is-small is-fullwidth is-success">+ New Chat</button>
+
+                <div class="sidebar-quick-actions">
+                    <button class="sidebar-chip" onclick="showRandomPrompt()">
+                        <i class="fa-solid fa-shuffle"></i> Random Prompt
+                    </button>
+                    <button class="sidebar-chip" onclick="showFunFact()">
+                        <i class="fa-solid fa-lightbulb"></i> Fun Fact
+                    </button>
+                </div>
+
+                <div class="sidebar-search-wrap">
+                    <i class="fa-solid fa-magnifying-glass sidebar-search-icon"></i>
+                    <input type="text" id="thread-search" class="sidebar-search-input" placeholder="Search chats..."
+                        autocomplete="off">
+                </div>
+            </div>
+
+            <!-- Scrollable middle: Pinned + Chats -->
+            <div class="sidebar-scroll-region">
+                <div id="pinned-threads-section" style="display:none;">
+                    <p class="menu-label has-text-centered is-size-4">Pinned</p>
+                    <ul class="menu-list" id="pinned-threads-list"></ul>
+                </div>
+
+                <p id="chat-thread-label" class="menu-label has-text-centered is-size-4">Chats</p>
+                <ul class="menu-list" id="chat-threads-list">
+                    <!-- Threads appear here -->
+                </ul>
+            </div>
+
+            <!-- Fixed footer: Settings -->
+            <div class="sidebar-footer">
+                <button id="sidebar-settings-btn" class="icon-button" title="Settings" onclick="openSettingsModal()">
+                    <i class="fa-solid fa-circle-info"></i> Mist.AI About
+                </button>
+            </div>
         </div>
     </aside>
 
@@ -197,6 +217,30 @@
         <div class="modal-content">
             <span id="close-btn" class="close-btn">&times;</span>
             <div id="readme-content"></div>
+        </div>
+    </div>
+
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal">
+        <div class="modal-content">
+            <span id="close-settings-btn" class="close-btn">&times;</span>
+            <h1>About Mist.AI</h1>
+
+            <h2>Appearance</h2>
+            <p>Pick a theme from the selector in the top-right corner of the app.</p>
+
+            <h2>Links</h2>
+            <ul>
+                <li><a href="https://github.com/Misto0o/Mist.AI" target="_blank"><i class="fas fa-code"></i> My
+                        GitHub Code!</a></li>
+                <li><a href="https://mistai.org/status-page" target="_blank"><i class="fa-solid fa-signal"></i>
+                        MistAI Status Page</a></li>
+                <li><a href="/credits/"><i class="fa-solid fa-star"></i> Credits</a></li>
+                <li><a href="https://mistai.org/docs" target="_blank"><i class="fa-solid fa-book"></i> Docs And
+                        API</a></li>
+                <li><a onclick="openReadmeModal()"><i class="fa-solid fa-circle-question"></i> Help / README</a></li>
+            </ul>
         </div>
     </div>
 

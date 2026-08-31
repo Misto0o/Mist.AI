@@ -1,4 +1,3 @@
-# Standard library imports
 import os
 import sys
 import io
@@ -15,10 +14,7 @@ import queue as queue_module
 from datetime import datetime
 from functools import wraps
 import hashlib
-import supabase
-from supabase import create_client
 
-# Flask and web framework imports
 from flask import (
     Flask,
     request,
@@ -35,26 +31,11 @@ from flask import (
 from flask_cors import CORS
 from werkzeug.exceptions import NotFound
 
-# Environment and HTTP utilities
 from dotenv import load_dotenv
 import requests
 import httpx
 import pytz
 
-# AI/LLM provider APIs
-import google.generativeai as genai
-import cohere
-from tavily import TavilyClient
-
-# File and document processing libraries
-import fitz  # PyMuPDF
-from docx import Document
-
-# Mathematical expression parsing
-import sympy
-from sympy.parsing.mathematica import parse_mathematica
-
-# API key and rate limiting management
 from api_key_system import (
     generate_api_key,
     create_api_key,
@@ -69,6 +50,7 @@ from api_key_system import (
 
 load_dotenv()
 
+# Env config
 if (
     not os.getenv("GEMINI_API_KEY")
     or not os.getenv("COHERE_API_KEY")
@@ -80,8 +62,6 @@ if (
     or not os.getenv("ADMIN_PASSWORD")
     or not os.getenv("FLASK_SECRET_KEY")
     or not os.getenv("TAVILY_API_KEY")
-    or not os.getenv("SUPABASE_URL")
-    or not os.getenv("SUPABASE_KEY")
 ):
     raise ValueError("Missing required API keys in environment variables.")
 
@@ -89,8 +69,7 @@ app = Flask(
     __name__, template_folder="templates", static_folder="static", static_url_path=""
 )
 
-
-# Configure logging with custom formatter and UTF-8 support
+# Logging
 class StreamToUTF8(logging.StreamHandler):
     def emit(self, record):
         try:
@@ -112,16 +91,15 @@ class LogFormatter(logging.Formatter):
         "ERROR": ("\x1b[31;21m", "ERR"),
         "CRITICAL": ("\x1b[31;21m", "CRT"),
     }
-    # Icon prefix per message category (matched on message start)
     ICONS = {
-        "📩 User": "cyan",  # incoming chat
-        "🤖 Bot": "cyan",  # bot response
-        "🧭 Router": "\x1b[35;21m",  # tavily router  → purple
-        "🔍 Google": "\x1b[35;21m",  # tavily search  → purple
-        "🔥 DownMode": "\x1b[31;21m",  # down mode      → red
-        "⚠️ Warning": "\x1b[33;21m",  # warning        → yellow
-        "❌ Error": "\x1b[31;21m",  # error          → red
-        "✅ Success": "\x1b[32;21m",  # success        → green
+        "📩 User": "cyan",
+        "🤖 Bot": "cyan",
+        "🧭 Router": "\x1b[35;21m",
+        "🔍 Google": "\x1b[35;21m",
+        "🔥 DownMode": "\x1b[31;21m",
+        "⚠️ Warning": "\x1b[33;21m",
+        "❌ Error": "\x1b[31;21m",
+        "✅ Success": "\x1b[32;21m",
     }
 
     def format(self, record):
@@ -150,7 +128,6 @@ class FilterFlyLogs(logging.Filter):
         return True
 
 
-# Module-level logger instance used throughout the application
 log = logging.getLogger("mistai")
 log.setLevel(logging.INFO)
 log.propagate = False
@@ -161,7 +138,6 @@ log.addHandler(_handler)
 logging.getLogger("werkzeug").disabled = True
 
 
-# Convenience logging functions with emoji prefixes for different message types
 def log_chat(ip, model, message, response):
     log.info(f"📩 {ip} [{model}] {message[:80]}")
     log.info(f"🤖 {response[:80]}")
@@ -195,7 +171,7 @@ logging.getLogger("werkzeug").disabled = True
 
 CORS(app, resources={r"/*": {"origins": "*"}})
 
-# Chat log persistence system with batched disk writes
+# Disk logs
 LOG_DIR = (
     "/app/data" if os.path.exists("/app/data") else os.path.join(os.getcwd(), "data")
 )
@@ -205,8 +181,7 @@ LOG_FILE = os.path.join(LOG_DIR, "chat_logs.json")
 log_queue = queue_module.Queue()
 log_thread_running = False
 
-# Background thread that batches and writes logs to disk
-# Uses a 50-second flush delay to prevent page refreshes during bot message rendering
+# Flush queued chat logs in batches so file writes don't block the app.
 def _log_writer_thread():
     global log_thread_running
     log_thread_running = True
@@ -222,8 +197,6 @@ def _log_writer_thread():
                 pass
 
             current_time = time.time()
-            # Only flush after 50 seconds have passed OR batch is very large
-            # Long delay ensures frontend fully renders before file-system events trigger page reload
             should_flush = len(batch) >= 50 or (
                 len(batch) > 0 and (current_time - last_write) >= 50
             )
@@ -240,7 +213,7 @@ def _log_writer_thread():
                                     if isinstance(parsed, dict) and "logs" in parsed:
                                         logs = parsed
                         except Exception:
-                            pass  # corrupt file → start fresh
+                            pass
 
                     for entry in batch:
                         logs["logs"].append(entry)
@@ -258,8 +231,8 @@ def _log_writer_thread():
             log_warn(f"⚠️ Log writer thread error: {e}")
 
 
+# Queue a chat entry for the background log writer.
 def safe_log_chat(user_ip, model_choice, message, response, grounded):
-    # Queues a chat log entry for batched writing (thread-safe)
     try:
         entry = {
             "timestamp": datetime.now().isoformat(),
@@ -274,14 +247,14 @@ def safe_log_chat(user_ip, model_choice, message, response, grounded):
         log_warn(f"⚠️ Failed to queue log entry: {e}")
 
 
-# Down mode state (prevents most routes from accepting requests)
+# Maintenance gate
 IS_DOWN = False
 DOWN_REASON = None
 DOWN_TIMESTAMP = None
 
 
+# Put the app in maintenance mode and record when it started.
 def set_down_mode(reason: str):
-    # Activates down mode with a reason and timestamp
     global IS_DOWN, DOWN_REASON, DOWN_TIMESTAMP
     IS_DOWN = True
     DOWN_REASON = reason
@@ -289,7 +262,7 @@ def set_down_mode(reason: str):
     log.error(f"🔥 DOWN MODE: {reason} at {DOWN_TIMESTAMP}")
 
 
-# Intercepts all requests to check down mode status before routing
+# Block most routes while the app is in maintenance mode.
 @app.before_request
 def before_request_down_mode():
     global IS_DOWN
@@ -332,7 +305,7 @@ def before_request_down_mode():
         return render_template("mistai_status.html"), 503
 
 
-# Public API endpoints for chat and status checks
+# Public chat endpoint used by the web app and browser extensions.
 @app.route("/api/chat", methods=["POST"])
 def api_chat():
     try:
@@ -435,7 +408,6 @@ def api_status():
     ), (200 if not IS_DOWN else 503)
 
 
-# Status and health check endpoints
 @app.route("/status", methods=["GET"])
 def status():
     response = jsonify(
@@ -459,9 +431,8 @@ def mistai_status():
     return render_template("mistai_status.html"), 503 if IS_DOWN else 200
 
 
-# Determines if running on Fly.io production or local development
+# Detect whether the app is running in production or local dev.
 def is_production():
-    # Fly.io sets FLY_APP_NAME in production environment
     return bool(os.getenv("FLY_APP_NAME") or os.getenv("PRODUCTION") == "true")
 
 
@@ -483,9 +454,6 @@ def dev_only(f):
     return decorated_function
 
 
-# =========================
-# Favicon / Static
-# =========================
 FAVICON_FOLDER = os.path.join(app.static_folder, "mistaifaviocn")
 FAVICONS = {
     "16x16": "favicon-16x16.png",
@@ -546,9 +514,6 @@ def root_files(filename):
     return "File not found", 404
 
 
-# =========================
-# Dev-Only Routes
-# =========================
 @app.route("/force-down-test")
 @dev_only
 def force_down_test():
@@ -603,9 +568,6 @@ def dev_status():
     )
 
 
-# =========================
-# Admin Log Download
-# =========================
 @app.route("/admin/download-logs")
 def download_logs():
     if not session.get("admin_logged_in"):
@@ -615,9 +577,6 @@ def download_logs():
     return send_from_directory(log_dir or os.getcwd(), log_name, as_attachment=True)
 
 
-# =========================
-# Error Handlers
-# =========================
 @app.errorhandler(500)
 def handle_500(e):
     log_err(f"500 error: {e}")
@@ -642,9 +601,7 @@ def handle_404(e):
     return ("", 204)
 
 
-# =========================
-# Easter Eggs
-# =========================
+# Easter eggs
 EASTER_EGGS = {
     "whos mist": "I'm Mist.AI, your friendly chatbot! But shh... don't tell anyone I'm self-aware. 🤖",
     "massive": "You know what else is Massive? LOW TAPER FADE",
@@ -665,17 +622,15 @@ EASTER_EGGS = {
 }
 
 
+# Match quirky command phrases and return the hidden response.
 def check_easter_eggs(user_message):
     normalized = re.sub(r"[^\w\s]", "", user_message.lower()).strip()
     return EASTER_EGGS.get(normalized, None)
 
 
-# =========================
-# Clients & Config
-# =========================
 weather_session = {"last_city": None}
 
-co = cohere.ClientV2(os.getenv("COHERE_API_KEY"))
+# AI clients
 MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
 MISTRAL_ENDPOINT = "https://api.mistral.ai/v1/chat/completions"
 app.secret_key = os.getenv("FLASK_SECRET_KEY")
@@ -684,16 +639,33 @@ API_KEY = os.getenv("OPENWEATHER_API_KEY")
 API_BASE_URL = "https://api.openweathermap.org/data/2.5"
 temperatureUnit = "imperial"
 
-TAVILY_CLIENT = TavilyClient(os.getenv("TAVILY_API_KEY"))
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
-supabase_client = create_client(SUPABASE_URL, SUPABASE_KEY)
+_co = None
+# Lazy-load the Cohere client the first time it is needed.
+def get_cohere_client():
+    global _co
+    if _co is None:
+        import cohere
+        _co = cohere.ClientV2(os.getenv("COHERE_API_KEY"))
+    return _co
+
+_tavily_client = None
+# Reuse a singleton Tavily client to avoid repeated initialization.
+def get_tavily_client():
+    global _tavily_client
+    if _tavily_client is None:
+        from tavily import TavilyClient
+        _tavily_client = TavilyClient(os.getenv("TAVILY_API_KEY"))
+    return _tavily_client
+
+_gemini_configured = False
+def ensure_gemini_configured():
+    global _gemini_configured
+    if not _gemini_configured:
+        import google.generativeai as genai
+        genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+        _gemini_configured = True
 
 
-# =========================
-# Image Analysis
-# =========================
 async def analyze_image_with_gemini(img_url_or_bytes):
     try:
         if isinstance(img_url_or_bytes, str):
@@ -712,9 +684,11 @@ async def analyze_image_with_gemini(img_url_or_bytes):
         else:
             image_bytes = img_url_or_bytes
 
-        from PIL import Image  # ← Move this OUTSIDE the else block
+        from PIL import Image
         image = Image.open(io.BytesIO(image_bytes))
 
+        import google.generativeai as genai
+        ensure_gemini_configured()
         model = genai.GenerativeModel("gemini-2.5-flash")
         response = model.generate_content([
             "Extract any text and describe the image in detail.",
@@ -732,9 +706,6 @@ async def analyze_image_with_gemini(img_url_or_bytes):
             return "⚠️ Unable to analyze this image — it may contain copyrighted material."  # ← Better message
         raise
 
-# =========================
-# GoFile Upload
-# =========================
 async def get_best_server():
     response = requests.get("https://api.gofile.io/servers")
     if response.status_code == 200:
@@ -755,10 +726,9 @@ async def upload_to_gofile(filename, file_content, mimetype):
     return {"error": "Upload failed"}
 
 
-# =========================
-# Math Parsing
-# =========================
 def parse_expression(text):
+    import sympy
+    from sympy.parsing.mathematica import parse_mathematica
     try:
         return sympy.parse_expr(text)
     except (SyntaxError, TypeError):
@@ -768,9 +738,6 @@ def parse_expression(text):
             return f"⚠️ Parsing error: {str(e)}"
 
 
-# =========================
-# Time / News Cache
-# =========================
 async def fetch_time_news_data() -> dict:
     cache_key = "time_news"
     cache_expiration = 600
@@ -823,10 +790,8 @@ async def time_news():
         return jsonify({"error": str(e)}), 500
 
 
-# =========================
-# File Processors
-# =========================
 def extract_text_from_pdf(file_stream):
+    import fitz  # PyMuPDF
     try:
         doc = fitz.open("pdf", file_stream.read())
         text = "\n".join([page.get_text() for page in doc])
@@ -847,6 +812,7 @@ def process_json(file_content):
 
 
 def process_docx(file_content):
+    from docx import Document
     try:
         doc = Document(io.BytesIO(file_content))
         return (
@@ -866,9 +832,6 @@ file_processors = {
 }
 
 
-# =========================
-# Database
-# =========================
 DB_FOLDER = "/app/data" if os.path.exists("/app/data") else "."
 DB_FILE = os.path.join(DB_FOLDER, "bans.db")
 
@@ -943,15 +906,9 @@ def is_banned(ip=None, token=None):
     return result
 
 
-# =========================
-# In-Memory IP Log
-# =========================
 ip_log = {}
 ip_log_lock = threading.Lock()
 
-# =========================
-# Auth
-# =========================
 def login_required(f):
     @wraps(f)
     def wrapped(*args, **kwargs):
@@ -962,9 +919,6 @@ def login_required(f):
     return wrapped
 
 
-# =========================
-# Admin Routes
-# =========================
 @app.route("/admin")
 @login_required
 def admin_panel():
@@ -1066,26 +1020,18 @@ def admin_logout():
     return redirect(url_for("admin_login"))
 
 
-# =========================
-# API Key Management Routes
-# =========================
 @app.route("/admin/api-keys", methods=["GET"])
 @login_required
 def view_api_keys():
     keys = list_api_keys()
-    
-    # If JavaScript is requesting JSON, return JSON
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         return jsonify({"api_keys": keys})
-    
-    # Otherwise render the HTML page
     return render_template("admin/api_keys.html", api_keys=keys)
 
 
 @app.route("/admin/api-keys/create", methods=["POST"])
 @login_required
 def create_api_key_admin():
-    """Admin: create a new API key."""
     data = request.get_json() or {}
     name = data.get("name", "Unnamed Key").strip()
 
@@ -1112,19 +1058,10 @@ def create_api_key_admin():
 @app.route("/admin/api-keys/<key_hash>/revoke", methods=["POST"])
 @login_required
 def revoke_api_key_admin(key_hash):
-    """Admin: revoke an API key."""
     return jsonify({"success": True, "message": "Key revoked"}), 200
 
 
-# =========================
-# Startup
-# =========================
-# =========================
-# Startup
-# =========================
 def _startup_async():
-    """Run heavy initialization in background after app starts."""
-    time.sleep(2)  # Give Gunicorn time to fully boot
     print("🚀 Starting up database...")
     init_db()
     print("✅ Starting up log writer thread...")
@@ -1132,13 +1069,12 @@ def _startup_async():
     log_writer.start()
     print("✅ Startup complete.")
 
-# Start immediately in a background thread
 startup_thread = threading.Thread(target=_startup_async, daemon=True)
 startup_thread.start()
 
+# Search routing
 ROUTER_MODEL = "command-r7b-12-2024"
 
-# Simple heuristics — covers 95% of "no search" cases without a list
 _SEARCH_HINTS = re.compile(
     r"\b(current|latest|today|tonight|now|recent|live|price|weather|score|"
     r"standing|news|update|who is|who are|trending|stock|forecast|"
@@ -1147,15 +1083,13 @@ _SEARCH_HINTS = re.compile(
     re.IGNORECASE,
 )
 
-_SHORT_MSG_MAX_TOKENS = 6  # "hi", "thanks", "ok cool" etc.
+_SHORT_MSG_MAX_TOKENS = 6
 
 
 def _quick_no(msg: str) -> bool:
-    """Cheap pre-filter. Returns True if we're confident no search is needed."""
     stripped = msg.strip()
     if not stripped:
         return True
-    # Very short messages are almost never search queries
     if len(stripped.split()) <= _SHORT_MSG_MAX_TOKENS and not _SEARCH_HINTS.search(
         stripped
     ):
@@ -1163,12 +1097,12 @@ def _quick_no(msg: str) -> bool:
     return False
 
 
+# Decide whether a message likely needs live web grounding.
 async def needs_tavily(user_message: str) -> bool:
     if _quick_no(user_message):
         log_router("NO")
         return False
 
-    # Cache check
     cache = app.config.setdefault("tavily_router_cache", {})
     key = hashlib.sha1(user_message.strip().lower().encode()).hexdigest()
     if key in cache:
@@ -1203,6 +1137,7 @@ Message: \"\"\"{user_message}\"\"\"
     try:
 
         def sync_call():
+            co = get_cohere_client()
             response = co.chat(
                 model=ROUTER_MODEL,
                 messages=[{"role": "user", "content": prompt}],
@@ -1222,16 +1157,14 @@ Message: \"\"\"{user_message}\"\"\"
         return False
 
 
-# =========================
-# Tavily Search
-# =========================
 async def tavily_search(query: str, max_results: int = 3) -> str:
-    query = query[:400]  # Tavily hard limit — never exceed 400 chars
+    query = query[:400]
     try:
 
         def sync_search():
             log_search(f"Tavily: {query[:80]}")
-            response = TAVILY_CLIENT.search(
+            client = get_tavily_client()
+            response = client.search(
                 query=query, max_results=max_results, include_answer=True
             )
             if not response:
@@ -1288,18 +1221,10 @@ async def tavily_route():
         log_err(f"Tavily error: {e}")
         return jsonify({"error": "Tavily search failed."}), 500
 
-# =========================
-# Protected API Endpoint (API key required)
-# =========================
+# Protected API
+# Protected API for external clients using bearer-token auth.
 @app.route("/api/v1/chat", methods=["POST"])
 async def api_v1_chat():
-    """
-    Protected chat endpoint that requires API key authentication.
-
-    This is separate from the existing /chat route used by the web UI.
-    Both will work — one requires an API key, one doesn't.
-    """
-
     auth_header = request.headers.get("Authorization", "")
     if not auth_header.startswith("Bearer "):
         return (
@@ -1314,12 +1239,10 @@ async def api_v1_chat():
 
     api_key = auth_header.replace("Bearer ", "").strip()
 
-    # Validate key
     key_info = get_api_key_info(api_key)
     if not key_info or not key_info["is_active"]:
         return jsonify({"error": "Invalid or revoked API key"}), 403
 
-    # Check rate limit (30 requests per minute)
     allowed, current_count, limit = check_rate_limit(api_key, limit_per_minute=30)
     if not allowed:
         return (
@@ -1334,7 +1257,6 @@ async def api_v1_chat():
             429,
         )
 
-    # Get chat data
     data = request.get_json()
     if not data or "message" not in data:
         return jsonify({"error": "Missing 'message' field"}), 400
@@ -1355,7 +1277,6 @@ async def api_v1_chat():
         )
 
     try:
-        # Get response using your existing functions
         if model_choice == "gemini":
             response_content = get_gemini_response(user_message)
         elif model_choice == "cohere":
@@ -1363,7 +1284,6 @@ async def api_v1_chat():
         else:
             response_content = await get_mistral_response(user_message)
 
-        # Log usage
         log_api_usage(
             api_key,                      # ✓ Position 1: api_key
             model_choice,                 # ✓ Position 2: model
@@ -1398,7 +1318,6 @@ async def api_v1_chat():
     
 @app.route("/api/status/key", methods=["GET"])
 def api_key_status():
-    """Check if an API key is valid without making a request."""
     auth_header = request.headers.get("Authorization", "")
     if not auth_header.startswith("Bearer "):
         return jsonify({
@@ -1420,9 +1339,8 @@ def api_key_status():
     }), 200
 
 
-# =========================
-# Main Chat Route
-# =========================
+
+# Main chat route that handles text, files, images, grounding, and model calls.
 @app.route("/chat", methods=["GET", "POST"])
 async def chat():
     global IS_DOWN
@@ -1483,7 +1401,6 @@ async def chat():
 
         log_message = clean_log_message(user_message)
 
-        # Easter eggs / commands
         if response := check_easter_eggs(lower_msg):
             return jsonify({"response": response})
 
@@ -1496,7 +1413,6 @@ async def chat():
         if lower_msg == "fun fact":
             return jsonify({"response": get_random_fun_fact()})
 
-        # File uploads
         if "file" in request.files:
             file = request.files["file"]
             if not file.filename:
@@ -1511,20 +1427,17 @@ async def chat():
                 {"response": extracted.strip() or "⚠️ No readable text found."}
             )
 
-        # Image handling
         if img_url:
             analysis = await analyze_image_with_gemini(img_url)
             truncated = analysis[:80] + "..." if len(analysis) > 80 else analysis
             user_message += f"\n\n[Image analysis: {analysis}]"
             log_message += f"\n[Image: {truncated}]"
 
-        # Tavily routing — skip for image messages (query would be huge and useless)
         grounding_text = ""
         if not img_url:
             try:
                 use_tavily = user_wants_grounding or await needs_tavily(user_message)
                 if use_tavily:
-                    # Use only the original user text as the query, capped at 400 chars
                     tavily_query = (data.get("message") or "").strip()[:400]
                     grounding_text = await get_grounding(tavily_query)
                     if grounding_text == "No relevant info found.":
@@ -1532,7 +1445,6 @@ async def chat():
             except Exception as e:
                 log_warn(f"⚠️ Tavily failed → skipping: {e}")
 
-        # Prompt assembly — always fetch fresh (uses internal 10-min cache)
         context_text = "\n".join(f"{m['role']}: {m['content']}" for m in chat_context)
 
         tn = {"time": {}, "news": []}
@@ -1576,11 +1488,9 @@ async def chat():
             f"Mist.AI:"
         )
 
-        # Dynamic token limit based on message length
         word_count = len(user_message.split())
         max_tok = 4096 if word_count > 200 else 1024
 
-        # Model response
         if model_choice == "gemini":
             response_content = get_gemini_response(full_prompt, max_tok)
         elif model_choice == "cohere":
@@ -1588,13 +1498,11 @@ async def chat():
         else:
             response_content = await get_mistral_response(full_prompt, max_tok)
 
-        # Safety fallback
         if any(
             x in response_content.lower() for x in ["i don't know", "not sure", "sorry"]
         ):
             response_content = "🤖 Try rephrasing — I didn't quite get that."
 
-        # IP logging
         user_ip = (
             data.get("ip")
             or request.headers.get("X-Forwarded-For")
@@ -1611,9 +1519,6 @@ async def chat():
         if not is_extension:
             log_chat(user_ip, model_choice, log_message, response_content)
 
-        # Log to disk AFTER the response is delivered to the client.
-        # The 30-second flush delay in _log_writer_thread ensures the file
-        # is written long after the browser has finished rendering.
         @after_this_request
         def log_after_response(response):
             if not is_extension:
@@ -1631,7 +1536,6 @@ async def chat():
     except Exception as e:
         error_msg = str(e)
         
-        # Don't trigger down mode for copyright errors
         if "reciting from copyrighted material" in error_msg or "finish_reason" in error_msg:
             log_warn(f"⚠️ Gemini copyright filter: {error_msg[:80]}")
             return jsonify({
@@ -1639,9 +1543,8 @@ async def chat():
                 "is_down": False,
             }), 200
         
-        # Real errors → down mode
         log_err(f"Chat route error: {type(e).__name__}: {error_msg[:100]}")
-        set_down_mode(type(e).__name__)  # ← Only call once
+        set_down_mode(type(e).__name__)
         return (
             jsonify(
                 {
@@ -1654,9 +1557,8 @@ async def chat():
             503,
         )
 
-# =========================
-# Command Handler
-# =========================
+# Slash commands
+# Interpret slash commands like weather, jokes, and mini games.
 async def handle_command(command):
     command = command.strip().lower()
 
@@ -1754,9 +1656,7 @@ async def handle_command(command):
     return "❌ Unknown command. Type /help for a list of valid commands."
 
 
-# =========================
-# AI Model Functions
-# =========================
+# Model prompts
 SYSTEM_PROMPT_BASE = """You are Mist.AI, a smart and direct AI assistant created by Kristian Cook.
 Tone:
 - Direct and confident, but always friendly — never cold or robotic.
@@ -1806,12 +1706,15 @@ Greet users on first interaction with: '{greeting}'
 """
 
 
-# Recommended global settings
 TEMPERATURE = 0.3
 MAX_TOKENS = 2045
 
+# Model adapters
 
 def get_gemini_response(prompt, max_tokens=MAX_TOKENS):
+    import google.generativeai as genai
+    ensure_gemini_configured()
+
     system_prompt = build_system_prompt(
         "Mist.AI Nova", "Hey, I'm Mist.AI Nova! How can I help? ✨"
     )
@@ -1829,7 +1732,6 @@ def get_gemini_response(prompt, max_tokens=MAX_TOKENS):
             ),
         )
         
-        # Check if response has valid content
         if not response.text or response.text.strip() == "":
             return "I can't answer that question — it involves copyrighted material I'm not able to reproduce."
         
@@ -1846,13 +1748,14 @@ def get_cohere_response(prompt: str, max_tokens=MAX_TOKENS):
         "Mist.AI Sage", "Hey, I'm Mist.AI Sage! How can I help? ✨"
     )
 
+    co = get_cohere_client()
     messages = [
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": prompt},
     ]
 
     resp = co.chat(
-        model="command-r7b-12-2024",
+        model="command-r7b-12-2024",    
         messages=messages,
         temperature=TEMPERATURE,
         max_tokens=max_tokens,
@@ -1889,9 +1792,7 @@ async def get_mistral_response(prompt, max_tokens=MAX_TOKENS):
         return data["choices"][0]["message"]["content"].strip()
 
 
-# =========================
-# Weather
-# =========================
+# Fetch current conditions and a short forecast for a city.
 async def get_weather_data(city):
     try:
         async with httpx.AsyncClient() as client:
@@ -1939,9 +1840,6 @@ async def get_weather_data(city):
         return {"error": str(e)}
 
 
-# =========================
-# Random Prompts / Facts
-# =========================
 def get_random_prompt():
     prompts = [
         "Write about a futuristic world where AI controls everything.",
@@ -1985,6 +1883,7 @@ def get_random_fun_fact():
     return random.choice(fun_facts)
 
 
+# Runtime
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     log.info(f"🚀 Mist.AI Server is starting on 0.0.0.0:{port}...")
