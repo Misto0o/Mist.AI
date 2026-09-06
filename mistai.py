@@ -1720,7 +1720,7 @@ def get_gemini_response(prompt, max_tokens=MAX_TOKENS):
     )
     full_prompt = f"{system_prompt}\n{prompt}"
     
-    model = genai.GenerativeModel("gemini-2.5-flash")
+    model = genai.GenerativeModel("gemini-3.6-flash")
     chat_session = model.start_chat()
     
     try:
@@ -1749,19 +1749,33 @@ def get_cohere_response(prompt: str, max_tokens=MAX_TOKENS):
     )
 
     co = get_cohere_client()
+
     messages = [
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": prompt},
     ]
 
     resp = co.chat(
-        model="command-r7b-12-2024",    
+        model="command-a-plus-05-2026",
         messages=messages,
         temperature=TEMPERATURE,
         max_tokens=max_tokens,
     )
 
-    return resp.message.content[0].text.strip()
+    content = resp.message.content
+
+    if isinstance(content, str):
+        return content.strip()
+
+    for item in content:
+        text = getattr(item, "text", None)
+        if text:
+            return text.strip()
+
+    raise RuntimeError(
+        f"Cohere returned no text content. Content types: "
+        f"{[type(item).__name__ for item in content]}"
+    )
 
 
 async def get_mistral_response(prompt, max_tokens=MAX_TOKENS):
