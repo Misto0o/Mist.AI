@@ -349,38 +349,53 @@ def get_down_state():
 
 
 # Pings key routes on an interval; repeated failures trigger down mode.
+# Routes are our own — never a route that depends on a third-party API, or
+# an upstream blip (e.g. a news API outage) would falsely take the site down.
 HEALTH_INTERVAL = 60
-HEALTH_FAIL_THRESHOLD = 2
-HEALTH_ROUTES = ["/status", "/", "/time-news"]
+HEALTH_FAIL_THRESHOLD = 3
+HEALTH_PING_TIMEOUT = 15.0
+HEALTH_PING_RETRIES = 2   # inline retries per route before counting a failure
+HEALTH_PING_RETRY_DELAY = 3
+HEALTH_ROUTES = ["/status", "/", "/api/status"]
+
+
+def _ping_route(base: str, route: str) -> bool:
+    """True if the route responded healthily, retrying once before giving up
+    — a single dropped connection shouldn't count against the route."""
+    for attempt in range(HEALTH_PING_RETRIES):
+        try:
+            resp = _http.get(
+                base + route, timeout=HEALTH_PING_TIMEOUT, follow_redirects=True
+            )
+            if resp.status_code < 500:
+                return True
+        except Exception as e:
+            if attempt == HEALTH_PING_RETRIES - 1:
+                log_warn(f"⚠️ Health ping {route} failed: {type(e).__name__}")
+                return False
+            time.sleep(HEALTH_PING_RETRY_DELAY)
+            continue
+        return False
+    return False
 
 
 def _health_monitor_thread(port: int):
     base = f"http://127.0.0.1:{port}"
     fail_counts = {route: 0 for route in HEALTH_ROUTES}
-    time.sleep(10)  # let the server bind first
+    time.sleep(20)  # let the server (and container networking) fully warm up
     while True:
         try:
             is_down, _, _ = get_down_state()
             if not is_down:
                 for route in HEALTH_ROUTES:
-                    try:
-                        resp = _http.get(
-                            base + route, timeout=10.0, follow_redirects=True
-                        )
-                        if resp.status_code >= 500:
-                            fail_counts[route] += 1
-                            log_warn(
-                                f"⚠️ Health ping {route} → {resp.status_code} "
-                                f"({fail_counts[route]}/{HEALTH_FAIL_THRESHOLD})"
-                            )
-                        else:
-                            fail_counts[route] = 0
-                    except Exception as e:
-                        fail_counts[route] += 1
-                        log_warn(
-                            f"⚠️ Health ping {route} failed: {type(e).__name__} "
-                            f"({fail_counts[route]}/{HEALTH_FAIL_THRESHOLD})"
-                        )
+                    if _ping_route(base, route):
+                        fail_counts[route] = 0
+                        continue
+                    fail_counts[route] += 1
+                    log_warn(
+                        f"⚠️ Health check {route} unhealthy "
+                        f"({fail_counts[route]}/{HEALTH_FAIL_THRESHOLD})"
+                    )
                     if fail_counts[route] >= HEALTH_FAIL_THRESHOLD:
                         set_down_mode(f"Health check failing: {route}")
                         fail_counts[route] = 0
@@ -558,6 +573,10 @@ def api_status():
 
 @app.route("/status", methods=["GET"])
 def status():
+    """Always 200 — this is what infra health checks (Fly, uptime bots) hit,
+    and a 503 here gets the whole machine pulled from the load balancer,
+    turning a graceful maintenance page into a total outage. The frontend
+    reads `is_down` from the body regardless of status code, so this is safe."""
     is_down, _, _ = get_down_state()
     response = jsonify(
         {
@@ -572,7 +591,7 @@ def status():
     )
     response.headers["Cache-Control"] = "no-store"
     response.headers["Access-Control-Allow-Origin"] = "*"
-    return response, (200 if not is_down else 503)
+    return response, 200
 
 
 @app.route("/status-page")
