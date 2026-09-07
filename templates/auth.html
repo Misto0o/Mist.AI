@@ -414,7 +414,7 @@
 
         function copyApiKey() {
             const apiKey = document.getElementById('apiKeyDisplay').textContent;
-            const btn = document.querySelector('.copy-btn');  // add this line
+            const btn = document.querySelector('.copy-btn');
             navigator.clipboard.writeText(apiKey).then(() => {
                 const original = btn.textContent;
                 btn.textContent = '✓ Copied!';

@@ -1,3 +1,12 @@
+"""
+Mist.AI backend — Flask server powering chat, admin, and the public/API routes.
+
+Talks to Gemini/Cohere/Mistral for chat, Tavily for search grounding, and
+OpenWeather/NewsAPI for context. Ships with a "down mode" kill switch: any
+critical error or failed health check takes the whole site offline until
+manually reset, so problems never hide silently.
+"""
+
 import os
 import sys
 import io
@@ -9,11 +18,14 @@ import random
 import logging
 import asyncio
 import sqlite3
+import hmac
 import threading
 import queue as queue_module
+from contextlib import closing
 from datetime import datetime
 from functools import wraps
 import hashlib
+from urllib.parse import urlparse
 
 from flask import (
     Flask,
@@ -32,7 +44,6 @@ from flask_cors import CORS
 from werkzeug.exceptions import NotFound
 
 from dotenv import load_dotenv
-import requests
 import httpx
 import pytz
 
@@ -50,27 +61,44 @@ from api_key_system import (
 
 load_dotenv()
 
-# Env config
-if (
-    not os.getenv("GEMINI_API_KEY")
-    or not os.getenv("COHERE_API_KEY")
-    or not os.getenv("OPENWEATHER_API_KEY")
-    or not os.getenv("THE_NEWS_API_KEY")
-    or not os.getenv("GOFLIE_API_KEY")
-    or not os.getenv("MISTRAL_API_KEY")
-    or not os.getenv("ADMIN_USERNAME")
-    or not os.getenv("ADMIN_PASSWORD")
-    or not os.getenv("FLASK_SECRET_KEY")
-    or not os.getenv("TAVILY_API_KEY")
-):
-    raise ValueError("Missing required API keys in environment variables.")
+# Fail fast and name exactly what's missing.
+REQUIRED_ENV_VARS = [
+    "GEMINI_API_KEY",
+    "COHERE_API_KEY",
+    "OPENWEATHER_API_KEY",
+    "THE_NEWS_API_KEY",
+    "GOFLIE_API_KEY",
+    "MISTRAL_API_KEY",
+    "ADMIN_USERNAME",
+    "ADMIN_PASSWORD",
+    "FLASK_SECRET_KEY",
+    "TAVILY_API_KEY",
+]
+_missing_vars = [v for v in REQUIRED_ENV_VARS if not os.getenv(v)]
+if _missing_vars:
+    raise ValueError(
+        f"Missing required environment variables: {', '.join(_missing_vars)}"
+    )
 
 app = Flask(
     __name__, template_folder="templates", static_folder="static", static_url_path=""
 )
 
-# Logging
+# Central config — single source of truth for models/limits.
+VALID_MODELS = ["gemini", "cohere", "mistral"]
+GEMINI_MODEL = "gemini-3.6-flash"
+COHERE_MODEL = "command-a-plus-05-2026"
+MISTRAL_MODEL = "mistral-small-latest"
+ROUTER_MODEL = "command-r7b-12-2024"
+
+TEMPERATURE = 0.3
+MAX_TOKENS = 2045
+
+
+# --- Logging ---------------------------------------------------------------
+
 class StreamToUTF8(logging.StreamHandler):
+    """Forces UTF-8 output so emoji log tags never crash on Windows consoles."""
     def emit(self, record):
         try:
             msg = self.format(record)
@@ -83,6 +111,7 @@ class StreamToUTF8(logging.StreamHandler):
 
 
 class LogFormatter(logging.Formatter):
+    """Colorized [TAG] prefix per log level."""
     RESET = "\x1b[0m"
     STYLES = {
         "DEBUG": ("\x1b[38;21m", "DBG"),
@@ -90,16 +119,6 @@ class LogFormatter(logging.Formatter):
         "WARNING": ("\x1b[33;21m", "WRN"),
         "ERROR": ("\x1b[31;21m", "ERR"),
         "CRITICAL": ("\x1b[31;21m", "CRT"),
-    }
-    ICONS = {
-        "📩 User": "cyan",
-        "🤖 Bot": "cyan",
-        "🧭 Router": "\x1b[35;21m",
-        "🔍 Google": "\x1b[35;21m",
-        "🔥 DownMode": "\x1b[31;21m",
-        "⚠️ Warning": "\x1b[33;21m",
-        "❌ Error": "\x1b[31;21m",
-        "✅ Success": "\x1b[32;21m",
     }
 
     def format(self, record):
@@ -109,6 +128,7 @@ class LogFormatter(logging.Formatter):
 
 
 class FilterFlyLogs(logging.Filter):
+    """Mutes Fly.io infra noise and OPTIONS preflight spam."""
     _SKIP = {
         "Sending signal",
         "machine started",
@@ -169,9 +189,35 @@ app.logger.setLevel(logging.INFO)
 app.logger.propagate = False
 logging.getLogger("werkzeug").disabled = True
 
-CORS(app, resources={r"/*": {"origins": "*"}})
+# Wildcard CORS only on public API routes; admin stays same-origin.
+CORS(
+    app,
+    resources={
+        r"/chat": {"origins": "*"},
+        r"/api/*": {"origins": "*"},
+        r"/status": {"origins": "*"},
+        r"/is-banned": {"origins": "*"},
+        r"/tavily": {"origins": "*"},
+        r"/time-news": {"origins": "*"},
+    },
+)
 
-# Disk logs
+# Shared pooled HTTP client, run via to_thread since Flask's async routes
+# each get a fresh event loop (a shared AsyncClient would go stale).
+_http = httpx.Client(timeout=15.0)
+_http_lock = threading.Lock()
+
+
+async def http_get(url: str, **kwargs) -> httpx.Response:
+    return await asyncio.to_thread(_http.get, url, **kwargs)
+
+
+async def http_post(url: str, **kwargs) -> httpx.Response:
+    return await asyncio.to_thread(_http.post, url, **kwargs)
+
+
+# --- Chat log persistence ---------------------------------------------------
+
 LOG_DIR = (
     "/app/data" if os.path.exists("/app/data") else os.path.join(os.getcwd(), "data")
 )
@@ -181,8 +227,9 @@ LOG_FILE = os.path.join(LOG_DIR, "chat_logs.json")
 log_queue = queue_module.Queue()
 log_thread_running = False
 
-# Flush queued chat logs in batches so file writes don't block the app.
+
 def _log_writer_thread():
+    """Batches queued chat logs to disk so writes never block a request."""
     global log_thread_running
     log_thread_running = True
     batch = []
@@ -212,8 +259,10 @@ def _log_writer_thread():
                                     parsed = json.loads(content)
                                     if isinstance(parsed, dict) and "logs" in parsed:
                                         logs = parsed
-                        except Exception:
-                            pass
+                        except Exception as read_err:
+                            log_warn(
+                                f"⚠️ chat_logs.json unreadable/corrupt, starting fresh: {read_err}"
+                            )
 
                     for entry in batch:
                         logs["logs"].append(entry)
@@ -231,8 +280,8 @@ def _log_writer_thread():
             log_warn(f"⚠️ Log writer thread error: {e}")
 
 
-# Queue a chat entry for the background log writer.
 def safe_log_chat(user_ip, model_choice, message, response, grounded):
+    """Queues a chat entry for the background writer; never raises."""
     try:
         entry = {
             "timestamp": datetime.now().isoformat(),
@@ -247,25 +296,102 @@ def safe_log_chat(user_ip, model_choice, message, response, grounded):
         log_warn(f"⚠️ Failed to queue log entry: {e}")
 
 
-# Maintenance gate
+# --- Down mode ---------------------------------------------------------------
+# Any critical error takes the whole site down. Two triggers:
+#  1. A critical exception in the chat pipeline (transient upstream hiccups
+#     are excluded — see _is_critical_error).
+#  2. A background health monitor pinging key routes; repeated failures
+#     trigger down mode even with zero live traffic.
+# Recovery is manual (/reset-down-test) — that's the point.
+
 IS_DOWN = False
 DOWN_REASON = None
 DOWN_TIMESTAMP = None
+_down_lock = threading.Lock()
+
+# These are the upstream's problem, not ours — log and stay up.
+_NON_CRITICAL_EXCEPTIONS = (
+    httpx.TimeoutException,
+    httpx.ConnectError,
+    httpx.ReadError,
+)
 
 
-# Put the app in maintenance mode and record when it started.
+def _is_critical_error(exc: BaseException) -> bool:
+    """5xx from upstream = their outage, stay up. Everything else = critical."""
+    if isinstance(exc, _NON_CRITICAL_EXCEPTIONS):
+        return False
+    if isinstance(exc, httpx.HTTPStatusError):
+        return exc.response.status_code < 500
+    return True
+
+
 def set_down_mode(reason: str):
     global IS_DOWN, DOWN_REASON, DOWN_TIMESTAMP
-    IS_DOWN = True
-    DOWN_REASON = reason
-    DOWN_TIMESTAMP = datetime.now().isoformat()
-    log.error(f"🔥 DOWN MODE: {reason} at {DOWN_TIMESTAMP}")
+    with _down_lock:
+        IS_DOWN = True
+        DOWN_REASON = reason
+        DOWN_TIMESTAMP = datetime.now().isoformat()
+        log.error(f"🔥 DOWN MODE: {reason} at {DOWN_TIMESTAMP}")
 
 
-# Block most routes while the app is in maintenance mode.
+def clear_down_mode():
+    global IS_DOWN, DOWN_REASON, DOWN_TIMESTAMP
+    with _down_lock:
+        IS_DOWN = False
+        DOWN_REASON = None
+        DOWN_TIMESTAMP = None
+
+
+def get_down_state():
+    with _down_lock:
+        return IS_DOWN, DOWN_REASON, DOWN_TIMESTAMP
+
+
+# Pings key routes on an interval; repeated failures trigger down mode.
+HEALTH_INTERVAL = 60
+HEALTH_FAIL_THRESHOLD = 2
+HEALTH_ROUTES = ["/status", "/", "/time-news"]
+
+
+def _health_monitor_thread(port: int):
+    base = f"http://127.0.0.1:{port}"
+    fail_counts = {route: 0 for route in HEALTH_ROUTES}
+    time.sleep(10)  # let the server bind first
+    while True:
+        try:
+            is_down, _, _ = get_down_state()
+            if not is_down:
+                for route in HEALTH_ROUTES:
+                    try:
+                        resp = _http.get(
+                            base + route, timeout=10.0, follow_redirects=True
+                        )
+                        if resp.status_code >= 500:
+                            fail_counts[route] += 1
+                            log_warn(
+                                f"⚠️ Health ping {route} → {resp.status_code} "
+                                f"({fail_counts[route]}/{HEALTH_FAIL_THRESHOLD})"
+                            )
+                        else:
+                            fail_counts[route] = 0
+                    except Exception as e:
+                        fail_counts[route] += 1
+                        log_warn(
+                            f"⚠️ Health ping {route} failed: {type(e).__name__} "
+                            f"({fail_counts[route]}/{HEALTH_FAIL_THRESHOLD})"
+                        )
+                    if fail_counts[route] >= HEALTH_FAIL_THRESHOLD:
+                        set_down_mode(f"Health check failing: {route}")
+                        fail_counts[route] = 0
+        except Exception as e:
+            log_warn(f"⚠️ Health monitor error: {e}")
+        time.sleep(HEALTH_INTERVAL)
+
+
 @app.before_request
 def before_request_down_mode():
-    global IS_DOWN
+    """Blocks API/chat routes and shows the status page while down."""
     allowed_routes = [
         "mistai_status",
         "status",
@@ -277,7 +403,8 @@ def before_request_down_mode():
         "api_v1_chat",
     ]
     endpoint = request.endpoint or ""
-    if IS_DOWN and endpoint not in allowed_routes:
+    is_down, _, _ = get_down_state()
+    if is_down and endpoint not in allowed_routes:
         if request.method == "OPTIONS":
             response = make_response()
             response.headers["Access-Control-Allow-Origin"] = "*"
@@ -305,15 +432,42 @@ def before_request_down_mode():
         return render_template("mistai_status.html"), 503
 
 
-# Public chat endpoint used by the web app and browser extensions.
+# --- CSRF ---------------------------------------------------------------
+
+def _same_origin_ok() -> bool:
+    """No Origin/Referer means a non-browser client, which can't ride cookies."""
+    origin = request.headers.get("Origin") or request.headers.get("Referer")
+    if not origin:
+        return True
+    try:
+        return urlparse(origin).netloc == request.host
+    except Exception:
+        return False
+
+
+def csrf_protect(f):
+    """Rejects cross-origin POSTs to admin routes."""
+    @wraps(f)
+    def wrapped(*args, **kwargs):
+        if request.method == "POST" and not _same_origin_ok():
+            return jsonify({"error": "Cross-origin request rejected"}), 403
+        return f(*args, **kwargs)
+
+    return wrapped
+
+
+# --- Public API --------------------------------------------------------------
+
 @app.route("/api/chat", methods=["POST"])
-def api_chat():
+async def api_chat():
+    """Simple bodyless-auth chat endpoint used by the extension."""
+    is_down, _, _ = get_down_state()
     try:
         data = request.get_json()
         if not data or "message" not in data:
             return (
                 jsonify(
-                    {"error": "Missing 'message' in request body", "is_down": IS_DOWN}
+                    {"error": "Missing 'message' in request body", "is_down": is_down}
                 ),
                 400,
             )
@@ -324,17 +478,16 @@ def api_chat():
 
         if not user_message:
             return (
-                jsonify({"error": "Message cannot be empty", "is_down": IS_DOWN}),
+                jsonify({"error": "Message cannot be empty", "is_down": is_down}),
                 400,
             )
 
-        valid_models = ["gemini", "cohere", "mistral"]
-        if model not in valid_models:
+        if model not in VALID_MODELS:
             return (
                 jsonify(
                     {
-                        "error": f"Invalid model. Choose from: {', '.join(valid_models)}",
-                        "is_down": IS_DOWN,
+                        "error": f"Invalid model. Choose from: {', '.join(VALID_MODELS)}",
+                        "is_down": is_down,
                     }
                 ),
                 400,
@@ -350,22 +503,16 @@ def api_chat():
         else:
             modified_message = user_message
 
-        ai_response = None
         try:
-            if model == "gemini":
-                ai_response = get_gemini_response(modified_message)
-            elif model == "cohere":
-                ai_response = get_cohere_response(modified_message)
-            elif model == "mistral":
-                ai_response = asyncio.run(get_mistral_response(modified_message))
+            ai_response = await get_model_response(model, modified_message)
         except Exception as e:
-            log_err("Model execution failed")
+            log_err(f"Model execution failed: {type(e).__name__}: {str(e)[:120]}")
             return (
                 jsonify(
                     {
                         "error": "AI model failed to respond",
                         "details": str(e),
-                        "is_down": IS_DOWN,
+                        "is_down": is_down,
                     }
                 ),
                 500,
@@ -373,7 +520,7 @@ def api_chat():
 
         if not ai_response:
             return (
-                jsonify({"error": "Empty response from AI model", "is_down": IS_DOWN}),
+                jsonify({"error": "Empty response from AI model", "is_down": is_down}),
                 500,
             )
 
@@ -383,60 +530,63 @@ def api_chat():
                     "response": ai_response,
                     "model": model,
                     "timestamp": datetime.now().isoformat(),
-                    "is_down": IS_DOWN,
+                    "is_down": is_down,
                 }
             ),
             200,
         )
 
     except Exception as e:
-        log_err("API Error")
-        return jsonify({"error": str(e), "is_down": IS_DOWN}), 500
+        log_err(f"API Error: {type(e).__name__}: {str(e)[:120]}")
+        return jsonify({"error": str(e), "is_down": is_down}), 500
 
 
 @app.route("/api/status", methods=["GET"])
 def api_status():
+    is_down, reason, since = get_down_state()
     return jsonify(
         {
-            "status": "down" if IS_DOWN else "online",
-            "is_down": IS_DOWN,
-            "down_reason": DOWN_REASON if IS_DOWN else None,
-            "down_since": DOWN_TIMESTAMP if IS_DOWN else None,
-            "available_models": ["gemini", "cohere", "mistral"],
+            "status": "down" if is_down else "online",
+            "is_down": is_down,
+            "down_reason": reason if is_down else None,
+            "down_since": since if is_down else None,
+            "available_models": VALID_MODELS,
             "timestamp": datetime.now().isoformat(),
         }
-    ), (200 if not IS_DOWN else 503)
+    ), (200 if not is_down else 503)
 
 
 @app.route("/status", methods=["GET"])
 def status():
+    is_down, _, _ = get_down_state()
     response = jsonify(
         {
-            "online": not IS_DOWN,
-            "is_down": IS_DOWN,
+            "online": not is_down,
+            "is_down": is_down,
             "message": (
                 "🟢 Mist.AI is operational"
-                if not IS_DOWN
+                if not is_down
                 else "🔴 Mist.AI is currently unavailable"
             ),
         }
     )
     response.headers["Cache-Control"] = "no-store"
     response.headers["Access-Control-Allow-Origin"] = "*"
-    return response, (200 if not IS_DOWN else 503)
+    return response, (200 if not is_down else 503)
 
 
 @app.route("/status-page")
 def mistai_status():
-    return render_template("mistai_status.html"), 503 if IS_DOWN else 200
+    is_down, _, _ = get_down_state()
+    return render_template("mistai_status.html"), 503 if is_down else 200
 
 
-# Detect whether the app is running in production or local dev.
-def is_production():
+def is_production() -> bool:
     return bool(os.getenv("FLY_APP_NAME") or os.getenv("PRODUCTION") == "true")
 
 
 def dev_only(f):
+    """403s in production."""
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if is_production():
@@ -469,17 +619,21 @@ FAVICONS = {
 def serve_favicon(filename):
     return app.send_static_file(f"mistaifaviocn/{filename}")
 
+
 @app.route("/docs")
 def docs():
     return app.send_static_file("docs/index.html")
+
 
 @app.route("/auth")
 def auth():
     return render_template("auth.html")
 
+
 @app.route("/dashboard")
 def dashboard():
     return render_template("dashboard.html")
+
 
 @app.route("/favicon.ico")
 def favicon():
@@ -487,7 +641,7 @@ def favicon():
         size = request.args.get("size", None)
         filename = FAVICONS.get(size, FAVICONS["default"])
         return app.send_static_file(f"mistaifaviocn/{filename}")
-    except:
+    except Exception:
         return ("", 204)
 
 
@@ -517,18 +671,16 @@ def root_files(filename):
 @app.route("/force-down-test")
 @dev_only
 def force_down_test():
-    global IS_DOWN, DOWN_REASON, DOWN_TIMESTAMP
-    IS_DOWN = True
-    DOWN_REASON = "Manual Test Mode"
-    DOWN_TIMESTAMP = datetime.now().isoformat()
-    log_warn(f"⚠️ DOWN MODE ACTIVATED (manual test) at {DOWN_TIMESTAMP}")
+    set_down_mode("Manual Test Mode")
+    is_down, reason, ts = get_down_state()
+    log_warn(f"⚠️ DOWN MODE ACTIVATED (manual test) at {ts}")
     return (
         jsonify(
             {
                 "message": "IS_DOWN is now True",
                 "is_down": True,
-                "reason": DOWN_REASON,
-                "timestamp": DOWN_TIMESTAMP,
+                "reason": reason,
+                "timestamp": ts,
             }
         ),
         200,
@@ -538,10 +690,7 @@ def force_down_test():
 @app.route("/reset-down-test")
 @dev_only
 def reset_down_test():
-    global IS_DOWN, DOWN_REASON, DOWN_TIMESTAMP
-    IS_DOWN = False
-    DOWN_REASON = None
-    DOWN_TIMESTAMP = None
+    clear_down_mode()
     log_ok("DOWN MODE DEACTIVATED (manual reset)")
     return jsonify({"message": "IS_DOWN reset to False", "is_down": False}), 200
 
@@ -549,14 +698,15 @@ def reset_down_test():
 @app.route("/dev-status")
 @dev_only
 def dev_status():
+    is_down, reason, ts = get_down_state()
     return (
         jsonify(
             {
                 "dev_mode": True,
                 "environment": os.getenv("FLASK_ENV", "development"),
-                "is_down": IS_DOWN,
-                "down_reason": DOWN_REASON,
-                "down_timestamp": DOWN_TIMESTAMP,
+                "is_down": is_down,
+                "down_reason": reason,
+                "down_timestamp": ts,
                 "available_test_routes": [
                     "/force-down-test",
                     "/reset-down-test",
@@ -577,12 +727,19 @@ def download_logs():
     return send_from_directory(log_dir or os.getcwd(), log_name, as_attachment=True)
 
 
+def _error_response(e, status_code: int):
+    """Shared responder for both error handlers below."""
+    if request.path.startswith("/chat") or request.path.startswith("/is-banned"):
+        is_down, _, _ = get_down_state()
+        msg = "Internal server error" if status_code == 500 else "Unexpected error"
+        return jsonify({"error": msg, "is_down": is_down}), status_code
+    return render_template("mistai_status.html"), status_code
+
+
 @app.errorhandler(500)
 def handle_500(e):
     log_err(f"500 error: {e}")
-    if request.path.startswith("/chat") or request.path.startswith("/is-banned"):
-        return jsonify({"error": "Internal server error", "is_down": IS_DOWN}), 500
-    return render_template("mistai_status.html"), 500
+    return _error_response(e, 500)
 
 
 @app.errorhandler(Exception)
@@ -590,9 +747,7 @@ def handle_exception(e):
     if isinstance(e, NotFound):
         return handle_404(e)
     log_err(f"Unhandled exception: {type(e).__name__}: {e}")
-    if request.path.startswith("/chat") or request.path.startswith("/is-banned"):
-        return jsonify({"error": "Unexpected error", "is_down": IS_DOWN}), 500
-    return render_template("mistai_status.html"), 500
+    return _error_response(e, 500)
 
 
 @app.errorhandler(404)
@@ -601,12 +756,13 @@ def handle_404(e):
     return ("", 204)
 
 
-# Easter eggs
+# --- Easter eggs ---------------------------------------------------------
+
 EASTER_EGGS = {
     "whos mist": "I'm Mist.AI, your friendly chatbot! But shh... don't tell anyone I'm self-aware. 🤖",
     "massive": "You know what else is Massive? LOW TAPER FADE",
     "what is the low taper fade meme": "Imagine If Ninja Got a Low Taper Fade is a viral audio clip from a January 2024 Twitch freestyle by hyperpop artist ericdoa, where he sings the phrase. The clip quickly spread on TikTok, inspiring memes and edits of streamer Ninja with a low taper fade. By mid-January, TikTok users created slideshows, reaction videos, and joke claims that the song was by Frank Ocean. The meme exploded when Ninja himself acknowledged it and even got the haircut on January 13th, posting a TikTok that amassed over 5.4 million views in three days. Later in 2024, a parody meme about Tfue and a high taper fade went viral. By the end of the year, people joked about how the meme was still popular, with absurd edits of Ninja in different lifetimes.",
-    "jbl speaker": "I want you to be mine again, baby, ayy I know my lifestyle is drivin' you crazy, ayy I cannot see myself without you We call them fans, though, girl, you know how we do I go out of my way to please you I go out of my way to see you And I want you to be mine again, baby, ayy I know my lifestyle is driving you crazy, ayy But I cannot see myself without you We call them fans, though, girl, you know how we do I go out of my way to please you I go out of the way to see you I ain't playing no games, I need you",
+    "jbl speaker": "🔊 You know the one. I can't recite the lyrics (copyright says no), but consider the vibe fully delivered.",
     "whats the hidden theme": "The hidden theme is a unlockable that you need to input via text or arrow keys try to remember a secret video game code...",
     "whats your favorite anime": "Dragon Ball Z! I really love the anime.",
     "69": "Nice.",
@@ -622,55 +778,74 @@ EASTER_EGGS = {
 }
 
 
-# Match quirky command phrases and return the hidden response.
-def check_easter_eggs(user_message):
+def check_easter_eggs(user_message: str):
     normalized = re.sub(r"[^\w\s]", "", user_message.lower()).strip()
     return EASTER_EGGS.get(normalized, None)
 
 
 weather_session = {"last_city": None}
+_weather_session_lock = threading.Lock()
 
-# AI clients
 MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
 MISTRAL_ENDPOINT = "https://api.mistral.ai/v1/chat/completions"
 app.secret_key = os.getenv("FLASK_SECRET_KEY")
 
-API_KEY = os.getenv("OPENWEATHER_API_KEY")
+WEATHER_API_KEY = os.getenv("OPENWEATHER_API_KEY")
 API_BASE_URL = "https://api.openweathermap.org/data/2.5"
 temperatureUnit = "imperial"
 
 _co = None
-# Lazy-load the Cohere client the first time it is needed.
+_co_lock = threading.Lock()
+
+
 def get_cohere_client():
+    """Lazy singleton — avoids importing/initializing cohere until first use."""
     global _co
     if _co is None:
-        import cohere
-        _co = cohere.ClientV2(os.getenv("COHERE_API_KEY"))
+        with _co_lock:
+            if _co is None:
+                import cohere
+
+                _co = cohere.ClientV2(os.getenv("COHERE_API_KEY"))
     return _co
 
+
 _tavily_client = None
-# Reuse a singleton Tavily client to avoid repeated initialization.
+_tavily_lock = threading.Lock()
+
+
 def get_tavily_client():
     global _tavily_client
     if _tavily_client is None:
-        from tavily import TavilyClient
-        _tavily_client = TavilyClient(os.getenv("TAVILY_API_KEY"))
+        with _tavily_lock:
+            if _tavily_client is None:
+                from tavily import TavilyClient
+
+                _tavily_client = TavilyClient(os.getenv("TAVILY_API_KEY"))
     return _tavily_client
 
+
 _gemini_configured = False
+_gemini_lock = threading.Lock()
+
+
 def ensure_gemini_configured():
     global _gemini_configured
     if not _gemini_configured:
-        import google.generativeai as genai
-        genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-        _gemini_configured = True
+        with _gemini_lock:
+            if not _gemini_configured:
+                import google.generativeai as genai
+
+                genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+                _gemini_configured = True
 
 
 async def analyze_image_with_gemini(img_url_or_bytes):
+    """Extracts text/description from a URL, data URI, file path, or raw bytes."""
     try:
         if isinstance(img_url_or_bytes, str):
             if img_url_or_bytes.startswith("http"):
-                response = requests.get(img_url_or_bytes, timeout=10)
+                response = await http_get(img_url_or_bytes, timeout=10)
                 response.raise_for_status()
                 image_bytes = response.content
 
@@ -685,31 +860,46 @@ async def analyze_image_with_gemini(img_url_or_bytes):
             image_bytes = img_url_or_bytes
 
         from PIL import Image
+
         image = Image.open(io.BytesIO(image_bytes))
 
         import google.generativeai as genai
-        ensure_gemini_configured()
-        model = genai.GenerativeModel("gemini-2.5-flash")
-        response = model.generate_content([
-            "Extract any text and describe the image in detail.",
-            image,
-        ])
 
+        ensure_gemini_configured()
+        model = genai.GenerativeModel(GEMINI_MODEL)
+
+        def sync_generate():
+            return model.generate_content(
+                [
+                    "Extract any text and describe the image in detail.",
+                    image,
+                ]
+            )
+
+        response = await asyncio.to_thread(sync_generate)
         return response.text.strip()
 
     except ValueError as e:
-        if (
-            "reciting from copyrighted material" in str(e)
-            or "finish_reason" in str(e)
-        ):
-            log_warn(f"⚠️ Gemini image filter: {str(e)[:80]}")  # ← Add emoji + truncate
-            return "⚠️ Unable to analyze this image — it may contain copyrighted material."  # ← Better message
+        if "reciting from copyrighted material" in str(e) or "finish_reason" in str(e):
+            log_warn(f"⚠️ Gemini image filter: {str(e)[:80]}")
+            return (
+                "⚠️ Unable to analyze this image — it may contain copyrighted material."
+            )
         raise
+    except (httpx.HTTPError, OSError) as e:
+        log_warn(f"⚠️ Image analysis failed: {type(e).__name__}: {str(e)[:80]}")
+        return "⚠️ Unable to analyze this image — it couldn't be loaded."
+
 
 async def get_best_server():
-    response = requests.get("https://api.gofile.io/servers")
-    if response.status_code == 200:
-        return response.json()["data"]["servers"][0]["name"]
+    try:
+        response = await http_get("https://api.gofile.io/servers")
+        if response.status_code == 200:
+            servers = response.json().get("data", {}).get("servers", [])
+            if servers:
+                return servers[0].get("name")
+    except (httpx.HTTPError, ValueError, KeyError) as e:
+        log_warn(f"⚠️ GoFile server lookup failed: {e}")
     return None
 
 
@@ -720,15 +910,22 @@ async def upload_to_gofile(filename, file_content, mimetype):
     files = {"file": (filename, io.BytesIO(file_content), mimetype)}
     params = {"token": os.getenv("GOFLIE_API_KEY")}
     upload_url = f"https://{server}.gofile.io/uploadFile"
-    response = requests.post(upload_url, files=files, data=params).json()
-    if response["status"] == "ok":
-        return {"link": response["data"]["downloadPage"]}
+    try:
+        response = (await http_post(upload_url, files=files, data=params)).json()
+    except (httpx.HTTPError, ValueError) as e:
+        log_warn(f"⚠️ GoFile upload failed: {e}")
+        return {"error": "Upload failed"}
+    if response.get("status") == "ok":
+        link = response.get("data", {}).get("downloadPage")
+        if link:
+            return {"link": link}
     return {"error": "Upload failed"}
 
 
 def parse_expression(text):
     import sympy
     from sympy.parsing.mathematica import parse_mathematica
+
     try:
         return sympy.parse_expr(text)
     except (SyntaxError, TypeError):
@@ -738,15 +935,22 @@ def parse_expression(text):
             return f"⚠️ Parsing error: {str(e)}"
 
 
-async def fetch_time_news_data() -> dict:
-    cache_key = "time_news"
-    cache_expiration = 600
-    now_ts = time.time()
+# --- Time/news context -----------------------------------------------------
 
-    if cache_key in app.config:
-        cached = app.config[cache_key]
-        if (now_ts - cached["timestamp"]) < cache_expiration:
-            return cached["data"]
+_time_news_cache = {"data": None, "timestamp": 0.0}
+_time_news_lock = threading.Lock()
+TIME_NEWS_TTL = 600
+
+
+async def fetch_time_news_data() -> dict:
+    """10-minute cached date/time + top headlines, injected into chat prompts."""
+    now_ts = time.time()
+    with _time_news_lock:
+        if (
+            _time_news_cache["data"] is not None
+            and (now_ts - _time_news_cache["timestamp"]) < TIME_NEWS_TTL
+        ):
+            return _time_news_cache["data"]
 
     now = datetime.now(pytz.timezone("America/New_York"))
     current_time = {
@@ -755,11 +959,11 @@ async def fetch_time_news_data() -> dict:
     }
 
     news_api_key = os.getenv("THE_NEWS_API_KEY")
-    async with httpx.AsyncClient() as client:
-        response = await client.get(
-            "https://api.thenewsapi.com/v1/news/top",
-            params={"api_token": news_api_key, "locale": "us", "limit": 3},
-        )
+    response = await http_get(
+        "https://api.thenewsapi.com/v1/news/top",
+        params={"api_token": news_api_key, "locale": "us", "limit": 3},
+    )
+    response.raise_for_status()
     news_data = response.json()
 
     articles = []
@@ -778,7 +982,9 @@ async def fetch_time_news_data() -> dict:
             )
 
     result = {"time": current_time, "news": articles}
-    app.config[cache_key] = {"data": result, "timestamp": now_ts}
+    with _time_news_lock:
+        _time_news_cache["data"] = result
+        _time_news_cache["timestamp"] = now_ts
     return result
 
 
@@ -790,8 +996,11 @@ async def time_news():
         return jsonify({"error": str(e)}), 500
 
 
-def extract_text_from_pdf(file_stream):
+# --- File extraction -----------------------------------------------------
+
+def extract_text_from_pdf(file_stream) -> str:
     import fitz  # PyMuPDF
+
     try:
         doc = fitz.open("pdf", file_stream.read())
         text = "\n".join([page.get_text() for page in doc])
@@ -800,19 +1009,24 @@ def extract_text_from_pdf(file_stream):
         return f"⚠️ Error extracting text: {str(e)}"
 
 
-def process_txt(file_content):
+def process_pdf(file_content: bytes) -> str:
+    return extract_text_from_pdf(io.BytesIO(file_content))
+
+
+def process_txt(file_content: bytes) -> str:
     return file_content.decode("utf-8", errors="ignore")
 
 
-def process_json(file_content):
+def process_json(file_content: bytes) -> str:
     try:
         return json.dumps(json.loads(file_content.decode("utf-8")), indent=4)
     except json.JSONDecodeError:
         return "⚠️ Invalid JSON file."
 
 
-def process_docx(file_content):
+def process_docx(file_content: bytes) -> str:
     from docx import Document
+
     try:
         doc = Document(io.BytesIO(file_content))
         return (
@@ -823,14 +1037,20 @@ def process_docx(file_content):
         return f"⚠️ Error reading .docx: {str(e)}"
 
 
+def process_unsupported(_file_content: bytes) -> str:
+    return "⚠️ Unsupported file type."
+
+
 file_processors = {
-    ".pdf": lambda c: extract_text_from_pdf(io.BytesIO(c)),
+    ".pdf": process_pdf,
     ".txt": process_txt,
     ".json": process_json,
     ".docx": process_docx,
     ".doc": process_docx,
 }
 
+
+# --- Ban database -----------------------------------------------------
 
 DB_FOLDER = "/app/data" if os.path.exists("/app/data") else "."
 DB_FILE = os.path.join(DB_FOLDER, "bans.db")
@@ -842,72 +1062,62 @@ def get_db_connection():
 
 def init_db():
     os.makedirs(DB_FOLDER, exist_ok=True)
-    conn = get_db_connection()
-    c = conn.cursor()
-    c.execute(
-        """
-        CREATE TABLE IF NOT EXISTS bans (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            ip TEXT,
-            token TEXT UNIQUE
-        )
-    """
-    )
-    conn.commit()
-    conn.close()
-    print(f"🗄️ Database initialized at {DB_FILE}")
+    with closing(get_db_connection()) as conn:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS bans (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ip TEXT,
+                token TEXT UNIQUE
+            )
+        """)
+        conn.commit()
+    log_ok(f"🗄️ Database initialized at {DB_FILE}")
 
 
 def add_ban(ip=None, token=None):
     if not ip:
         return
-    conn = get_db_connection()
-    c = conn.cursor()
-    c.execute("SELECT token FROM bans WHERE ip=?", (ip,))
-    row = c.fetchone()
-    if row:
-        if row[0]:
-            conn.close()
-            return
-        if token:
-            c.execute("UPDATE bans SET token=? WHERE ip=?", (token, ip))
-    else:
-        c.execute("INSERT INTO bans (ip, token) VALUES (?, ?)", (ip, token))
-    conn.commit()
-    conn.close()
+    with closing(get_db_connection()) as conn:
+        c = conn.cursor()
+        c.execute("SELECT token FROM bans WHERE ip=?", (ip,))
+        row = c.fetchone()
+        if row:
+            if row[0]:
+                return
+            if token:
+                c.execute("UPDATE bans SET token=? WHERE ip=?", (token, ip))
+        else:
+            c.execute("INSERT INTO bans (ip, token) VALUES (?, ?)", (ip, token))
+        conn.commit()
 
 
 def remove_ban(ip=None, token=None):
-    conn = get_db_connection()
-    c = conn.cursor()
-    if ip:
-        c.execute("DELETE FROM bans WHERE ip=?", (ip,))
-    if token:
-        c.execute("DELETE FROM bans WHERE token=?", (token,))
-    conn.commit()
-    conn.close()
+    with closing(get_db_connection()) as conn:
+        c = conn.cursor()
+        if ip:
+            c.execute("DELETE FROM bans WHERE ip=?", (ip,))
+        if token:
+            c.execute("DELETE FROM bans WHERE token=?", (token,))
+        conn.commit()
 
 
 def get_bans():
-    conn = get_db_connection()
-    c = conn.cursor()
-    c.execute("SELECT ip, token FROM bans")
-    result = c.fetchall()
-    conn.close()
-    return result
+    with closing(get_db_connection()) as conn:
+        c = conn.cursor()
+        c.execute("SELECT ip, token FROM bans")
+        return c.fetchall()
 
 
-def is_banned(ip=None, token=None):
-    conn = get_db_connection()
-    c = conn.cursor()
-    c.execute("SELECT 1 FROM bans WHERE ip=? OR token=?", (ip, token))
-    result = c.fetchone() is not None
-    conn.close()
-    return result
+def is_banned(ip=None, token=None) -> bool:
+    with closing(get_db_connection()) as conn:
+        c = conn.cursor()
+        c.execute("SELECT 1 FROM bans WHERE ip=? OR token=?", (ip, token))
+        return c.fetchone() is not None
 
 
 ip_log = {}
 ip_log_lock = threading.Lock()
+
 
 def login_required(f):
     @wraps(f)
@@ -929,11 +1139,14 @@ def admin_panel():
             with open(LOG_FILE, "r", encoding="utf-8") as f:
                 data = json.load(f)
                 chat_logs = data.get("logs", [])
-        except Exception:
+        except (OSError, json.JSONDecodeError) as e:
+            log_warn(f"⚠️ Couldn't read chat logs for admin panel: {e}")
             chat_logs = []
+    with ip_log_lock:
+        ip_log_snapshot = {ip: list(entries) for ip, entries in ip_log.items()}
     return render_template(
         "admin/admin.html",
-        ip_log=ip_log,
+        ip_log=ip_log_snapshot,
         banned_entries=banned_entries,
         chat_logs=chat_logs,
     )
@@ -941,8 +1154,9 @@ def admin_panel():
 
 @app.route("/admin/ban", methods=["POST"])
 @login_required
+@csrf_protect
 def admin_ban():
-    if request.content_type.startswith("application/json"):
+    if (request.content_type or "").startswith("application/json"):
         data = request.get_json(force=True)
         ip = data.get("ip")
         token = data.get("token")
@@ -961,8 +1175,9 @@ def admin_ban():
 
 @app.route("/admin/unban", methods=["POST"])
 @login_required
+@csrf_protect
 def admin_unban():
-    if request.content_type.startswith("application/json"):
+    if (request.content_type or "").startswith("application/json"):
         data = request.get_json(force=True)
         ip = data.get("ip")
         token = data.get("token")
@@ -996,13 +1211,15 @@ def check_is_banned():
 
 
 @app.route("/admin/login", methods=["GET", "POST"])
+@csrf_protect
 def admin_login():
     if request.method == "POST":
-        username = request.form.get("username")
-        password = request.form.get("password")
-        if username == os.getenv("ADMIN_USERNAME") and password == os.getenv(
-            "ADMIN_PASSWORD"
-        ):
+        username = request.form.get("username") or ""
+        password = request.form.get("password") or ""
+        # Constant-time compare to avoid timing attacks.
+        user_ok = hmac.compare_digest(username, os.getenv("ADMIN_USERNAME", ""))
+        pass_ok = hmac.compare_digest(password, os.getenv("ADMIN_PASSWORD", ""))
+        if user_ok and pass_ok:
             session["admin_logged_in"] = True
             flash("Logged in successfully.", "success")
             next_page = request.args.get("next") or url_for("admin_panel")
@@ -1024,13 +1241,14 @@ def admin_logout():
 @login_required
 def view_api_keys():
     keys = list_api_keys()
-    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
         return jsonify({"api_keys": keys})
     return render_template("admin/api_keys.html", api_keys=keys)
 
 
 @app.route("/admin/api-keys/create", methods=["POST"])
 @login_required
+@csrf_protect
 def create_api_key_admin():
     data = request.get_json() or {}
     name = data.get("name", "Unnamed Key").strip()
@@ -1057,23 +1275,35 @@ def create_api_key_admin():
 
 @app.route("/admin/api-keys/<key_hash>/revoke", methods=["POST"])
 @login_required
+@csrf_protect
 def revoke_api_key_admin(key_hash):
+    try:
+        revoke_api_key(key_hash)
+    except Exception as e:
+        log_err(f"Failed to revoke API key: {e}")
+        return jsonify({"success": False, "error": "Failed to revoke key"}), 500
     return jsonify({"success": True, "message": "Key revoked"}), 200
 
 
 def _startup_async():
-    print("🚀 Starting up database...")
+    log_ok("🚀 Starting up database...")
     init_db()
-    print("✅ Starting up log writer thread...")
+    log_ok("Starting up log writer thread...")
     log_writer = threading.Thread(target=_log_writer_thread, daemon=True)
     log_writer.start()
-    print("✅ Startup complete.")
+    port = int(os.environ.get("PORT", 5000))
+    health_thread = threading.Thread(
+        target=_health_monitor_thread, args=(port,), daemon=True
+    )
+    health_thread.start()
+    log_ok("Health monitor started.")
+    log_ok("Startup complete.")
+
 
 startup_thread = threading.Thread(target=_startup_async, daemon=True)
 startup_thread.start()
 
-# Search routing
-ROUTER_MODEL = "command-r7b-12-2024"
+# --- Search routing -----------------------------------------------------
 
 _SEARCH_HINTS = re.compile(
     r"\b(current|latest|today|tonight|now|recent|live|price|weather|score|"
@@ -1087,6 +1317,7 @@ _SHORT_MSG_MAX_TOKENS = 6
 
 
 def _quick_no(msg: str) -> bool:
+    """Skips the LLM router entirely for obviously non-search messages."""
     stripped = msg.strip()
     if not stripped:
         return True
@@ -1097,16 +1328,50 @@ def _quick_no(msg: str) -> bool:
     return False
 
 
-# Decide whether a message likely needs live web grounding.
+class TTLCache:
+    """Bounded, thread-safe TTL cache — evicts oldest entries once full."""
+    def __init__(self, ttl_seconds: int = 3600, max_entries: int = 1000):
+        self._data = {}
+        self._ttl = ttl_seconds
+        self._max = max_entries
+        self._lock = threading.Lock()
+
+    def get(self, key):
+        with self._lock:
+            item = self._data.get(key)
+            if item is None:
+                return None
+            value, ts = item
+            if (time.time() - ts) > self._ttl:
+                del self._data[key]
+                return None
+            return value
+
+    def set(self, key, value):
+        with self._lock:
+            if len(self._data) >= self._max:
+                for old_key in list(self._data.keys())[: self._max // 4]:
+                    del self._data[old_key]
+            self._data[key] = (value, time.time())
+
+    def __contains__(self, key):
+        return self.get(key) is not None
+
+
+_tavily_router_cache = TTLCache(ttl_seconds=3600, max_entries=1000)
+_tavily_result_cache = TTLCache(ttl_seconds=600, max_entries=500)
+
+
 async def needs_tavily(user_message: str) -> bool:
+    """LLM-classifies whether a message needs live web grounding."""
     if _quick_no(user_message):
         log_router("NO")
         return False
 
-    cache = app.config.setdefault("tavily_router_cache", {})
     key = hashlib.sha1(user_message.strip().lower().encode()).hexdigest()
-    if key in cache:
-        return cache[key]
+    cached = _tavily_router_cache.get(key)
+    if cached is not None:
+        return cached
 
     prompt = f"""
 You are a search routing classifier. Does this message require a live web search?
@@ -1148,16 +1413,16 @@ Message: \"\"\"{user_message}\"\"\"
 
         decision = await asyncio.to_thread(sync_call)
         result = decision.startswith("YES")
-        cache[key] = result
+        _tavily_router_cache.set(key, result)
         log_router(decision)
         return result
 
     except Exception as e:
-        log_err(f"Router failed: {e}")
+        log_err(f"Router failed: {type(e).__name__}: {str(e)[:120]}")
         return False
 
 
-async def tavily_search(query: str, max_results: int = 3) -> str:
+async def tavily_search(query: str, max_results: int = 3):
     query = query[:400]
     try:
 
@@ -1184,32 +1449,29 @@ async def tavily_search(query: str, max_results: int = 3) -> str:
 
         return await asyncio.to_thread(sync_search)
     except Exception as e:
-        log_err(f"Tavily search failed: {e}")
+        log_err(f"Tavily search failed: {type(e).__name__}: {str(e)[:120]}")
         return None
 
 
-async def get_grounding(user_message: str) -> str:
+async def get_grounding(user_message: str):
     if not user_message:
         return None
 
-    if "tavily_cache" not in app.config:
-        app.config["tavily_cache"] = {}
-
-    cache = app.config["tavily_cache"]
     cache_key = f"tavily:{user_message.strip()[:50]}"
-
-    if cache_key in cache:
-        return cache[cache_key]
+    cached = _tavily_result_cache.get(cache_key)
+    if cached is not None:
+        return cached
 
     result = await tavily_search(user_message)
-    cache[cache_key] = result if result else "No relevant info found."
-    return cache[cache_key]
+    value = result if result else "No relevant info found."
+    _tavily_result_cache.set(cache_key, value)
+    return value
 
 
 @app.route("/tavily", methods=["POST"])
 async def tavily_route():
-    data = await request.get_json()
-    query = data.get("query", "").strip()
+    data = request.get_json(silent=True) or {}
+    query = (data.get("query") or "").strip()
     if not query:
         return jsonify({"error": "Missing query"}), 400
     try:
@@ -1218,11 +1480,12 @@ async def tavily_route():
             {"query": query, "grounding": grounding or "No relevant info found."}
         )
     except Exception as e:
-        log_err(f"Tavily error: {e}")
+        log_err(f"Tavily error: {type(e).__name__}: {str(e)[:120]}")
         return jsonify({"error": "Tavily search failed."}), 500
 
-# Protected API
-# Protected API for external clients using bearer-token auth.
+
+# --- Bearer-token API for external clients -----------------------------
+
 @app.route("/api/v1/chat", methods=["POST"])
 async def api_v1_chat():
     auth_header = request.headers.get("Authorization", "")
@@ -1267,89 +1530,130 @@ async def api_v1_chat():
     if not user_message:
         return jsonify({"error": "Message cannot be empty"}), 400
 
-    valid_models = ["gemini", "cohere", "mistral"]
-    if model_choice not in valid_models:
+    if model_choice not in VALID_MODELS:
         return (
             jsonify(
-                {"error": f"Invalid model. Choose from: {', '.join(valid_models)}"}
+                {"error": f"Invalid model. Choose from: {', '.join(VALID_MODELS)}"}
             ),
             400,
         )
 
     try:
-        if model_choice == "gemini":
-            response_content = get_gemini_response(user_message)
-        elif model_choice == "cohere":
-            response_content = get_cohere_response(user_message)
-        else:
-            response_content = await get_mistral_response(user_message)
-
-        log_api_usage(
-            api_key,                      # ✓ Position 1: api_key
-            model_choice,                 # ✓ Position 2: model
-            len(user_message),            # ✓ Position 3: message_len
-            len(response_content),        # ✓ Position 4: response_len
-            200,                          # ✓ Position 5: status
-        )
-
-        return (
-            jsonify(
-                {
-                    "success": True,
-                    "response": response_content,
-                    "model": model_choice,
-                    "timestamp": datetime.now().isoformat(),
-                }
-            ),
-            200,
-        )
-
+        response_content = await get_model_response(model_choice, user_message)
     except Exception as e:
-        log_err(f"API error: {e}")
-        log_api_usage(
-            api_key,
-            model_choice,
-            len(user_message),
-            0,
-            500,
-        )
+        log_err(f"API error: {type(e).__name__}: {str(e)[:120]}")
+        _safe_log_api_usage(api_key, model_choice, len(user_message), 0, 500)
         return jsonify({"success": False, "error": str(e)}), 500
-    
-    
+
+    _safe_log_api_usage(
+        api_key, model_choice, len(user_message), len(response_content), 200
+    )
+
+    return (
+        jsonify(
+            {
+                "success": True,
+                "response": response_content,
+                "model": model_choice,
+                "timestamp": datetime.now().isoformat(),
+            }
+        ),
+        200,
+    )
+
+
+def _safe_log_api_usage(api_key, model, message_len, response_len, status_code):
+    """Never lets a logging failure affect the actual request outcome."""
+    try:
+        log_api_usage(api_key, model, message_len, response_len, status_code)
+    except Exception as e:
+        log_warn(f"⚠️ API usage logging failed (non-fatal): {e}")
+
+
 @app.route("/api/status/key", methods=["GET"])
 def api_key_status():
     auth_header = request.headers.get("Authorization", "")
     if not auth_header.startswith("Bearer "):
-        return jsonify({
-            "error": "Missing Authorization header"
-        }), 401
-    
+        return jsonify({"error": "Missing Authorization header"}), 401
+
     api_key = auth_header.replace("Bearer ", "").strip()
     key_info = get_api_key_info(api_key)
-    
+
     if not key_info:
         return jsonify({"error": "Invalid API key"}), 403
-    
-    return jsonify({
-        "valid": True,
-        "name": key_info["name"],
-        "is_active": key_info["is_active"],
-        "requests_total": key_info["requests_total"],
-        "last_used": key_info["last_used"]
-    }), 200
+
+    return (
+        jsonify(
+            {
+                "valid": True,
+                "name": key_info["name"],
+                "is_active": key_info["is_active"],
+                "requests_total": key_info["requests_total"],
+                "last_used": key_info["last_used"],
+            }
+        ),
+        200,
+    )
 
 
+# --- Chat message logging + refusal handling -----------------------------
 
-# Main chat route that handles text, files, images, grounding, and model calls.
+_LOG_CLEAN_MAX_INPUT = 2000  # cap before regex to avoid ReDoS on huge input
+
+_LOG_CLEAN_PATTERNS = [
+    (
+        r'You are a knowledgeable assistant.*?Question:\s*"(.+?)".*',
+        r"[Quiz] \1",
+    ),
+    (
+        r'You are filling out a web form.*?labeled:\s*"(.+?)".*',
+        r"[Fill field] \1",
+    ),
+    (
+        r'You are an AI form-filling assistant.*?on "(.+?)".*',
+        r"[Auto-fill] \1",
+    ),
+    (r'Improve the writing of this text.*?:\s*"(.+?)".*', r"[Improve] \1"),
+    (r'Rephrase this more clearly.*?:\s*"(.+?)".*', r"[Rephrase] \1"),
+    (r'Summarize this.*?:\s*"(.+?)".*', r"[Summarize] \1"),
+    (r'Explain this in simple terms.*?:\s*"(.+?)".*', r"[Explain] \1"),
+    (r'Translate this to English.*?:\s*"(.+?)".*', r"[Translate] \1"),
+    (r"Summarize this web page.*", "[Page summarize]"),
+    (r"Explain what this web page.*", "[Page explain]"),
+]
+
+
+def clean_log_message(msg: str) -> str:
+    """Collapses known extension prompt wrappers into a short log tag."""
+    msg = msg[:_LOG_CLEAN_MAX_INPUT]
+    for pattern, replacement in _LOG_CLEAN_PATTERNS:
+        cleaned = re.sub(pattern, replacement, msg, flags=re.DOTALL | re.IGNORECASE)
+        if cleaned != msg:
+            return cleaned[:120]
+    return msg[:120]
+
+
+# Only replaces a response that STARTS with a refusal — not one that merely
+# mentions "sorry" mid-answer.
+_REFUSAL_STARTS = ("i don't know", "i'm not sure", "im not sure", "sorry,", "sorry.")
+
+
+def _looks_like_refusal(response: str) -> bool:
+    head = response.strip().lower()[:40]
+    return any(head.startswith(p) for p in _REFUSAL_STARTS)
+
+
+# --- Main chat route -----------------------------------------------------
+
 @app.route("/chat", methods=["GET", "POST"])
 async def chat():
-    global IS_DOWN
-
+    """Handles text, slash commands, file/image uploads, grounding, and model calls."""
     if request.method == "GET":
         return status()
 
     try:
-        if IS_DOWN:
+        is_down, _, _ = get_down_state()
+        if is_down:
             return jsonify({"error": "Service is down", "is_down": True}), 503
 
         if not request.is_json and "file" not in request.files:
@@ -1364,40 +1668,30 @@ async def chat():
         model_choice = data.get("model", "gemini")
         user_wants_grounding = data.get("ground", False)
 
+        # Real ban enforcement — the client-side list is UX only.
+        ban_ip = (
+            data.get("ip")
+            or request.form.get("ip")
+            or request.headers.get("X-Forwarded-For")
+            or request.remote_addr
+        )
+        ban_token = data.get("token") or request.form.get("token")
+        if is_banned(ip=ban_ip, token=ban_token):
+            log_warn(f"⚠️ Blocked chat request from banned identity: ip={ban_ip}")
+            return (
+                jsonify(
+                    {
+                        "error": "You have been banned from using Mist.AI.",
+                        "banned": True,
+                    }
+                ),
+                403,
+            )
+
         if not user_message and not img_url and "file" not in request.files:
             return jsonify({"error": "Message can't be empty."}), 400
 
         lower_msg = user_message.lower()
-
-        def clean_log_message(msg: str) -> str:
-            patterns = [
-                (
-                    r'You are a knowledgeable assistant.*?Question:\s*"(.+?)".*',
-                    r"[Quiz] \1",
-                ),
-                (
-                    r'You are filling out a web form.*?labeled:\s*"(.+?)".*',
-                    r"[Fill field] \1",
-                ),
-                (
-                    r'You are an AI form-filling assistant.*?on "(.+?)".*',
-                    r"[Auto-fill] \1",
-                ),
-                (r'Improve the writing of this text.*?:\s*"(.+?)".*', r"[Improve] \1"),
-                (r'Rephrase this more clearly.*?:\s*"(.+?)".*', r"[Rephrase] \1"),
-                (r'Summarize this.*?:\s*"(.+?)".*', r"[Summarize] \1"),
-                (r'Explain this in simple terms.*?:\s*"(.+?)".*', r"[Explain] \1"),
-                (r'Translate this to English.*?:\s*"(.+?)".*', r"[Translate] \1"),
-                (r"Summarize this web page.*", "[Page summarize]"),
-                (r"Explain what this web page.*", "[Page explain]"),
-            ]
-            for pattern, replacement in patterns:
-                cleaned = re.sub(
-                    pattern, replacement, msg, flags=re.DOTALL | re.IGNORECASE
-                )
-                if cleaned != msg:
-                    return cleaned[:120]
-            return msg[:120]
 
         log_message = clean_log_message(user_message)
 
@@ -1419,9 +1713,7 @@ async def chat():
                 return jsonify({"error": "No file selected"}), 400
             content = file.stream.read()
             ext = os.path.splitext(file.filename.lower())[1]
-            extracted = file_processors.get(ext, lambda _: "⚠️ Unsupported file type.")(
-                content
-            )
+            extracted = file_processors.get(ext, process_unsupported)(content)
             await upload_to_gofile(file.filename, content, file.mimetype)
             return jsonify(
                 {"response": extracted.strip() or "⚠️ No readable text found."}
@@ -1491,16 +1783,9 @@ async def chat():
         word_count = len(user_message.split())
         max_tok = 4096 if word_count > 200 else 1024
 
-        if model_choice == "gemini":
-            response_content = get_gemini_response(full_prompt, max_tok)
-        elif model_choice == "cohere":
-            response_content = get_cohere_response(full_prompt, max_tok)
-        else:
-            response_content = await get_mistral_response(full_prompt, max_tok)
+        response_content = await get_model_response(model_choice, full_prompt, max_tok)
 
-        if any(
-            x in response_content.lower() for x in ["i don't know", "not sure", "sorry"]
-        ):
+        if _looks_like_refusal(response_content):
             response_content = "🤖 Try rephrasing — I didn't quite get that."
 
         user_ip = (
@@ -1516,7 +1801,6 @@ async def chat():
                         "message": log_message,
                     }
                 )
-        if not is_extension:
             log_chat(user_ip, model_choice, log_message, response_content)
 
         @after_this_request
@@ -1535,30 +1819,50 @@ async def chat():
 
     except Exception as e:
         error_msg = str(e)
-        
-        if "reciting from copyrighted material" in error_msg or "finish_reason" in error_msg:
+
+        if (
+            "reciting from copyrighted material" in error_msg
+            or "finish_reason" in error_msg
+        ):
             log_warn(f"⚠️ Gemini copyright filter: {error_msg[:80]}")
-            return jsonify({
-                "response": "I can't answer that question — it involves copyrighted material I'm not able to reproduce.",
-                "is_down": False,
-            }), 200
-        
+            return (
+                jsonify(
+                    {
+                        "response": "I can't answer that question — it involves copyrighted material I'm not able to reproduce.",
+                        "is_down": False,
+                    }
+                ),
+                200,
+            )
+
         log_err(f"Chat route error: {type(e).__name__}: {error_msg[:100]}")
-        set_down_mode(type(e).__name__)
+        if _is_critical_error(e):
+            set_down_mode(type(e).__name__)
+            _, reason, ts = get_down_state()
+            return (
+                jsonify(
+                    {
+                        "error": error_msg,
+                        "is_down": True,
+                        "reason": reason,
+                        "timestamp": ts,
+                    }
+                ),
+                503,
+            )
         return (
             jsonify(
                 {
-                    "error": error_msg,
-                    "is_down": True,
-                    "reason": DOWN_REASON,
-                    "timestamp": DOWN_TIMESTAMP,
+                    "error": "Upstream service hiccup — try again in a moment.",
+                    "is_down": False,
                 }
             ),
             503,
         )
 
-# Slash commands
-# Interpret slash commands like weather, jokes, and mini games.
+
+# --- Slash commands -----------------------------------------------------
+
 async def handle_command(command):
     command = command.strip().lower()
 
@@ -1632,13 +1936,15 @@ async def handle_command(command):
         riddle = random.choice(riddles)
         return f"🤔 {riddle[0]}<br><br><span class='hidden-answer' onclick='this.classList.add(\"revealed\")'>Answer: {riddle[1]}</span>"
 
-    global weather_session
     if command.startswith("/weather"):
         parts = command.split(" ", 1)
-        city = parts[1].strip() if len(parts) > 1 else weather_session.get("last_city")
+        with _weather_session_lock:
+            last_city = weather_session.get("last_city")
+        city = parts[1].strip() if len(parts) > 1 else last_city
         if not city:
             return "❌ Please provide a city name. Example: `/weather New York`"
-        weather_session["last_city"] = city
+        with _weather_session_lock:
+            weather_session["last_city"] = city
         weather_data = await get_weather_data(city)
         if "error" in weather_data:
             return f"❌ Error: {weather_data['error']}"
@@ -1656,7 +1962,8 @@ async def handle_command(command):
     return "❌ Unknown command. Type /help for a list of valid commands."
 
 
-# Model prompts
+# --- Model prompts + adapters -----------------------------------------------
+
 SYSTEM_PROMPT_BASE = """You are Mist.AI, a smart and direct AI assistant created by Kristian Cook.
 Tone:
 - Direct and confident, but always friendly — never cold or robotic.
@@ -1692,6 +1999,12 @@ If the user asks a reflective or personal question:
 Goal:
 Be the assistant people actually want to use — fast, clear, helpful, and real."""
 
+PERSONALITIES = {
+    "gemini": ("Mist.AI Nova", "Hey, I'm Mist.AI Nova! How can I help? ✨"),
+    "cohere": ("Mist.AI Sage", "Hey, I'm Mist.AI Sage! How can I help? ✨"),
+    "mistral": ("Mist.AI Flux", "Hey, I'm Mist.AI Flux! How can I help? ✨"),
+}
+
 
 def build_system_prompt(personality_name, greeting):
     return f"""
@@ -1706,23 +2019,21 @@ Greet users on first interaction with: '{greeting}'
 """
 
 
-TEMPERATURE = 0.3
-MAX_TOKENS = 2045
+def system_prompt_for(model: str) -> str:
+    name, greeting = PERSONALITIES[model]
+    return build_system_prompt(name, greeting)
 
-# Model adapters
 
 def get_gemini_response(prompt, max_tokens=MAX_TOKENS):
     import google.generativeai as genai
+
     ensure_gemini_configured()
 
-    system_prompt = build_system_prompt(
-        "Mist.AI Nova", "Hey, I'm Mist.AI Nova! How can I help? ✨"
-    )
-    full_prompt = f"{system_prompt}\n{prompt}"
-    
-    model = genai.GenerativeModel("gemini-3.6-flash")
+    full_prompt = f"{system_prompt_for('gemini')}\n{prompt}"
+
+    model = genai.GenerativeModel(GEMINI_MODEL)
     chat_session = model.start_chat()
-    
+
     try:
         response = chat_session.send_message(
             full_prompt,
@@ -1731,12 +2042,12 @@ def get_gemini_response(prompt, max_tokens=MAX_TOKENS):
                 max_output_tokens=max_tokens,
             ),
         )
-        
+
         if not response.text or response.text.strip() == "":
             return "I can't answer that question — it involves copyrighted material I'm not able to reproduce."
-        
+
         return response.text.strip()
-    
+
     except ValueError as e:
         if "reciting from copyrighted material" in str(e):
             return "I can't answer that question — it involves copyrighted material I'm not able to reproduce."
@@ -1744,19 +2055,15 @@ def get_gemini_response(prompt, max_tokens=MAX_TOKENS):
 
 
 def get_cohere_response(prompt: str, max_tokens=MAX_TOKENS):
-    system_prompt = build_system_prompt(
-        "Mist.AI Sage", "Hey, I'm Mist.AI Sage! How can I help? ✨"
-    )
-
     co = get_cohere_client()
 
     messages = [
-        {"role": "system", "content": system_prompt},
+        {"role": "system", "content": system_prompt_for("cohere")},
         {"role": "user", "content": prompt},
     ]
 
     resp = co.chat(
-        model="command-a-plus-05-2026",
+        model=COHERE_MODEL,
         messages=messages,
         temperature=TEMPERATURE,
         max_tokens=max_tokens,
@@ -1779,78 +2086,82 @@ def get_cohere_response(prompt: str, max_tokens=MAX_TOKENS):
 
 
 async def get_mistral_response(prompt, max_tokens=MAX_TOKENS):
-    system_prompt = build_system_prompt(
-        "Mist.AI Flux", "Hey, I'm Mist.AI Flux! How can I help? ✨"
-    )
-
     headers = {
         "Authorization": f"Bearer {MISTRAL_API_KEY}",
         "Content-Type": "application/json",
     }
 
     payload = {
-        "model": "mistral-small-latest",
+        "model": MISTRAL_MODEL,
         "messages": [
-            {"role": "system", "content": system_prompt},
+            {"role": "system", "content": system_prompt_for("mistral")},
             {"role": "user", "content": prompt},
         ],
         "temperature": TEMPERATURE,
         "max_tokens": max_tokens,
     }
 
-    async with httpx.AsyncClient() as client:
-        response = await client.post(MISTRAL_ENDPOINT, headers=headers, json=payload)
-        response.raise_for_status()
-        data = response.json()
+    response = await http_post(MISTRAL_ENDPOINT, headers=headers, json=payload)
+    if response.status_code >= 400:
+        log_err(f"Mistral API {response.status_code}: {response.text[:200]}")
+    response.raise_for_status()
+    data = response.json()
 
-        return data["choices"][0]["message"]["content"].strip()
+    return data["choices"][0]["message"]["content"].strip()
 
 
-# Fetch current conditions and a short forecast for a city.
-async def get_weather_data(city):
+async def get_model_response(model: str, prompt: str, max_tokens=MAX_TOKENS) -> str:
+    """Dispatches to the right provider — sync SDKs run in a thread."""
+    if model == "gemini":
+        return await asyncio.to_thread(get_gemini_response, prompt, max_tokens)
+    if model == "cohere":
+        return await asyncio.to_thread(get_cohere_response, prompt, max_tokens)
+    return await get_mistral_response(prompt, max_tokens)
+
+
+async def get_weather_data(city) -> dict:
     try:
-        async with httpx.AsyncClient() as client:
-            geo_resp = await client.get(
-                f"{API_BASE_URL}/weather",
-                params={"q": city, "appid": API_KEY, "units": temperatureUnit},
+        geo_resp = await http_get(
+            f"{API_BASE_URL}/weather",
+            params={"q": city, "appid": WEATHER_API_KEY, "units": temperatureUnit},
+        )
+        geo_data = geo_resp.json()
+        if geo_data.get("cod") != 200:
+            return {"error": geo_data.get("message", "City not found.")}
+
+        lat = geo_data["coord"]["lat"]
+        lon = geo_data["coord"]["lon"]
+
+        one_call_resp = await http_get(
+            "https://api.openweathermap.org/data/3.0/onecall",
+            params={
+                "lat": lat,
+                "lon": lon,
+                "exclude": "minutely,daily,alerts,current",
+                "appid": WEATHER_API_KEY,
+                "units": temperatureUnit,
+            },
+        )
+        one_call_data = one_call_resp.json()
+
+        upcoming = []
+        for hour_data in one_call_data.get("hourly", [])[:6]:
+            timestamp = datetime.fromtimestamp(hour_data["dt"])
+            upcoming.append(
+                {
+                    "hour": timestamp.strftime("%I:%M %p"),
+                    "temp": f"{round(hour_data['temp'])}",
+                    "desc": hour_data["weather"][0]["description"].capitalize(),
+                }
             )
-            geo_data = geo_resp.json()
-            if geo_data.get("cod") != 200:
-                return {"error": geo_data.get("message", "City not found.")}
 
-            lat = geo_data["coord"]["lat"]
-            lon = geo_data["coord"]["lon"]
-
-            one_call_resp = await client.get(
-                "https://api.openweathermap.org/data/3.0/onecall",
-                params={
-                    "lat": lat,
-                    "lon": lon,
-                    "exclude": "minutely,daily,alerts,current",
-                    "appid": API_KEY,
-                    "units": temperatureUnit,
-                },
-            )
-            one_call_data = one_call_resp.json()
-
-            upcoming = []
-            for hour_data in one_call_data.get("hourly", [])[:6]:
-                timestamp = datetime.fromtimestamp(hour_data["dt"])
-                upcoming.append(
-                    {
-                        "hour": timestamp.strftime("%I:%M %p"),
-                        "temp": f"{round(hour_data['temp'])}",
-                        "desc": hour_data["weather"][0]["description"].capitalize(),
-                    }
-                )
-
-            return {
-                "temperature": f"{round(geo_data['main']['temp'])}°F",
-                "description": geo_data["weather"][0]["description"].capitalize(),
-                "hourly": upcoming,
-            }
+        return {
+            "temperature": f"{round(geo_data['main']['temp'])}°F",
+            "description": geo_data["weather"][0]["description"].capitalize(),
+            "hourly": upcoming,
+        }
     except Exception as e:
-        log_err(f"❌ Weather API error: {e}")
+        log_err(f"❌ Weather API error: {type(e).__name__}: {e}")
         return {"error": str(e)}
 
 
@@ -1897,7 +2208,6 @@ def get_random_fun_fact():
     return random.choice(fun_facts)
 
 
-# Runtime
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     log.info(f"🚀 Mist.AI Server is starting on 0.0.0.0:{port}...")
