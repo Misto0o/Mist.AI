@@ -22,6 +22,7 @@ import hmac
 import threading
 import queue as queue_module
 from contextlib import closing
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from functools import wraps
 import hashlib
@@ -349,8 +350,13 @@ def get_down_state():
 
 
 # Pings key routes on an interval; repeated failures trigger down mode.
-# Routes are our own — never a route that depends on a third-party API, or
-# an upstream blip (e.g. a news API outage) would falsely take the site down.
+# Checked IN-PROCESS via Flask's test client, not over a real socket — a
+# prior version used httpx to hit http://127.0.0.1, which produced
+# consistent false-positive ConnectErrors on Fly even while real external
+# traffic through the same port succeeded seconds later (proxy env vars,
+# IPv6/IPv4 loopback quirks, and dev-server connection handling can all
+# break self-loopback without the app actually being unhealthy). Calling
+# the WSGI app directly sidesteps all of that.
 HEALTH_INTERVAL = 60
 HEALTH_FAIL_THRESHOLD = 3
 HEALTH_PING_TIMEOUT = 15.0
@@ -358,20 +364,33 @@ HEALTH_PING_RETRIES = 2   # inline retries per route before counting a failure
 HEALTH_PING_RETRY_DELAY = 3
 HEALTH_ROUTES = ["/status", "/", "/api/status"]
 
+_health_test_client = None
+_health_client_lock = threading.Lock()
 
-def _ping_route(base: str, route: str) -> bool:
-    """True if the route responded healthily, retrying once before giving up
-    — a single dropped connection shouldn't count against the route."""
+
+def _get_health_client():
+    global _health_test_client
+    if _health_test_client is None:
+        with _health_client_lock:
+            if _health_test_client is None:
+                _health_test_client = app.test_client()
+    return _health_test_client
+
+
+def _ping_route(route: str) -> bool:
+    """True if the route responded healthily. A timeout guard (via a worker
+    thread) still applies even though there's no real socket, in case a
+    route ever genuinely hangs on a blocking call."""
+    client = _get_health_client()
     for attempt in range(HEALTH_PING_RETRIES):
         try:
-            resp = _http.get(
-                base + route, timeout=HEALTH_PING_TIMEOUT, follow_redirects=True
-            )
+            with ThreadPoolExecutor(max_workers=1) as ex:
+                resp = ex.submit(client.get, route).result(timeout=HEALTH_PING_TIMEOUT)
             if resp.status_code < 500:
                 return True
         except Exception as e:
             if attempt == HEALTH_PING_RETRIES - 1:
-                log_warn(f"⚠️ Health ping {route} failed: {type(e).__name__}")
+                log_warn(f"⚠️ Health check {route} failed: {type(e).__name__}")
                 return False
             time.sleep(HEALTH_PING_RETRY_DELAY)
             continue
@@ -380,15 +399,14 @@ def _ping_route(base: str, route: str) -> bool:
 
 
 def _health_monitor_thread(port: int):
-    base = f"http://127.0.0.1:{port}"
     fail_counts = {route: 0 for route in HEALTH_ROUTES}
-    time.sleep(20)  # let the server (and container networking) fully warm up
+    time.sleep(20)  # let startup (DB init, etc.) fully settle
     while True:
         try:
             is_down, _, _ = get_down_state()
             if not is_down:
                 for route in HEALTH_ROUTES:
-                    if _ping_route(base, route):
+                    if _ping_route(route):
                         fail_counts[route] = 0
                         continue
                     fail_counts[route] += 1
