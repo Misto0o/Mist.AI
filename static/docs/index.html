@@ -7,7 +7,7 @@
     <title>MistAI Desktop — Documentation</title>
     <link rel="stylesheet" href="/docs/docs.css">
     <meta name="description"
-        content="MistAI Desktop Assistant — voice control, screen vision, and intelligent automation for Windows, macOS, and Linux." />
+        content="MistAI Desktop Assistant — voice control, screen vision, and verified desktop automation for Windows, with macOS/Linux support in progress." />
     <meta name="keywords" content="MistAI, desktop assistant, AI-powered assistant, voice control, Nova, Sage, Flux" />
     <meta name="author" content="Kristian Cook" />
     <meta property="og:image" content="static/docs/images/mistai_imresizer.jpg" />
@@ -60,14 +60,15 @@
 
     <section class="hero-section">
         <div class="hero-inner">
-            <div class="hero-tag">Beta 1.5</div>
+            <div class="hero-tag">V2</div>
             <h1>MistAI Desktop Assistant</h1>
-            <p class="hero-sub">Voice control, screen vision, and intelligent automation — powered by Nova, Sage, and
-                Flux.</p>
+            <p class="hero-sub">Voice control, screen vision, and verified desktop automation — every action is
+                checked against reality, not assumed to have worked.</p>
             <div class="hero-badges">
                 <span class="badge">Voice Control</span>
                 <span class="badge">Screen Vision</span>
-                <span class="badge">3 AI Personalities</span>
+                <span class="badge">Real Browser Automation</span>
+                <span class="badge">Verified Execution</span>
                 <span class="badge">Live Captions</span>
             </div>
             <div class="hero-cta">
@@ -89,8 +90,13 @@
                         <h2 class="card-title">What is MistAI Desktop?</h2>
                         <p>MistAI Desktop brings your AI assistant out of the browser and onto your system — listening
                             for your voice, watching your screen, and taking action in real time.</p>
-                        <p>Built by Kristian, it expands the MistAI ecosystem with multiple AI personalities powered by
-                            different LLM backends, each optimized for speed, reasoning, or balanced performance.</p>
+                        <p>V2 is a rebuild of the core execution model: every action now goes through a single path
+                            that settles, verifies against ground truth (was the file actually written? does the
+                            window actually have focus?), and only then reports success back to the model — instead
+                            of trusting that a click or a launch worked.</p>
+                        <p>Built by Kristian, MistAI is intentionally <em>not</em> a fixed menu of hardcoded
+                            functions. The agent reasons about each task and decides its own steps; the actions below
+                            are the tools it has available, not a script it follows.</p>
                     </div>
                     <div class="content-card">
                         <h2 class="card-title">The Three Personalities</h2>
@@ -98,22 +104,25 @@
                             <div class="personality-item">
                                 <div class="personality-icon gemini-icon">N</div>
                                 <div>
-                                    <h4>Nova</h4>
+                                    <h4>Nova <span class="status-pill status-ok">Available</span></h4>
                                     <p>Fast, lightweight, creative. Powered by Gemini 2.5 Flash.</p>
                                 </div>
                             </div>
                             <div class="personality-item">
                                 <div class="personality-icon cohere-icon">S</div>
                                 <div>
-                                    <h4>Sage</h4>
-                                    <p>Strong reasoning and memory. Runs on Command-R7B.</p>
+                                    <h4>Sage <span class="status-pill status-ok">Available</span></h4>
+                                    <p>Strong reasoning and memory. Runs on Cohere's Command models, and is currently
+                                        the desktop assistant's default brain.</p>
                                 </div>
                             </div>
                             <div class="personality-item">
                                 <div class="personality-icon mistral-icon">F</div>
                                 <div>
-                                    <h4>Flux</h4>
-                                    <p>Balanced speed and performance. Powered by Mistral.</p>
+                                    <h4>Flux <span class="status-pill status-warn">Temporarily degraded</span></h4>
+                                    <p>Balanced speed and performance, powered by Mistral. Mistral's free tier is
+                                        currently disabled upstream, so Flux requests are automatically served by
+                                        Sage until that's restored.</p>
                                 </div>
                             </div>
                         </div>
@@ -126,36 +135,43 @@
                 <div class="grid-4">
                     <div class="feature-card-compact">
                         <div class="feature-label">Wake Detection</div>
-                        <p>Say "Mist" or "Hey Mist" to activate hands-free. Includes fuzzy matching for natural speech.
-                        </p>
+                        <p>Say "Mist" or "Hey Mist" to activate hands-free, with word-boundary matching so it doesn't
+                            trigger on unrelated words that merely contain similar sounds.</p>
                     </div>
                     <div class="feature-card-compact">
                         <div class="feature-label">Screen Vision</div>
-                        <p>Reads and clicks on UI elements using advanced OCR and computer vision.</p>
+                        <p>Reads and clicks on native-app UI elements using OCR, computer vision, and the Windows
+                            accessibility tree — with an on-screen indicator showing exactly where and how a click was
+                            resolved.</p>
+                    </div>
+                    <div class="feature-card-compact">
+                        <div class="feature-label">Real Browser Automation</div>
+                        <p>A dedicated, persistent browser instance reads and interacts with the actual page
+                            structure (DOM) instead of guessing from a screenshot.</p>
+                    </div>
+                    <div class="feature-card-compact">
+                        <div class="feature-label">Verified Execution</div>
+                        <p>Every action is checked against ground truth after it runs — a claimed success that
+                            didn't actually happen is caught and reported, not trusted blindly.</p>
                     </div>
                     <div class="feature-card-compact">
                         <div class="feature-label">Live Captions</div>
                         <p>Real-time overlays of what MistAI is saying and doing at the bottom of your screen.</p>
                     </div>
                     <div class="feature-card-compact">
-                        <div class="feature-label">Proactive Mode</div>
-                        <p>Smart suggestions based on what you're working on — before you even ask.</p>
+                        <div class="feature-label">App &amp; Window Control</div>
+                        <p>Opens, focuses, and manages applications and windows, distinguishing between "already
+                            open and visible" and "running but hidden" rather than treating both as success.</p>
                     </div>
                     <div class="feature-card-compact">
-                        <div class="feature-label">App Control</div>
-                        <p>Opens and focuses applications instantly with voice or text commands.</p>
+                        <div class="feature-label">Multi-Phase Tasks</div>
+                        <p>Larger goals are broken into a dependency graph of phases that can be paused and resumed
+                            by name — a failed phase only blocks the work that actually depends on it.</p>
                     </div>
                     <div class="feature-card-compact">
-                        <div class="feature-label">Multi-Step Actions</div>
-                        <p>Chain multiple commands together for complex workflows.</p>
-                    </div>
-                    <div class="feature-card-compact">
-                        <div class="feature-label">Context Memory</div>
-                        <p>Remembers conversations, tracks apps, and knows what you're working on.</p>
-                    </div>
-                    <div class="feature-card-compact">
-                        <div class="feature-label">Smart Recovery</div>
-                        <p>When actions fail, MistAI consults its AI brain for recovery strategies.</p>
+                        <div class="feature-label">Persistent Memory</div>
+                        <p>Remembers conversations, facts, and reminders, and tracks which strategies have worked or
+                            failed before so it doesn't repeat known dead ends.</p>
                     </div>
                 </div>
             </section>
@@ -165,39 +181,36 @@
                 <div class="grid-2">
                     <div class="content-card">
                         <h3>Download MistAI Desktop</h3>
-                        <p>Available as a standalone executable for Windows, macOS, and Linux. No Python installation
+                        <p>Available as a standalone executable for Windows. No Python installation
                             required — just download and run.</p>
                         <div class="download-box-compact">
                             <a href="https://github.com/Misto0o/MistAI-Desktop/releases" class="btn-download"
                                 target="_blank">
                                 <i class="fab fa-github"></i> Download Latest Release
                             </a>
-                            <p class="download-note">Windows · macOS · Linux · ~50MB · Built with PyInstaller</p>
+                            <p class="download-note">Windows 10/11 (64-bit) · Built with PyInstaller</p>
                         </div>
                         <div class="notice-box warning-notice">
-                            <strong>OCR Limitation:</strong> Bundled Tesseract OCR (screen vision) only works on
-                            Windows. macOS and Linux builds function normally but without OCR unless you install
-                            Tesseract separately.
+                            <strong>Platform support:</strong> V2's automation layer relies on Windows-specific APIs
+                            (window management, the accessibility tree, the registry) for desktop control.
+                            macOS/Linux support is a planned future project, not a current guarantee — see the
+                            Roadmap below.
                         </div>
                     </div>
                     <div class="content-card">
                         <h3>Requirements</h3>
                         <ul class="requirement-list">
-                            <li><i class="fab fa-windows"></i> <strong>Windows 10/11</strong> or <i
-                                    class="fab fa-apple"></i> <strong>macOS</strong> or <i class="fab fa-linux"></i>
-                                <strong>Linux</strong>
-                            </li>
+                            <li><i class="fab fa-windows"></i> <strong>Windows 10/11 (64-bit)</strong></li>
                             <li><i class="fas fa-microphone"></i> <strong>Microphone</strong> — for voice control</li>
                             <li><i class="fas fa-wifi"></i> <strong>Internet connection</strong> — required for AI
                                 processing</li>
-                            <li><i class="fas fa-eye"></i> <strong>Vision OCR (optional)</strong> — Windows: built-in |
-                                macOS/Linux: <a href="https://github.com/tesseract-ocr/tesseract"
-                                    target="_blank">install Tesseract</a></li>
+                            <li><i class="fas fa-eye"></i> <strong>Vision OCR</strong> — bundled Tesseract engine,
+                                works out of the box on Windows</li>
                         </ul>
                         <div class="notice-box info-notice">
-                            <strong>About screen vision:</strong> Windows builds include Tesseract bundled. macOS/Linux
-                            users can install it separately to enable OCR features. All other features (voice,
-                            automation, captions) work normally without it.
+                            <strong>About screen vision:</strong> OCR is used as a fallback for native apps when the
+                            accessibility tree doesn't expose an element. Browser pages are read directly from the
+                            DOM and don't need OCR at all.
                         </div>
                     </div>
                 </div>
@@ -213,7 +226,7 @@
                             <ul class="caption-features">
                                 <li><strong>Assistant messages</strong> — green background for MistAI responses</li>
                                 <li><strong>System notifications</strong> — yellow background for status updates</li>
-                                <li><strong>Proactive suggestions</strong> — purple background for smart tips</li>
+                                <li><strong>Suggestions</strong> — purple background for smart tips</li>
                                 <li><strong>Privacy first</strong> — user messages are never shown in captions</li>
                             </ul>
                         </div>
@@ -246,24 +259,43 @@
                         <h4 class="mt-4">Example commands</h4>
                         <div class="example-list">
                             <div class="example-item">"Hey Mist, open Discord"</div>
-                            <div class="example-item">"Mist, click on Settings"</div>
+                            <div class="example-item">"Mist, what's my battery level?"</div>
                             <div class="example-item">"Search YouTube for AI tutorials"</div>
-                            <div class="example-item">"Scroll down"</div>
+                            <div class="example-item">"Go to that site and tell me what it says"</div>
+                        </div>
+                        <h4 class="mt-4">Ending or interrupting</h4>
+                        <div class="example-list">
+                            <div class="example-item">"Stop" — halts whatever MistAI is currently doing</div>
+                            <div class="example-item">"That's all" / "Nevermind" — ends the conversation, back to
+                                wake-word listening</div>
                         </div>
                     </div>
                     <div class="content-card" id="actions">
-                        <h2 class="card-title">Available Actions</h2>
+                        <h2 class="card-title">What MistAI Can Do</h2>
+                        <p style="margin-top:-0.5rem">A sample of the tools available to the agent — it chooses
+                            which to use and in what order for a given task, rather than following a fixed script.
+                        </p>
                         <div class="action-list-compact">
-                            <div class="action-item-compact"><strong>open_app</strong> — Open/focus applications</div>
-                            <div class="action-item-compact"><strong>click_on_text</strong> — Find and click UI elements
-                            </div>
-                            <div class="action-item-compact"><strong>type_search</strong> — Type and submit text</div>
-                            <div class="action-item-compact"><strong>scroll</strong> — Scroll up or down</div>
-                            <div class="action-item-compact"><strong>volume</strong> — Control system volume</div>
-                            <div class="action-item-compact"><strong>press_key</strong> — Press keyboard keys</div>
-                            <div class="action-item-compact"><strong>maximize</strong> — Maximize current window</div>
-                            <div class="action-item-compact"><strong>fullscreen</strong> — Toggle fullscreen (F11)</div>
-                            <div class="action-item-compact"><strong>multi_step</strong> — Chain multiple actions</div>
+                            <div class="action-item-compact"><strong>open_app / switch_app</strong> — Open or focus
+                                an application</div>
+                            <div class="action-item-compact"><strong>browser_navigate / click / fill</strong> — Real
+                                DOM-based browser control</div>
+                            <div class="action-item-compact"><strong>uia_click</strong> — Click via the
+                                accessibility tree</div>
+                            <div class="action-item-compact"><strong>click_on_text</strong> — OCR/vision fallback
+                                click</div>
+                            <div class="action-item-compact"><strong>run_command</strong> — Direct PowerShell for
+                                system/file tasks</div>
+                            <div class="action-item-compact"><strong>write_file</strong> — Create or edit files
+                                directly</div>
+                            <div class="action-item-compact"><strong>read_screen_text</strong> — Answer a specific
+                                question about what's visible</div>
+                            <div class="action-item-compact"><strong>remember / recall</strong> — Long-term memory
+                                of facts</div>
+                            <div class="action-item-compact"><strong>window management</strong> — List, activate,
+                                close, resize windows</div>
+                            <div class="action-item-compact"><strong>volume / brightness</strong> — System-level
+                                controls</div>
                         </div>
                     </div>
                 </div>
@@ -276,8 +308,7 @@
                     <h2 class="section-title-center">MistAI API</h2>
                     <p>
                         Integrate MistAI into your applications using a simple REST API.
-                        Send messages, select a model, and receive intelligent responses — including optional structured
-                        actions.
+                        Send messages, select a model, and receive intelligent responses.
                     </p>
                 </div>
 
@@ -315,7 +346,9 @@
                         </ul>
 
                         <div class="notice-box warning-notice">
-                            Excessive usage may be temporarily limited to ensure system stability.
+                            <strong>model: "mistral"</strong> is temporarily routed through Cohere while Mistral's
+                            free tier is disabled upstream. Nothing changes on your end — same request shape, same
+                            response shape.
                         </div>
                     </div>
 
@@ -323,7 +356,7 @@
 
                 <!-- Endpoint Section -->
                 <div class="content-card">
-                    <h3>💬 POST /chat</h3>
+                    <h3>💬 POST /api/v1/chat</h3>
                     <p>
                         Send a message to MistAI and receive a response from the selected model.
                         This is the primary endpoint for interacting with the API.
@@ -348,7 +381,7 @@
                                 "success": true,
                                 "response": "Here's a simple explanation of quantum computing...",
                                 "model": "cohere",
-                                "timestamp": "2026-05-09T13:48:31.123456"
+                                "timestamp": "2026-09-09T13:48:31.123456"
                                 }
                             </div>
                         </div>
@@ -360,9 +393,8 @@
                     <h3>🖥️ Using the API with MistAI Desktop</h3>
 
                     <p>
-                        MistAI Desktop is powered by the same API, meaning your API key can be used seamlessly across
-                        both
-                        the web and desktop environments.
+                        MistAI Desktop is powered by the same backend, meaning your API key can be used seamlessly
+                        across both the web and desktop environments.
                     </p>
 
                     <ul>
@@ -372,14 +404,10 @@
                     </ul>
 
                     <div class="notice-box info-notice">
-                        The desktop app acts as a real-time interface for the API — combining voice input,
-                        screen context, and automation with AI responses.
+                        The desktop app sends its full task context and available tools as a structured request, so
+                        the model reasons over the actual current state of your screen and windows, not just a
+                        flattened prompt.
                     </div>
-
-                    <p style="margin-top:10px;">
-                        This means you can build with the API and use the same intelligence inside MistAI Desktop
-                        without any additional setup.
-                    </p>
                 </div>
 
             </section>
@@ -394,34 +422,38 @@
                     </div>
                     <div class="faq-item">
                         <div class="faq-question"><i class="fas fa-chevron-right"></i> Does MistAI work offline?</div>
-                        <div class="faq-answer">No, an internet connection is required for the AI backend. Computer
-                            vision and automation features work locally.</div>
+                        <div class="faq-answer">No, an internet connection is required for the AI backend. Some
+                            local system actions (window management, file operations) still work without one, but
+                            nothing that requires reasoning does.</div>
                     </div>
                     <div class="faq-item">
                         <div class="faq-question"><i class="fas fa-chevron-right"></i> Is my data private?</div>
-                        <div class="faq-answer">MistAI only sends voice commands and screen text to the AI backend.
-                            Screenshots are processed locally and not uploaded. Conversations are not stored
-                            permanently.</div>
+                        <div class="faq-answer">MistAI sends voice commands, screen text, and relevant task context
+                            to the AI backend to decide what to do next. Screenshots used for on-device OCR are
+                            processed locally. Conversations are not stored permanently.</div>
                     </div>
                     <div class="faq-item">
                         <div class="faq-question"><i class="fas fa-chevron-right"></i> Can I use MistAI on Mac or Linux?
                         </div>
-                        <div class="faq-answer">Yes. Bundled Tesseract OCR is Windows-only, but macOS and Linux users
-                            can install Tesseract separately. Voice control, app automation, and captions all work
-                            cross-platform.</div>
+                        <div class="faq-answer">Not yet. V2's automation core depends on Windows-specific APIs for
+                            window and accessibility control. Cross-platform support is on the roadmap, not a
+                            current guarantee — see Roadmap below.</div>
                     </div>
                     <div class="faq-item">
                         <div class="faq-question"><i class="fas fa-chevron-right"></i> How accurate is wake word
                             detection?</div>
-                        <div class="faq-answer">MistAI uses Google's speech recognition with fuzzy matching. It's quite
-                            accurate in quiet environments but may struggle with heavy background noise.</div>
+                        <div class="faq-answer">MistAI uses Google's speech recognition with word-boundary-aware
+                            matching, tuned to avoid triggering on unrelated words. It's most reliable in quiet
+                            environments; heavy background noise can still cause missed or mistranscribed wake
+                            attempts.</div>
                     </div>
                     <div class="faq-item">
                         <div class="faq-question"><i class="fas fa-chevron-right"></i> What's the difference between
                             Nova, Sage, and Flux?</div>
-                        <div class="faq-answer"><strong>Nova:</strong> Fast and efficient for general tasks (Gemini 2.5
-                            Flash)<br><strong>Sage:</strong> Better at complex reasoning
-                            (Command-R7B)<br><strong>Flux:</strong> Balanced performance (Mistral)</div>
+                        <div class="faq-answer"><strong>Nova:</strong> Fast and efficient for general tasks (Gemini
+                            2.5 Flash)<br><strong>Sage:</strong> Strong reasoning, the desktop assistant's default
+                            (Cohere Command)<br><strong>Flux:</strong> Normally Mistral-backed; currently served by
+                            Sage while Mistral's free tier is down upstream.</div>
                     </div>
                     <div class="faq-item">
                         <div class="faq-question"><i class="fas fa-chevron-right"></i> Do I need to know Python?</div>
@@ -444,38 +476,43 @@
                         <div class="trouble-list-compact">
                             <div class="trouble-item-compact">
                                 <h4>Wake word not responding</h4>
-                                <p>Check microphone permissions and ensure wake word toggle is enabled in the UI.</p>
+                                <p>Check microphone permissions and ensure the wake word toggle is enabled in the UI.
+                                    A single short word ("Mist" alone) is the hardest case for speech recognition —
+                                    "Hey Mist" or "Mist AI" tend to be picked up more reliably.</p>
                             </div>
                             <div class="trouble-item-compact">
                                 <h4>OCR not finding text</h4>
-                                <p><strong>Windows:</strong> OCR is bundled and should work automatically.
-                                    <strong>macOS/Linux:</strong> Install <a
-                                        href="https://github.com/tesseract-ocr/tesseract" target="_blank">Tesseract</a>
-                                    separately. All other features work without it.
-                                </p>
+                                <p>OCR is a fallback for native apps only — browser pages are read from the DOM
+                                    directly and don't use it. If a native-app click is missing, try describing the
+                                    element differently, or ask MistAI to use the accessibility tree explicitly.</p>
                             </div>
                             <div class="trouble-item-compact">
                                 <h4>No text-to-speech</h4>
-                                <p>Check system volume settings and restart MistAI if the issue persists.</p>
+                                <p>Check system volume settings. MistAI falls back to a secondary speech engine if
+                                    the primary one can't reach the network, and will log an explicit warning if
+                                    neither is available rather than staying silently mute.</p>
                             </div>
                             <div class="trouble-item-compact">
                                 <h4>Connection errors</h4>
                                 <p>Verify your internet connection. The status indicator in the UI shows connectivity.
-                                </p>
+                                    If one model provider is degraded, MistAI can route requests to a different one
+                                    automatically.</p>
                             </div>
                         </div>
                     </div>
                     <div class="content-card" id="roadmap">
                         <h2 class="card-title">Roadmap</h2>
                         <div class="roadmap-list">
-                            <div class="roadmap-item"><strong>v1.5</strong> — Enhanced proactive suggestions with
-                                smarter context awareness</div>
-                            <div class="roadmap-item"><strong>v2.0</strong> — Cross-application workflows (e.g.,
-                                "Screenshot and email it")</div>
-                            <div class="roadmap-item"><strong>v2.5</strong> — Custom wake word training</div>
-                            <div class="roadmap-item"><strong>v3.0</strong> — Plugin system for custom actions</div>
-                            <div class="roadmap-item"><strong>v4.0</strong> — Multi-monitor support with per-screen
-                                awareness</div>
+                            <div class="roadmap-item"><strong>Now</strong> — Stabilizing V2: concurrency safety,
+                                verified action execution, wake-word accuracy</div>
+                            <div class="roadmap-item"><strong>Next</strong> — More generic perception tools (read /
+                                search files directly) so the agent relies less on guessing at system internals</div>
+                            <div class="roadmap-item"><strong>Later</strong> — Local wake-word detection, replacing
+                                general speech recognition for the trigger word specifically</div>
+                            <div class="roadmap-item"><strong>Later</strong> — Cross-platform support (macOS/Linux)
+                            </div>
+                            <div class="roadmap-item"><strong>Exploring</strong> — Plugin system for community-added
+                                capabilities</div>
                         </div>
                     </div>
                 </div>

@@ -25,7 +25,12 @@
 
 html {
     scroll-behavior: smooth;
-    overflow-x: hidden;
+    /* NOT overflow-x:hidden here anymore -- see body. Having it on BOTH html
+       and body (the original bug), combined with the sticky navbar below, is
+       a documented WebKit/Mobile Safari trap: the first vertical swipe gets
+       eaten and only "wakes up" once a fixed/sticky element or an edge touch
+       kicks the gesture recognizer -- exactly "works from the navbar, not
+       from the body". One ancestor hiding horizontal overflow is enough. */
 }
 
 body {
@@ -34,6 +39,9 @@ body {
     color: var(--text-primary);
     line-height: 1.7;
     overflow-x: hidden;
+    /* iOS momentum scrolling; harmless everywhere else, and cheap insurance
+       against the same class of gesture-recognition bug. */
+    -webkit-overflow-scrolling: touch;
 }
 
 a {
@@ -361,6 +369,28 @@ code {
     margin: 0;
     font-size: 0.85rem;
     color: var(--text-secondary);
+}
+
+.status-pill {
+    display: inline-block;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 0.15rem 0.5rem;
+    border-radius: 10px;
+    margin-left: 0.5rem;
+    vertical-align: middle;
+}
+
+.status-ok {
+    background: var(--success-light);
+    color: var(--success);
+}
+
+.status-warn {
+    background: var(--warning-light);
+    color: var(--warning);
 }
 
 /* ---- Feature cards ---- */

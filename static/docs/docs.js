@@ -239,41 +239,6 @@ if (typeof gsap !== 'undefined') {
 }
 
 /* ============================================
-   Intersection Observer for Advanced Animations
-   ============================================ */
-const observerOptions = {
-    threshold: 0.1,
-    rootMargin: '0px 0px -50px 0px'
-};
-
-const fadeInObserver = new IntersectionObserver(function (entries) {
-    entries.forEach(entry => {
-        if (entry.isIntersecting) {
-            entry.target.classList.add('fade-in-visible');
-        }
-    });
-}, observerOptions);
-
-// Observe feature cards for fade-in effect
-document.querySelectorAll('.feature-card, .action-card, .model-card').forEach(card => {
-    card.style.opacity = '0';
-    card.style.transform = 'translateY(20px)';
-    card.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
-
-    fadeInObserver.observe(card);
-});
-
-// Add CSS class when elements are visible
-const style = document.createElement('style');
-style.textContent = `
-    .fade-in-visible {
-        opacity: 1 !important;
-        transform: translateY(0) !important;
-    }
-`;
-document.head.appendChild(style);
-
-/* ============================================
    Dynamic Search (Future Enhancement)
    ============================================ */
 function initSearch() {
@@ -344,68 +309,6 @@ if (isMobile()) {
         once: true,
         disable: 'mobile'
     });
-}
-
-/* ============================================
-   Easter Egg: Konami Code
-   ============================================ */
-let konamiCode = [];
-const konamiSequence = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'b', 'a'];
-
-document.addEventListener('keydown', function (e) {
-    konamiCode.push(e.key);
-    konamiCode = konamiCode.slice(-10);
-
-    if (konamiCode.join(',') === konamiSequence.join(',')) {
-        activateEasterEgg();
-    }
-});
-
-function activateEasterEgg() {
-    // Fun animation when Konami code is entered
-    const orbs = document.querySelectorAll('.ai-orb, .ai-orb-large');
-
-    orbs.forEach(orb => {
-        orb.style.animation = 'none';
-        setTimeout(() => {
-            orb.style.animation = '';
-
-            // Rainbow effect
-            if (typeof gsap !== 'undefined') {
-                gsap.to(orb, {
-                    background: 'linear-gradient(135deg, #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #4b0082, #9400d3)',
-                    duration: 2,
-                    repeat: 3,
-                    yoyo: true
-                });
-            }
-        }, 10);
-    });
-
-    // Show message
-    const message = document.createElement('div');
-    message.textContent = '🎉 MistAI activated! You found the secret! 🎉';
-    message.style.cssText = `
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        background: linear-gradient(135deg, #667eea, #764ba2);
-        color: white;
-        padding: 2rem 3rem;
-        border-radius: 15px;
-        font-size: 1.5rem;
-        font-weight: bold;
-        z-index: 10000;
-        box-shadow: 0 10px 40px rgba(102, 126, 234, 0.5);
-        animation: pulse 0.5s ease-in-out infinite alternate;
-    `;
-
-    document.body.appendChild(message);
-
-    setTimeout(() => {
-        message.remove();
-    }, 3000);
 }
 
 /* ============================================
