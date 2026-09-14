@@ -1575,6 +1575,45 @@ async def api_v1_chat():
             400,
         )
 
+    # Agent mode (MistAI desktop): retain the caller's system prompt and
+    # structured conversation roles. Legacy flattened requests use chat below.
+    if (
+        data.get("mode") == "agent"
+        and isinstance(data.get("system"), str)
+        and isinstance(data.get("messages"), list)
+    ):
+        try:
+            if model_choice == "gemini":
+                response_content = await asyncio.to_thread(
+                    get_gemini_agent_response, data["system"], data["messages"]
+                )
+            else:
+                # Mistral's free tier is disabled upstream; Cohere handles both
+                # Cohere and Mistral agent-mode requests until it returns.
+                response_content = await asyncio.to_thread(
+                    get_cohere_agent_response, data["system"], data["messages"]
+                )
+            _safe_log_api_usage(
+                api_key,
+                f"agent:{model_choice}",
+                len(data["system"]),
+                len(response_content),
+                200,
+            )
+            return jsonify({
+                "success": True,
+                "response": response_content,
+                "model": model_choice,
+                "mode": "agent",
+                "timestamp": datetime.now().isoformat(),
+            }), 200
+        except Exception as e:
+            log_err(f"Agent API error: {e}")
+            _safe_log_api_usage(
+                api_key, f"agent:{model_choice}", len(data["system"]), 0, 500
+            )
+            return jsonify({"success": False, "error": str(e)}), 500
+
     try:
         response_content = await get_model_response(model_choice, user_message)
     except Exception as e:
@@ -2145,6 +2184,72 @@ async def get_mistral_response(prompt, max_tokens=MAX_TOKENS):
     data = response.json()
 
     return data["choices"][0]["message"]["content"].strip()
+
+
+# below is tried automatically.
+AGENT_COHERE_MODELS = (
+    "command-a-03-2025",
+    "command-r-plus-08-2024",
+    "command-r7b-12-2024",
+)
+AGENT_GEMINI_MODEL = "gemini-2.5-flash"
+
+
+def _clean_agent_messages(messages):
+    """Keep only valid user/assistant text messages from agent history."""
+    out = []
+    for m in messages or []:
+        if not isinstance(m, dict):
+            continue
+        role = m.get("role")
+        content = m.get("content")
+        if role in ("user", "assistant") and isinstance(content, str) and content.strip():
+            out.append({"role": role, "content": content})
+    return out[-60:]
+
+
+def get_cohere_agent_response(system_prompt, messages, max_tokens=1024):
+    """Send agent prompts as distinct system and role-preserved messages."""
+    co = get_cohere_client()
+    payload_msgs = [{"role": "system", "content": system_prompt}] + _clean_agent_messages(messages)
+    last_err = None
+    for model_name in AGENT_COHERE_MODELS:
+        try:
+            resp = co.chat(
+                model=model_name,
+                messages=payload_msgs,
+                temperature=0,
+                max_tokens=max_tokens,
+            )
+            return resp.message.content[0].text.strip()
+        except Exception as e:
+            last_err = e
+            log_warn(f"agent model {model_name} failed ({str(e)[:80]}) -- trying next")
+    raise last_err
+
+
+def get_gemini_agent_response(system_prompt, messages, max_tokens=1024):
+    import google.generativeai as genai
+
+    ensure_gemini_configured()
+    cleaned_messages = _clean_agent_messages(messages)
+    model = genai.GenerativeModel(AGENT_GEMINI_MODEL, system_instruction=system_prompt)
+    history = []
+    for m in cleaned_messages[:-1]:
+        history.append({
+            "role": "user" if m["role"] == "user" else "model",
+            "parts": [m["content"]],
+        })
+    last = cleaned_messages[-1]["content"] if cleaned_messages else ""
+    chat_session = model.start_chat(history=history)
+    response = chat_session.send_message(
+        last,
+        generation_config=genai.types.GenerationConfig(
+            temperature=0,
+            max_output_tokens=max_tokens,
+        ),
+    )
+    return (response.text or "").strip()
 
 
 async def get_model_response(model: str, prompt: str, max_tokens=MAX_TOKENS) -> str:
