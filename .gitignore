@@ -2,3 +2,4 @@
 bans.db
 data/
 *.tmp
+__pycache__

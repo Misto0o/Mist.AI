@@ -526,6 +526,72 @@ async def api_chat():
                 400,
             )
 
+        # Desktop agent mode keeps the system instruction and turn roles
+        # separate. Normal web chat remains on the legacy flat-message path
+        # below, so this branch is deliberately narrow and opt-in.
+        if mode == "agent":
+            system_prompt = data.get("system")
+            messages = data.get("messages")
+            if not isinstance(system_prompt, str) or not isinstance(messages, list):
+                return (
+                    jsonify(
+                        {
+                            "error": "Agent mode requires string 'system' and list 'messages'",
+                            "is_down": is_down,
+                        }
+                    ),
+                    400,
+                )
+            if not system_prompt.strip() or len(system_prompt) > 32_000:
+                return (
+                    jsonify({"error": "Invalid agent system prompt", "is_down": is_down}),
+                    400,
+                )
+            cleaned_messages = _clean_agent_messages(messages)
+            # The public endpoint is deliberately usable by the no-key
+            # desktop mode, so bound the combined role history before it is
+            # handed to a paid model. Per-message validation alone allowed a
+            # request with many individually valid, arbitrarily large turns.
+            if sum(len(m["content"]) for m in cleaned_messages) > 64_000:
+                return (
+                    jsonify(
+                        {
+                            "error": "Agent message history is too large",
+                            "is_down": is_down,
+                        }
+                    ),
+                    400,
+                )
+            if not cleaned_messages:
+                return (
+                    jsonify({"error": "Agent mode requires at least one message", "is_down": is_down}),
+                    400,
+                )
+            try:
+                if model == "gemini":
+                    ai_response = await asyncio.to_thread(
+                        get_gemini_agent_response, system_prompt, cleaned_messages
+                    )
+                else:
+                    ai_response = await asyncio.to_thread(
+                        get_cohere_agent_response, system_prompt, cleaned_messages
+                    )
+            except Exception as e:
+                log_err(f"Agent model execution failed: {type(e).__name__}: {str(e)[:120]}")
+                return jsonify({"error": "Agent model failed to respond", "is_down": is_down}), 500
+
+            if not ai_response:
+                return jsonify({"error": "Empty response from AI model", "is_down": is_down}), 500
+            return jsonify(
+                {
+                    "response": ai_response,
+                    "model": model,
+                    "mode": "agent",
+                    "timestamp": datetime.now().isoformat(),
+                    "is_down": is_down,
+                }
+            ), 200
+
         if mode == "assistant":
             system_override = (
                 "\n\nIMPORTANT: You are being used as a voice assistant. "
