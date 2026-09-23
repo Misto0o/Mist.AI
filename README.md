@@ -9,7 +9,7 @@
 [![Top Language](https://img.shields.io/github/languages/top/Misto0o/Mist.AI)](https://github.com/Misto0o/Mist.AI)
 
 Mist.AI is an advanced AI assistant built with Gemini, Command R, Mistral, Gemini Vision, and real-time web grounding.
-V10 is the final major **feature** release — active work now is bug fixes and maintenance, plus development on [Mist.AI Desktop](#-mistai-desktop-expansion), the next evolution of the project.
+V10 is the final major **feature** release — active work now is bug fixes and maintenance, plus development on [Mist.AI Desktop](https://github.com/Misto0o/MistAI-Desktop), the next evolution of the project.
 
 ---
 
