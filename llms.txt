@@ -1,0 +1,27 @@
+# Mist.AI
+
+> Mist.AI is a free personal AI assistant built by Kristian Cook. It is powered by three LLMs (Gemini, Command R, and Mistral) with real-time web grounding, meaning it has no fixed knowledge cutoff. It is not affiliated with Juniper Networks' "Mist AI" enterprise networking product.
+
+## What Mist.AI is
+- A personal AI assistant, similar in purpose to ChatGPT or Claude, aimed at everyday users rather than enterprise IT.
+- Available on the web (mistai.org), as a Chrome/Firefox browser extension, and as a Windows desktop app (Mist.AI Desktop).
+- Always free — no paid tier, no subscriptions.
+
+## Key features
+- Multi-model pipeline: Gemini, Command R, and Mistral
+- Real-time web search grounding (no static knowledge cutoff)
+- Image uploads and Gemini Vision understanding
+- File uploads (PDF, DOCX, TXT, JSON)
+- Session memory and chat threads
+- Slash commands (/weather, /news, /joke, /riddle, etc.)
+- Custom themes and PWA offline support
+
+## Pages
+- Homepage / chat interface: https://mistai.org
+- Source code: https://github.com/Misto0o/Mist.AI
+- Chrome extension: https://chromewebstore.google.com/detail/mistai/egeijlehobigmpnonfoifhgdifeobhck
+- Docs: https://mistai.org/docs
+- Credits: https://mistai.org/credits
+
+## Creator
+Kristian Cook — https://builtbykristian.netlify.app

@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>404 – Page Not Found | Mist.AI</title>
+    <meta name="robots" content="noindex" />
+    <link rel="icon" href="mistaifaviocn/favicon.ico" sizes="any" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.9.4/css/bulma.min.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
+    <style>
+        :root {
+            --bg: #f4f4f4;
+            --panel: #ffffff;
+            --text: #111111;
+            --muted: #5f5f5f;
+            --line: #e7e7e7;
+            --button: #111111;
+            --button-text: #ffffff;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            text-align: center;
+        }
+
+        .container-404 {
+            width: min(90vw, 420px);
+            padding: 2.5rem 2rem;
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
+        }
+
+        .code-404 {
+            margin: 0;
+            font-size: clamp(4rem, 10vw, 6rem);
+            line-height: 1;
+            font-weight: 700;
+            letter-spacing: -0.08em;
+            color: var(--text);
+        }
+
+        h1 {
+            margin: 1rem 0 0.75rem;
+            font-size: 1.5rem;
+            line-height: 1.3;
+            font-weight: 600;
+        }
+
+        p {
+            margin: 0 0 1.5rem;
+            color: var(--muted);
+            font-size: 1rem;
+            line-height: 1.6;
+        }
+
+        .btn-home {
+            display: inline-block;
+            padding: 0.8rem 1.3rem;
+            border-radius: 999px;
+            background: var(--button);
+            color: var(--button-text);
+            text-decoration: none;
+            font-weight: 600;
+            transition: opacity 0.2s ease;
+        }
+
+        .btn-home:hover {
+            opacity: 0.9;
+            color: var(--button-text);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container-404">
+        <p class="code-404">404</p>
+        <h1>Even Mist.AI couldn't find this page</h1>
+        <p>The page you're looking for doesn't exist or may have moved.</p>
+        <a href="/" class="btn-home"><i class="fa-solid fa-arrow-left"></i>&nbsp; Back to Mist.AI</a>
+    </div>
+</body>
+
+</html>
