@@ -21,6 +21,10 @@
         TYPE_ANIM_MAX_WORDS: 80,
         TYPE_ANIM_MAX_CHARS: 400,
         BAN_STRIKES: 3,
+        MAX_IMAGES: 4,
+        IMAGE_SEND_DIM: 1600,   // what Mist.AI sees
+        IMAGE_THUMB_DIM: 320,   // what's saved in chat history
+        IMAGE_QUALITY: 0.85,
     };
 
     const THEME_CLASSES = [
@@ -319,7 +323,7 @@
     let canSendMessage = true;
     let isSwapping = false;
     let chatMemory = [];
-    let uploadedFile = null;
+    let uploadedFiles = [];
     let trackedIPs = {};
     let thinkingBubble = null;
     let delayTimeout = null;
@@ -569,7 +573,7 @@
             payloadMessage = userMessage ? `${userMessage}\n\n${pastedText}` : pastedText;
         }
 
-        if (!payloadMessage && !uploadedFile) { canSendMessage = true; return; }
+        if (!payloadMessage && !uploadedFiles.length) { canSendMessage = true; return; }
 
         const userIP = await getUserIP();
         const moderation = handleUserMessage(payloadMessage, userIP);
@@ -580,15 +584,32 @@
         }
         if (moderation === "banned") { canSendMessage = true; return; }
 
-        if (pastedSnapshot && pastedSnapshot.length > 0) {
-            renderUserMessageWithChips(userMessage, pastedSnapshot);
-            _storeNewMessage(payloadMessage, "user", uploadedFile, /* silent */ true);
+        const imagesToSend = [...uploadedFiles];
+        let sendImages = [], thumbImages = [];
+        try {
+            [sendImages, thumbImages] = await Promise.all([
+                Promise.all(imagesToSend.map(f => compressImage(f, CONFIG.IMAGE_SEND_DIM))),
+                Promise.all(imagesToSend.map(f => compressImage(f, CONFIG.IMAGE_THUMB_DIM, 0.7))),
+            ]);
+        } catch (imgErr) {
+            console.error("Image compression failed:", imgErr);
+            showMessage("⚠️ Couldn't read one of those images.", "bot");
+            canSendMessage = true;
+            return;
+        }
+        clearImagePreviews();
+
+        if (pastedSnapshot || thumbImages.length) {
+            renderUserTurn(userMessage, pastedSnapshot || [], thumbImages);
+            _storeNewMessage(userMessage, "user", null, true, {
+                ...(pastedSnapshot && { pasted: pastedSnapshot }),
+                ...(thumbImages.length && { images: thumbImages }),
+            });
         } else {
-            _storeNewMessage(userMessage, "user", uploadedFile, /* silent */ false);
+            _storeNewMessage(userMessage, "user", null, false);
         }
 
         clearPastedItems();
-        userMessage = payloadMessage;
 
         userInput.value = "";
         userInput.style.height = `${inputSizing.minHeight}px`;
@@ -604,33 +625,15 @@
         messagesDiv.scrollTop = messagesDiv.scrollHeight;
 
         try {
-            let imgBase64 = null;
-            if (uploadedFile) {
-                try {
-                    imgBase64 = await fileToBase64(uploadedFile);
-                } catch (fileErr) {
-                    console.error("Failed to read uploaded file:", fileErr);
-                    removeThinkingBubble();
-                    renderMessage("⚠️ Couldn't read that file — it may be corrupt or too large.", "bot-message");
-                    return;
-                }
-            }
-
-            const previewContainer = document.getElementById("image-preview");
-            if (previewContainer) {
-                previewContainer.innerHTML = "";
-                previewContainer.classList.remove("active");
-            }
-            uploadedFile = null;
-
             const payload = {
-                message: userMessage,
+                message: userMessage,          // typed text only
+                pasted: pastedSnapshot || [],  // sent separately so the server can compress it
+                images: sendImages,
                 context: chatMemory,
                 model: currentModel,
                 ground: userWantsGrounding(userMessage),
                 ip: userIP,
                 token: getUserToken(),
-                ...(imgBase64 && { img_url: imgBase64 }),
             };
 
             let response;
@@ -693,6 +696,7 @@
             }
 
             const botText = data.response;
+            updateMemory("user", data.memory_note || userMessage);
             removeThinkingBubble();
             await typeBotMessage(botText);
 
@@ -846,7 +850,7 @@
         saveState(state);
     }
 
-    function _storeNewMessage(text, sender = "user", file = null, silent = false) {
+    function _storeNewMessage(text, sender = "user", file = null, silent = false, extra = {}) {
         let state = loadState();
         if (!state.currentThread) {
             const newThread = createThread("New Chat");
@@ -857,7 +861,7 @@
         }
 
         const threadId = state.currentThread;
-        const message = { text, sender };
+        const message = { text, sender, ...extra };
 
         const headerEl = document.querySelector("header.header");
         if (headerEl) headerEl.style.display = "none";
@@ -977,10 +981,7 @@
 
         chatContainer.innerHTML = "";
         const messages = loadChat(threadId);
-        messages.forEach(msg => {
-            if (msg.file) showMessageWithImage(msg.text, msg.file, msg.sender);
-            else renderMessage(msg.text, msg.sender === "user" ? "user-message" : "bot-message");
-        });
+        messages.forEach(renderStoredMessage);
 
         renderThreads();
 
@@ -1426,39 +1427,55 @@
         }
     }
 
-    // Pasted-chip user message rendering.
-    function renderUserMessageWithChips(typedText, items) {
-        const messagesDiv = document.getElementById("chat-box");
-        if (!messagesDiv) return;
-        const messageElement = document.createElement("div");
-        messageElement.classList.add("message", "user-message");
+    function renderUserTurn(typedText, pasted = [], images = []) {
+        const box = document.getElementById("chat-box");
+        if (!box) return;
+        const el = document.createElement("div");
+        el.classList.add("message", "user-message");
 
-        if (typedText.trim()) {
-            const textDiv = document.createElement("div");
-            textDiv.textContent = typedText;
-            textDiv.style.marginBottom = "8px";
-            messageElement.appendChild(textDiv);
+        if (images.length) {
+            const grid = document.createElement("div");
+            grid.className = "user-image-grid";
+            images.forEach((src, i) => {
+                const img = document.createElement("img");
+                img.src = src;
+                img.alt = `Image ${i + 1}`;
+                grid.appendChild(img);
+            });
+            el.appendChild(grid);
         }
 
-        items.forEach(pastedText => {
+        if (typedText.trim()) {
+            const t = document.createElement("div");
+            t.textContent = typedText;
+            if (pasted.length) t.style.marginBottom = "8px";
+            el.appendChild(t);
+        }
+
+        pasted.forEach(p => {
             const chip = document.createElement("div");
             chip.classList.add("pasted-chip-inline");
             const preview = document.createElement("span");
-            preview.textContent = pastedText.slice(0, 50) + (pastedText.length > 50 ? "..." : "");
-            chip.appendChild(preview);
+            preview.textContent = p.slice(0, 50) + (p.length > 50 ? "..." : "");
             const label = document.createElement("span");
             label.classList.add("chip-label");
             label.textContent = "PASTED";
-            chip.appendChild(label);
-            messageElement.appendChild(chip);
+            chip.append(preview, label);
+            el.appendChild(chip);
         });
 
-        attachEditButton(messageElement, typedText);
-
-        messagesDiv.appendChild(messageElement);
-        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        attachEditButton(el, typedText);
+        box.appendChild(el);
+        box.scrollTop = box.scrollHeight;
     }
 
+    function renderStoredMessage(msg) {
+        if (msg.sender === "bot") return renderMessage(msg.text, "bot-message");
+        if (msg.pasted?.length || msg.images?.length)
+            return renderUserTurn(msg.text || "", msg.pasted || [], msg.images || []);
+        if (msg.file) return showMessageWithImage(msg.text, msg.file, msg.sender);
+        renderMessage(msg.text, "user-message");
+    }
     // Single init sequence — explicit ordering, no scattered listeners.
     document.addEventListener("DOMContentLoaded", () => {
         initInputSizing();
@@ -1514,9 +1531,8 @@
                 const newThread = createThread(`New Chat ${getThreads().length + 1}`);
                 switchThread(newThread.id);
                 const userInput = document.getElementById("user-input");
-                const previewContainer = document.getElementById("image-preview");
                 if (userInput) userInput.value = "";
-                if (previewContainer) { previewContainer.innerHTML = ""; previewContainer.classList.remove("active"); }
+                clearImagePreviews();
             });
         }
     }
@@ -1561,23 +1577,66 @@
         });
     }
 
-    function previewImage(file) {
-        uploadedFile = file;
-        const previewContainer = document.getElementById("image-preview");
-        if (!previewContainer) return;
-        const imageUrl = URL.createObjectURL(file);
-        previewContainer.innerHTML = `
-            <div class="preview-wrapper">
-                <img src="${imageUrl}" alt="Preview" class="uploaded-preview">
-                <button id="remove-preview" class="remove-btn">✖</button>
-            </div>
-        `;
-        previewContainer.classList.add("active");
-        document.getElementById("remove-preview").addEventListener("click", () => {
-            uploadedFile = null;
-            previewContainer.innerHTML = "";
-            previewContainer.classList.remove("active");
+    // Downscales + re-encodes as JPEG so huge phone photos don't choke the backend.
+    function compressImage(file, maxDim, quality = CONFIG.IMAGE_QUALITY) {
+        return new Promise((resolve, reject) => {
+            const url = URL.createObjectURL(file);
+            const img = new Image();
+            img.onload = () => {
+                URL.revokeObjectURL(url);
+                const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+                const canvas = document.createElement("canvas");
+                canvas.width = Math.round(img.width * scale);
+                canvas.height = Math.round(img.height * scale);
+                const ctx = canvas.getContext("2d");
+                ctx.fillStyle = "#fff"; // transparent PNGs would turn black as JPEG
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                resolve(canvas.toDataURL("image/jpeg", quality));
+            };
+            img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Image failed to load")); };
+            img.src = url;
         });
+    }
+
+    function addImages(files) {
+        for (const file of files) {
+            if (!file.type.startsWith("image/")) continue;
+            if (uploadedFiles.length >= CONFIG.MAX_IMAGES) {
+                showNotification(`Max ${CONFIG.MAX_IMAGES} images per message`);
+                break;
+            }
+            uploadedFiles.push(file);
+        }
+        renderImagePreviews();
+    }
+
+    function renderImagePreviews() {
+        const c = document.getElementById("image-preview");
+        if (!c) return;
+        c.innerHTML = "";
+        if (!uploadedFiles.length) { c.classList.remove("active"); return; }
+        uploadedFiles.forEach((file, i) => {
+            const wrap = document.createElement("div");
+            wrap.className = "preview-wrapper";
+            const img = document.createElement("img");
+            img.src = URL.createObjectURL(file);
+            img.onload = () => URL.revokeObjectURL(img.src);
+            img.className = "uploaded-preview";
+            img.alt = `Preview ${i + 1}`;
+            const rm = document.createElement("button");
+            rm.className = "remove-btn";
+            rm.textContent = "✖";
+            rm.addEventListener("click", () => { uploadedFiles.splice(i, 1); renderImagePreviews(); });
+            wrap.append(img, rm);
+            c.appendChild(wrap);
+        });
+        c.classList.add("active");
+    }
+
+    function clearImagePreviews() {
+        uploadedFiles = [];
+        renderImagePreviews();
     }
 
     async function uploadFile(file, text = "") {
@@ -1611,8 +1670,8 @@
         uploadDocumentBtn?.addEventListener("click", () => { fileInputDocument?.click(); if (toolsMenuInner) toolsMenuInner.style.display = "none"; });
 
         fileInputImage?.addEventListener("change", e => {
-            const file = e.target.files[0];
-            if (file) previewImage(file);
+            addImages(Array.from(e.target.files));
+            e.target.value = ""; // lets you re-pick the same file
         });
 
         fileInputDocument?.addEventListener("change", e => {
@@ -1630,30 +1689,23 @@
             dropZone.addEventListener("drop", async e => {
                 e.preventDefault();
                 dropZone.classList.remove("drag-over");
-                const file = e.dataTransfer.files[0];
-                if (!file) return;
-                const userText = document.getElementById("user-input")?.value.trim() || "";
-                if (file.type.startsWith("image/")) {
-                    previewImage(file);
-                    chatMemory.push({ role: "user", content: `User uploaded an image and said: "${userText}"` });
-                } else {
-                    showMessage(`📤 Uploading document: ${file.name}...`, "bot");
-                    await uploadFile(file, userText);
+                const files = Array.from(e.dataTransfer.files);
+                const imgs = files.filter(f => f.type.startsWith("image/"));
+                if (imgs.length) addImages(imgs);
+                const doc = files.find(f => !f.type.startsWith("image/"));
+                if (doc) {
+                    showMessage(`📤 Uploading document: ${doc.name}...`, "bot");
+                    await uploadFile(doc, document.getElementById("user-input")?.value.trim() || "");
                 }
             });
         }
 
         function handleImagePaste(e) {
-            const items = e.clipboardData.items;
-            for (const item of items) {
-                if (item.type.startsWith("image/")) {
-                    const file = item.getAsFile();
-                    if (!file) return;
-                    previewImage(file);
-                    e.preventDefault();
-                    break;
-                }
-            }
+            const imgs = Array.from(e.clipboardData.items)
+                .filter(it => it.type.startsWith("image/"))
+                .map(it => it.getAsFile())
+                .filter(Boolean);
+            if (imgs.length) { addImages(imgs); e.preventDefault(); }
         }
         document.addEventListener("paste", handleImagePaste);
     }

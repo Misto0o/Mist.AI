@@ -165,17 +165,18 @@ def require_api_key(f):
 
 
 # Creates a new API key for a user
-def create_api_key(name: str):
+def create_api_key(name: str, user_id=None):
     api_key = generate_api_key()
     try:
-        supabase_client.table("api_keys").insert(
-            {
-                "api_key": api_key,
-                "name": name,
-                "is_active": True,
-                "requests_total": 0,
-            }
-        ).execute()
+        row = {
+            "api_key": api_key,
+            "name": name,
+            "is_active": True,
+            "requests_total": 0,
+        }
+        if user_id is not None:
+            row["user_id"] = user_id
+        supabase_client.table("api_keys").insert(row).execute()
         return api_key, name
     except Exception as e:
         print("Create key error:", e)

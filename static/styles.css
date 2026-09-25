@@ -569,9 +569,9 @@ body.hide-header .header {
     margin-bottom: 0;
 }
 
-#image-preview.active {
-    display: flex;
-}
+#image-preview.active { display: flex; flex-wrap: wrap; gap: 8px; }
+.user-image-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.user-image-grid img { max-width: 160px; max-height: 160px; border-radius: 8px; object-fit: cover; }
 
 /* Textarea — transparent, no inner box look */
 #user-input {

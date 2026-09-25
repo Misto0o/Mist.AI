@@ -47,6 +47,8 @@ from werkzeug.exceptions import NotFound
 from dotenv import load_dotenv
 import httpx
 import pytz
+from google.oauth2 import id_token as google_id_token
+from google.auth.transport import requests as google_requests
 
 from api_key_system import (
     generate_api_key,
@@ -58,6 +60,7 @@ from api_key_system import (
     hash_api_key,
     log_api_usage,
     require_api_key,
+    supabase_client,
 )
 
 load_dotenv()
@@ -74,7 +77,10 @@ REQUIRED_ENV_VARS = [
     "ADMIN_PASSWORD",
     "FLASK_SECRET_KEY",
     "TAVILY_API_KEY",
+    "GOOGLE_CLIENT_ID",
 ]
+
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 _missing_vars = [v for v in REQUIRED_ENV_VARS if not os.getenv(v)]
 if _missing_vars:
     raise ValueError(
@@ -84,6 +90,7 @@ if _missing_vars:
 app = Flask(
     __name__, template_folder="templates", static_folder="static", static_url_path=""
 )
+app.config["MAX_CONTENT_LENGTH"] = 25 * 1024 * 1024  # rejects absurd payloads with 413
 
 # Central config — single source of truth for models/limits.
 VALID_MODELS = ["gemini", "cohere", "mistral"]
@@ -94,6 +101,15 @@ ROUTER_MODEL = "command-r7b-12-2024"
 
 TEMPERATURE = 0.3
 MAX_TOKENS = 2045
+MAX_IMAGES = 4
+IMAGE_NOTE_MAX_CHARS = 3_000
+PASTE_COMPRESS_THRESHOLD = 8_000   # chars; smaller pastes go through untouched
+PASTE_CHUNK_CHARS = 12_000
+PASTE_MAX_TOTAL_CHARS = 200_000
+CONTEXT_MAX_MESSAGES = 20
+CONTEXT_MAX_CHARS = 12_000
+CONTEXT_MSG_MAX_CHARS = 2_000
+MEMORY_NOTE_MAX_CHARS = 4_000
 
 
 # --- Logging ---------------------------------------------------------------
@@ -653,6 +669,56 @@ def api_status():
             "timestamp": datetime.now().isoformat(),
         }
     ), (200 if not is_down else 503)
+
+
+@app.route("/api/auth/google", methods=["POST"])
+@csrf_protect
+def google_auth():
+    credential = (request.get_json(silent=True) or {}).get("credential")
+    if not credential:
+        return jsonify({"error": "Missing credential"}), 400
+
+    try:
+        info = google_id_token.verify_oauth2_token(
+            credential, google_requests.Request(), GOOGLE_CLIENT_ID
+        )
+    except ValueError:
+        return jsonify({"error": "Invalid Google token"}), 401
+
+    if not info.get("email_verified"):
+        return jsonify({"error": "Google email not verified"}), 403
+
+    try:
+        user = (
+            supabase_client.table("users")
+            .upsert(
+                {"google_id": info["sub"], "email": info["email"]},
+                on_conflict="google_id",
+            )
+            .execute()
+            .data[0]
+        )
+
+        existing = (
+            supabase_client.table("api_keys")
+            .select("api_key")
+            .eq("user_id", user["id"])
+            .eq("is_active", True)
+            .limit(1)
+            .execute()
+            .data
+        )
+        if existing:
+            return jsonify({"api_key": existing[0]["api_key"], "existing": True}), 200
+
+        api_key, _ = create_api_key("Default Key", user_id=user["id"])
+        if not api_key:
+            return jsonify({"error": "Failed to create key"}), 500
+        return jsonify({"api_key": api_key, "existing": False}), 201
+
+    except Exception as e:
+        log_err(f"Google auth/key error: {type(e).__name__}: {str(e)[:120]}")
+        return jsonify({"error": "Account setup failed"}), 500
 
 
 @app.route("/status", methods=["GET"])
@@ -1463,6 +1529,79 @@ class TTLCache:
 
 _tavily_router_cache = TTLCache(ttl_seconds=3600, max_entries=1000)
 _tavily_result_cache = TTLCache(ttl_seconds=600, max_entries=500)
+_compress_cache = TTLCache(ttl_seconds=3600, max_entries=200)
+
+
+def _summarize_chunk(chunk: str, question: str) -> str:
+    import google.generativeai as genai
+
+    ensure_gemini_configured()
+    model = genai.GenerativeModel(GEMINI_MODEL)
+    prompt = (
+        "Condense this pasted content into dense notes for another AI that will "
+        "answer the user's question. Keep every fact, number, name, code identifier, "
+        "and error message that could matter; drop filler. If it's code, keep the "
+        "relevant parts verbatim. Max ~250 words.\n\n"
+        f"User's question (for relevance): {question or '(none given)'}\n\n"
+        f"CONTENT:\n{chunk}"
+    )
+    resp = model.generate_content(
+        prompt,
+        generation_config=genai.types.GenerationConfig(temperature=0, max_output_tokens=800),
+    )
+    return (resp.text or "").strip()
+
+
+def compress_pasted(text: str, question: str) -> str:
+    """Map-summarizes big pastes in parallel chunks; small ones pass through."""
+    text = text[:PASTE_MAX_TOTAL_CHARS]
+    if len(text) <= PASTE_COMPRESS_THRESHOLD:
+        return text
+
+    key = hashlib.sha1(f"{question[:200]}\x00{text}".encode()).hexdigest()
+    cached = _compress_cache.get(key)
+    if cached is not None:
+        return cached
+
+    chunks = [text[i:i + PASTE_CHUNK_CHARS] for i in range(0, len(text), PASTE_CHUNK_CHARS)]
+
+    def run(idx_chunk):
+        i, chunk = idx_chunk
+        try:
+            return f"(part {i}/{len(chunks)}) {_summarize_chunk(chunk, question)}"
+        except Exception as e:
+            log_warn(f"Paste chunk {i} summarize failed, truncating: {type(e).__name__}")
+            return f"(part {i}/{len(chunks)}, truncated) {chunk[:1500]}"
+
+    with ThreadPoolExecutor(max_workers=4) as ex:
+        notes = list(ex.map(run, enumerate(chunks, 1)))
+
+    result = "\n".join(notes)
+    _compress_cache.set(key, result)
+    log_ok(f"🗜️ Compressed paste {len(text):,} → {len(result):,} chars")
+    return result
+
+
+def trim_context(chat_context) -> str:
+    """Newest-first, capped by message count, per-message size, and total size."""
+    if not isinstance(chat_context, list):
+        return ""
+    msgs = [
+        m for m in chat_context
+        if isinstance(m, dict) and isinstance(m.get("content"), str)
+    ][-CONTEXT_MAX_MESSAGES:]
+    lines, total = [], 0
+    for m in reversed(msgs):
+        role = "User" if m.get("role") == "user" else "Mist.AI"
+        content = m["content"]
+        if len(content) > CONTEXT_MSG_MAX_CHARS:
+            content = content[:CONTEXT_MSG_MAX_CHARS] + " …[trimmed]"
+        line = f"{role}: {content}"
+        if total + len(line) > CONTEXT_MAX_CHARS:
+            break
+        lines.append(line)
+        total += len(line)
+    return "\n".join(reversed(lines))
 
 
 async def needs_tavily(user_message: str) -> bool:
@@ -1805,7 +1944,19 @@ async def chat():
         is_extension = data.get("source") == "extension"
 
         user_message = (data.get("message") or "").strip()
-        img_url = data.get("img_url")
+        # Only accept data: URIs. analyze_image_with_gemini also accepts http URLs
+        # and local file paths, which shouldn't be reachable from user input.
+        raw_images = data.get("images") or ([data["img_url"]] if data.get("img_url") else [])
+        images = [
+            i for i in (raw_images if isinstance(raw_images, list) else [])
+            if isinstance(i, str) and i.startswith("data:image/")
+        ][:MAX_IMAGES]
+
+        raw_pasted = data.get("pasted") or []
+        pasted_text = "\n\n---\n\n".join(
+            p for p in (raw_pasted if isinstance(raw_pasted, list) else [])
+            if isinstance(p, str) and p.strip()
+        )
         chat_context = data.get("context", [])
         model_choice = data.get("model", "gemini")
         user_wants_grounding = data.get("ground", False)
@@ -1830,7 +1981,7 @@ async def chat():
                 403,
             )
 
-        if not user_message and not img_url and "file" not in request.files:
+        if not user_message and not images and not pasted_text and "file" not in request.files:
             return jsonify({"error": "Message can't be empty."}), 400
 
         lower_msg = user_message.lower()
@@ -1861,16 +2012,29 @@ async def chat():
                 {"response": extracted.strip() or "⚠️ No readable text found."}
             )
 
-        if img_url:
-            analysis = await analyze_image_with_gemini(img_url)
-            truncated = analysis[:80] + "..." if len(analysis) > 80 else analysis
-            user_message += f"\n\n[Image analysis: {analysis}]"
-            log_message += f"\n[Image: {truncated}]"
+        image_notes = []
+        for i, img in enumerate(images, 1):
+            analysis = (await analyze_image_with_gemini(img))[:IMAGE_NOTE_MAX_CHARS]
+            image_notes.append(f"[Image {i} of {len(images)}: {analysis}]")
+            log_message += f"\n[Image {i}: {analysis[:60]}...]"
+
+        compressed_paste = ""
+        if pasted_text:
+            compressed_paste = await asyncio.to_thread(compress_pasted, pasted_text, user_message)
+            log_message += f"\n[Pasted {len(pasted_text):,} chars]"
+
+        model_message = "\n\n".join(
+            filter(None, [
+                user_message,
+                f"[Pasted content]\n{compressed_paste}" if compressed_paste else "",
+                *image_notes,
+            ])
+        )
 
         grounding_text = ""
-        if not img_url:
+        if not images:
             try:
-                use_tavily = user_wants_grounding or await needs_tavily(user_message)
+                use_tavily = user_wants_grounding or (bool(user_message) and await needs_tavily(user_message))
                 if use_tavily:
                     tavily_query = (data.get("message") or "").strip()[:400]
                     grounding_text = await get_grounding(tavily_query)
@@ -1879,7 +2043,7 @@ async def chat():
             except Exception as e:
                 log_warn(f"⚠️ Tavily failed → skipping: {e}")
 
-        context_text = "\n".join(f"{m['role']}: {m['content']}" for m in chat_context)
+        context_text = trim_context(chat_context)
 
         tn = {"time": {}, "news": []}
         for attempt in range(3):
@@ -1918,11 +2082,11 @@ async def chat():
         full_prompt = (
             f"System: [{system_context}]\n"
             f"{context_text}\n"
-            f"User: {user_message}\n"
+            f"User: {model_message}\n"
             f"Mist.AI:"
         )
 
-        word_count = len(user_message.split())
+        word_count = len(model_message.split())
         max_tok = 4096 if word_count > 200 else 1024
 
         response_content = await get_model_response(model_choice, full_prompt, max_tok)
@@ -1957,7 +2121,10 @@ async def chat():
                 )
             return response
 
-        return jsonify({"response": response_content})
+        return jsonify({
+            "response": response_content,
+            "memory_note": model_message[:MEMORY_NOTE_MAX_CHARS],
+        })
 
     except Exception as e:
         error_msg = str(e)
