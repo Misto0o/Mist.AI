@@ -100,7 +100,7 @@ MISTRAL_MODEL = "mistral-small-latest"
 ROUTER_MODEL = "command-r7b-12-2024"
 
 TEMPERATURE = 0.3
-MAX_TOKENS = 2045
+MAX_TOKENS = 8192
 MAX_IMAGES = 4
 IMAGE_NOTE_MAX_CHARS = 3_000
 PASTE_COMPRESS_THRESHOLD = 8_000   # chars; smaller pastes go through untouched
@@ -2086,10 +2086,7 @@ async def chat():
             f"Mist.AI:"
         )
 
-        word_count = len(model_message.split())
-        max_tok = 4096 if word_count > 200 else 1024
-
-        response_content = await get_model_response(model_choice, full_prompt, max_tok)
+        response_content = await get_model_response(model_choice, full_prompt, MAX_TOKENS)
 
         if _looks_like_refusal(response_content):
             response_content = "🤖 Try rephrasing — I didn't quite get that."
