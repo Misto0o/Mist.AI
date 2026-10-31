@@ -2,4 +2,7 @@
 bans.db
 data/
 *.tmp
-__pycache__
+__pycache____pycache__/
+*.pyc
+__pycache__/
+*.pyc
