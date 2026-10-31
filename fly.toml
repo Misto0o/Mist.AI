@@ -4,7 +4,9 @@ primary_region = "iad"
 [build]
 
 [processes]
-  app = "gunicorn -w 1 -b 0.0.0.0:5000 wsgi:application"
+  # Keep -w 1: IS_DOWN, the caches, ip_log and the health monitor live in-process;
+  # a second worker would split that state. Concurrency comes from threads.
+  app = "gunicorn -k gthread -w 1 --threads 8 --timeout 300 --graceful-timeout 30 -b 0.0.0.0:5000 wsgi:application"
 
 [http_service]
   internal_port = 5000
