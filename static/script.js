@@ -95,18 +95,6 @@
         el.innerHTML = sanitizeHtml(html);
     }
 
-    // KaTeX auto-render.
-    document.addEventListener("DOMContentLoaded", () => {
-        if (typeof renderMathInElement !== "undefined") {
-            renderMathInElement(document.body, {
-                delimiters: [
-                    { left: "$", right: "$", display: false },
-                    { left: "$$", right: "$$", display: true },
-                ],
-            });
-        }
-    });
-
     document.addEventListener("focusin", e => {
         if (!e.target.classList.contains("edit-textarea")) return;
         document.addEventListener("click", function exitEdit(ev) {
@@ -134,65 +122,154 @@
         disableForced4SpacesIndentedSublists: true,
     });
 
-    // CodeMirror container style — injected once, not per code block.
-    let _cmStyleInjected = false;
-    function ensureCodeMirrorStyle() {
-        if (_cmStyleInjected) return;
-        _cmStyleInjected = true;
-        const style = document.createElement("style");
-        style.innerHTML = `.codemirror-container { display: block !important; cursor: auto !important; pointer-events: auto !important; }`;
-        document.head.appendChild(style);
+    // --- Math -------------------------------------------------------------
+    // Math is lifted out before Showdown (which would eat \( \[ _ * and add
+    // <br>s), then restored as KaTeX HTML before sanitizeHtml, so the
+    // sanitizer is still the last step before innerHTML. Everything unclosed
+    // simply doesn't match and stays literal, so partial text is safe.
+    const MATH_PATTERNS = [
+        [/\$\$([\s\S]+?)\$\$/g, true],
+        [/\\\[([\s\S]+?)\\\]/g, true],
+        [/\\\(([\s\S]+?)\\\)/g, false],
+    ];
+    const _texCache = new Map();
+
+    function escapeHtml(s) {
+        return s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
     }
 
-    function initializeCodeMirror(container, code, mode = "text") {
-        if (!container) return;
-        ensureCodeMirrorStyle();
-        container.style.fontSize = "14px";
-        container.style.maxWidth = "100%";
-        container.style.overflowX = "auto";
-        container.style.background = "#282a36";
-        container.style.borderRadius = "6px";
-        container.style.margin = "8px 0";
-        container.style.padding = "8px";
-
-        const editor = CodeMirror(container, {
-            value: code,
-            mode: mode,
-            theme: "dracula",
-            readOnly: true,
-            lineNumbers: true,
-            viewportMargin: Infinity,
-        });
-
-        setTimeout(() => editor.refresh(), 0);
-        editor.setCursor(0, 0);
-        const wrap = editor.getWrapperElement();
-        wrap.style.fontSize = "14px";
-        wrap.style.lineHeight = "1.5";
-        wrap.style.maxWidth = "100%";
-        wrap.style.overflowX = "auto";
-        wrap.style.background = "#282a36";
-        wrap.style.borderRadius = "6px";
-        wrap.style.margin = "8px 0";
-        wrap.style.padding = "8px";
+    function renderTex(tex, display) {
+        const key = (display ? "D" : "I") + tex;
+        let html = _texCache.get(key);
+        if (html !== undefined) return html;
+        try {
+            if (typeof katex === "undefined") throw new Error("KaTeX not loaded");
+            html = katex.renderToString(tex, { displayMode: display, throwOnError: false, output: "html" });
+        } catch {
+            html = escapeHtml(display ? `\\[${tex}\\]` : `\\(${tex}\\)`);
+        }
+        if (_texCache.size > 500) _texCache.clear();
+        _texCache.set(key, html);
+        return html;
     }
 
+    // $...$ only when it clearly isn't currency: opener followed by a
+    // non-space, closer preceded by a non-space and not followed by a digit,
+    // one line, at most 200 chars.
+    function inlineDollarMath(t, hold) {
+        let out = "";
+        let i = 0;
+        while (i < t.length) {
+            if (t[i] === "$" && t[i - 1] !== "\\" && t[i + 1] && !/[\s$]/.test(t[i + 1])) {
+                const limit = Math.min(t.length, i + 202);
+                let j = i + 1;
+                while (j < limit && t[j] !== "$" && t[j] !== "\n") j++;
+                if (t[j] === "$" && !/[\s\\]/.test(t[j - 1]) && !/\d/.test(t[j + 1] || "")) {
+                    out += hold(t.slice(i + 1, j));
+                    i = j + 1;
+                    continue;
+                }
+            }
+            out += t[i];
+            i++;
+        }
+        return out;
+    }
+
+    function extractMath(text) {
+        const nonce = Math.random().toString(36).slice(2, 8);
+        const spans = [];
+        const found = [];
+        // Inline code spans are masked so `$x$` stays literal.
+        let t = text.replace(/`[^`\n]+`/g, m => `MSTCODE${nonce}X${spans.push(m) - 1}X`);
+        const codeRe = new RegExp(`MSTCODE${nonce}X(\\d+)X`, "g");
+        const unmask = s => s.replace(codeRe, (_, i) => spans[i]);
+        const hold = (tex, display) => `MSTMATH${nonce}X${found.push([unmask(tex).trim(), display]) - 1}X`;
+
+        for (const [re, display] of MATH_PATTERNS) t = t.replace(re, (_, tex) => hold(tex, display));
+        t = inlineDollarMath(t, tex => hold(tex, false));
+        t = unmask(t);
+
+        const mathRe = new RegExp(`MSTMATH${nonce}X(\\d+)X`, "g");
+        return {
+            masked: t,
+            restore: html => found.length
+                ? html.replace(mathRe, (_, i) => renderTex(found[i][0], found[i][1]))
+                : html,
+        };
+    }
+
+    function renderMarkdownInto(el, text) {
+        const { masked, restore } = extractMath(text);
+        setSafeHtml(el, restore(converter.makeHtml(masked)));
+    }
+
+    // Fence names -> highlight.js languages registered in index.html.
+    // Anything else stays plain text.
+    const HLJS_LANGS = {
+        js: "javascript", javascript: "javascript", jsx: "javascript", mjs: "javascript", node: "javascript",
+        ts: "typescript", typescript: "typescript", tsx: "typescript",
+        py: "python", python: "python", python3: "python",
+        html: "xml", htm: "xml", xml: "xml", svg: "xml",
+        css: "css",
+        sh: "bash", bash: "bash", shell: "bash", zsh: "bash", console: "bash",
+        c: "c", h: "c",
+        cpp: "cpp", "c++": "cpp", cc: "cpp", cxx: "cpp", hpp: "cpp",
+        json: "json",
+        sql: "sql",
+    };
+
+    // Highlights one <code> once; a no-op until highlight.js has loaded.
+    function highlightCode(code) {
+        const lang = code.dataset.lang;
+        if (!lang || code.dataset.highlighted || !window.hljs) return;
+        code.classList.add(`language-${lang}`);
+        window.hljs.highlightElement(code);
+    }
+
+    // highlight.js loads as a module and may finish after messages rendered.
+    window.addEventListener("hljs-ready", () => {
+        document.querySelectorAll(".message-code-block code[data-lang]").forEach(highlightCode);
+    });
+
+    // Icon-only action button; the label doubles as aria-label and tooltip.
+    function iconButton(icon, label, onClick) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "msg-action";
+        setIcon(btn, icon, label);
+        btn.onclick = onClick;
+        return btn;
+    }
+
+    function setIcon(btn, icon, label) {
+        btn.innerHTML = `<i class="${icon}" aria-hidden="true"></i>`;
+        btn.setAttribute("aria-label", label);
+        btn.title = label;
+    }
+
+    // One .msg-actions row per message (Edit; Copy and Regenerate on replies).
     function attachEditButton(messageElement, content) {
-        const btn = document.createElement("i");
-        btn.classList.add("fas", "fa-pen", "edit-button");
-        btn.title = "Edit";
-        btn.onclick = () => enableEditMode(messageElement, content);
-        messageElement.appendChild(btn);
+        const row = document.createElement("div");
+        row.className = "msg-actions";
+        row.appendChild(iconButton("fa-solid fa-pen", "Edit message", () => enableEditMode(messageElement, content)));
+        messageElement.appendChild(row);
     }
 
-    function renderMessage(message, className) {
+    // `streaming` is for partial text: code stays unhighlighted and the
+    // copy/edit buttons wait for the final render. `target` re-renders an
+    // existing element in place (a streaming reply).
+    function renderMessage(message, className, streaming = false, target = null) {
         const messagesDiv = document.getElementById("chat-box");
         if (!messagesDiv) return;
+        // The user switched threads mid-stream; the element is gone.
+        if (target && !target.isConnected) return null;
         const messageElement = document.createElement("div");
         messageElement.classList.add("message", className);
 
         // Fresh regex per call so reentrant rendering can't collide on lastIndex.
-        const codeBlockRegex = /```(\w*)\n?([\s\S]*?)```/g;
+        // An unclosed trailing fence (partial text) counts as a code block.
+        const codeBlockRegex = /```([^\s`]*)[ \t]*\n?([\s\S]*?)(```|$)/g;
         let lastIndex = 0;
         let match;
 
@@ -200,48 +277,65 @@
             const before = message.slice(lastIndex, match.index);
             if (before.trim()) {
                 const seg = document.createElement("div");
-                setSafeHtml(seg, converter.makeHtml(before));
+                renderMarkdownInto(seg, before);
                 messageElement.appendChild(seg);
             }
-            const lang = match[1] || "code";
-            const code = match[2].trim();
-            messageElement.appendChild(buildCodeBlock(lang, code));
+            const closed = Boolean(match[3]);
+            const code = (closed ? match[2] : match[2].replace(/`{1,2}$/, "")).trim();
+            messageElement.appendChild(buildCodeBlock(match[1] || "code", code, streaming));
             lastIndex = match.index + match[0].length;
+            if (!closed) break;
         }
 
         const remaining = message.slice(lastIndex);
         if (remaining.trim()) {
             const seg = document.createElement("div");
-            setSafeHtml(seg, converter.makeHtml(remaining));
+            renderMarkdownInto(seg, remaining);
             messageElement.appendChild(seg);
         }
 
-        if (className === "user-message") {
+        if (className === "user-message" && !streaming) {
             attachEditButton(messageElement, message);
         }
 
+        // The row is present while streaming too (invisible via .streaming) so
+        // it holds its space and nothing shifts when it appears.
         if (className === "bot-message") {
-            const copyButton = document.createElement("i");
-            copyButton.classList.add("fa-solid", "fa-copy", "copy-button");
-            copyButton.title = "Copy Message";
-            copyButton.onclick = () => {
-                navigator.clipboard.writeText(message)
-                    .then(() => {
-                        copyButton.classList.replace("fa-copy", "fa-check");
-                        setTimeout(() => copyButton.classList.replace("fa-check", "fa-copy"), 1500);
-                    })
-                    .catch(err => console.error("Copy failed", err));
-            };
-            messageElement.appendChild(copyButton);
+            messageElement.appendChild(buildActionRow(message));
         }
+
+        if (target) {
+            // Scrolling during a stream is streamReply's job.
+            target.classList.toggle("streaming", streaming);
+            target.replaceChildren(...messageElement.childNodes);
+            return target;
+        }
+        messageElement.classList.toggle("streaming", streaming);
 
         messagesDiv.appendChild(messageElement);
         requestAnimationFrame(() => {
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
         });
+        return messageElement;
     }
 
-    function buildCodeBlock(lang, code) {
+    // Actions under a bot reply. Regenerate joins this row next.
+    function buildActionRow(text) {
+        const row = document.createElement("div");
+        row.className = "msg-actions";
+        const copy = iconButton("fa-regular fa-copy", "Copy reply", () => {
+            navigator.clipboard.writeText(text)
+                .then(() => {
+                    setIcon(copy, "fa-solid fa-check", "Copied");
+                    setTimeout(() => setIcon(copy, "fa-regular fa-copy", "Copy reply"), 1500);
+                })
+                .catch(err => console.error("Copy failed", err));
+        });
+        row.appendChild(copy);
+        return row;
+    }
+
+    function buildCodeBlock(lang, code, streaming = false) {
         const wrapper = document.createElement("div");
         wrapper.classList.add("message-code-block");
 
@@ -266,14 +360,16 @@
         header.appendChild(copyBtn);
         wrapper.appendChild(header);
 
-        if (typeof CodeMirror !== "undefined") {
-            const cmContainer = document.createElement("div");
-            wrapper.appendChild(cmContainer);
-            setTimeout(() => initializeCodeMirror(cmContainer, code, lang), 0);
-        } else {
-            const pre = document.createElement("pre");
-            pre.textContent = code;
-            wrapper.appendChild(pre);
+        const pre = document.createElement("pre");
+        const codeEl = document.createElement("code");
+        codeEl.textContent = code;
+        pre.appendChild(codeEl);
+        wrapper.appendChild(pre);
+        // Plain text while streaming; highlight once on the final render.
+        const hl = HLJS_LANGS[lang.toLowerCase()];
+        if (hl && !streaming) {
+            codeEl.dataset.lang = hl;
+            highlightCode(codeEl);
         }
 
         return wrapper;
@@ -284,12 +380,14 @@
         if (!messagesDiv) return message;
         const wordCount = message.trim().split(/\s+/).length;
         const hasCode = /```[\s\S]*?```/.test(message);
+        const hasMath = /\\[(\[]|\$\$|\$[^\s$\d]/.test(message);
 
         // Long/code-heavy messages render instantly instead of animating.
         if (
             wordCount > CONFIG.TYPE_ANIM_MAX_WORDS ||
             message.length > CONFIG.TYPE_ANIM_MAX_CHARS ||
-            hasCode
+            hasCode ||
+            hasMath
         ) {
             renderMessage(message, containerClass);
             return message;
@@ -326,6 +424,8 @@
     let uploadedFiles = [];
     let trackedIPs = {};
     let thinkingBubble = null;
+    let activeReply = null;          // {controller, threadId} while a reply is in flight
+    const fullImages = new Map();    // threadId → full-size images of its last turn (session only)
     let delayTimeout = null;
     let currentThread = null;
     let pastedItems = [];
@@ -541,13 +641,14 @@
         );
     }
 
-    // Main send pipeline.
-    async function sendMessage(userMessage = null) {
+    // Main send pipeline. `edit` = {fromTs, element} when re-sending an edited
+    // message: the old messages are only cut once the server accepts the request.
+    async function sendMessage(userMessage = null, edit = null) {
         applyTheme(localStorage.getItem("mistai-theme") || "dark");
 
         const userInput = document.getElementById("user-input");
         const messagesDiv = document.getElementById("chat-box");
-        if (!userInput || !messagesDiv || !canSendMessage) return;
+        if (!userInput || !messagesDiv || !canSendMessage || activeReply) return;
         localStorage.removeItem("mistai-draft");
 
         // Lock immediately so a fast double-click can't send twice.
@@ -565,7 +666,7 @@
 
         if (!userMessage) userMessage = userInput.value.trim();
 
-        const pastedSnapshot = pastedItems.length > 0 ? [...pastedItems] : null;
+        const pastedSnapshot = pastedItems.length > 0 ? pastedItems.map(p => p.text) : null;
         const pastedText = pastedSnapshot ? pastedSnapshot.join("\n\n") : null;
 
         let payloadMessage = userMessage;
@@ -599,14 +700,20 @@
         }
         clearImagePreviews();
 
+        // Edit: what will be cut (computed now, applied on acceptance).
+        const cut = edit ? editCut(loadState().currentThread, edit.fromTs) : null;
+
+        let stored;
         if (pastedSnapshot || thumbImages.length) {
-            renderUserTurn(userMessage, pastedSnapshot || [], thumbImages);
-            _storeNewMessage(userMessage, "user", null, true, {
+            const el = renderUserTurn(userMessage, pastedSnapshot || [], thumbImages);
+            stored = _storeNewMessage(userMessage, "user", null, true, {
                 ...(pastedSnapshot && { pasted: pastedSnapshot }),
                 ...(thumbImages.length && { images: thumbImages }),
             });
+            stored.el = el;
+            if (el) el.dataset.ts = stored.ts;
         } else {
-            _storeNewMessage(userMessage, "user", null, false);
+            stored = _storeNewMessage(userMessage, "user", null, false);
         }
 
         clearPastedItems();
@@ -617,19 +724,41 @@
 
         document.body.classList.add("hide-header");
 
-        userInput.disabled = true;
+        // Captured now: the reply is saved here even if the user switches threads.
+        const threadId = loadState().currentThread;
+        // Full-size images for Regenerate this session (history keeps 320px previews).
+        fullImages.set(threadId, sendImages);
+
+        const context = cut ? chatMemory.slice(0, Math.max(0, chatMemory.length - cut.memEntries)) : chatMemory;
+        await requestReply({
+            userMessage, pasted: pastedSnapshot || [], images: sendImages, threadId, userIP, context,
+            onAccepted: cut && (() => applyEditCut(threadId, cut, context, edit.element, stored.el)),
+        });
+    }
+
+    // Requests and renders one reply; shared by sendMessage and regenerate. The
+    // caller has set canSendMessage = false; the finally block is the only
+    // place that unlocks, so a Stop can't let a second send in early.
+    async function requestReply({ userMessage, pasted, images, threadId, userIP, context, onAccepted }) {
+        const userInput = document.getElementById("user-input");
+        const messagesDiv = document.getElementById("chat-box");
+        const controller = new AbortController();
+        activeReply = { controller, threadId };
+        setReplying(true);
+        refreshRegenerate();   // removes it while the reply is in flight
+        if (userInput) userInput.disabled = true;
 
         removeThinkingBubble(); // clear any orphan from a previous race
         thinkingBubble = createThinkingBubble();
-        messagesDiv.appendChild(thinkingBubble);
-        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        messagesDiv?.appendChild(thinkingBubble);
+        if (messagesDiv) messagesDiv.scrollTop = messagesDiv.scrollHeight;
 
         try {
             const payload = {
                 message: userMessage,          // typed text only
-                pasted: pastedSnapshot || [],  // sent separately so the server can compress it
-                images: sendImages,
-                context: chatMemory,
+                pasted,                        // sent separately so the server can compress it
+                images,
+                context,
                 model: currentModel,
                 ground: userWantsGrounding(userMessage),
                 ip: userIP,
@@ -638,14 +767,16 @@
 
             let response;
             try {
-                response = await fetch(getBackendBase() + "/chat", {
+                response = await fetch(getBackendBase() + "/chat/stream", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(payload),
+                    signal: controller.signal,
                 });
             } catch (networkError) {
-                console.error("Network failure while contacting backend:", networkError);
                 removeThinkingBubble();
+                if (networkError.name === "AbortError") return;   // stopped before the server answered
+                console.error("Network failure while contacting backend:", networkError);
                 renderMessage(
                     "⚠️ Connection lost – the server may have restarted. Please try sending your message again.",
                     "bot-message"
@@ -685,6 +816,14 @@
                 return;
             }
 
+            onAccepted?.();
+
+            if ((response.headers.get("Content-Type") || "").includes("text/event-stream")) {
+                await streamReply(response, userMessage, threadId);
+                return;
+            }
+
+            // Non-streamed replies (slash commands, copyright notices) stay JSON.
             const data = await response.json();
             if (!data.response) {
                 removeThinkingBubble();
@@ -696,22 +835,16 @@
             }
 
             const botText = data.response;
-            updateMemory("user", data.memory_note || userMessage);
             removeThinkingBubble();
             await typeBotMessage(botText);
-
-            updateMemory("bot", botText);
-
-            const state = loadState();
-            const threadId = state.currentThread;
-            addMessage(threadId, { text: botText, sender: "bot" });
+            saveReply(threadId, data.memory_note || userMessage, botText);
 
         } catch (error) {
-            console.error("Fetch error:", error);
             removeThinkingBubble();
+            if (error.name === "AbortError") return;   // stopped while the JSON reply was downloading
+            console.error("Fetch error:", error);
 
-            const state = loadState();
-            if (state.currentThread) removeLastUserMessage(state.currentThread);
+            removeLastUserMessage(threadId);
 
             const chatBox = document.getElementById("chat-box");
             if (chatBox && chatBox.lastElementChild) {
@@ -720,9 +853,261 @@
 
             showMessage("❌ An error occurred while sending your message. Please try again.", "bot");
         } finally {
-            userInput.disabled = false;
+            activeReply = null;
+            setReplying(false);
+            if (userInput) {
+                userInput.disabled = false;
+                userInput.focus();
+            }
             canSendMessage = true;
-            userInput.focus();
+            refreshRegenerate();
+        }
+    }
+
+    // Saves a finished or stopped reply, unless its thread was deleted meanwhile.
+    function saveReply(threadId, userMemory, botText) {
+        if (!loadState().threads.some(t => t.id === threadId)) return;
+        updateMemory("user", userMemory, threadId);
+        updateMemory("bot", botText, threadId);
+        addMessage(threadId, { text: botText, sender: "bot" });
+    }
+
+    // The send button doubles as Stop while a reply is in flight.
+    function setReplying(on) {
+        document.body.classList.toggle("replying", on);
+        const btn = document.querySelector(".send-btn");
+        if (!btn) return;
+        const label = on ? "Stop generating" : "Send";
+        btn.title = label;
+        btn.setAttribute("aria-label", label);
+        btn.innerHTML = `<i class="fa-solid ${on ? "fa-stop" : "fa-arrow-up"}" aria-hidden="true"></i>`;
+    }
+
+    function stopActiveReply() {
+        activeReply?.controller.abort();
+    }
+
+    function onSendButton() {
+        if (activeReply) stopActiveReply();
+        else sendMessage();
+    }
+
+    // The stored user turn Regenerate/Retry re-sends: the last user message,
+    // when the thread ends with it or with its reply. Legacy file uploads
+    // (non-streamed /chat path) can't be re-sent.
+    function regenTarget() {
+        const msgs = loadChat(loadState().currentThread);
+        let i = msgs.length - 1;
+        if (msgs[i]?.sender === "bot") i--;
+        const user = msgs[i];
+        return user?.sender === "user" && !user.file ? { user, hasReply: i < msgs.length - 1 } : null;
+    }
+
+    function lastMessageEl() {
+        const box = document.getElementById("chat-box");
+        return box && [...box.children].reverse()
+            .find(el => el.classList.contains("message") && !el.classList.contains("thinking"));
+    }
+
+    // Regenerate on the last reply, or Retry on a trailing user message (stopped
+    // or failed before a reply was saved). Never while a reply is in flight.
+    function refreshRegenerate() {
+        document.querySelectorAll("#chat-box .regen-btn").forEach(b => b.remove());
+        if (activeReply) return;
+        const last = lastMessageEl();
+        const row = last?.querySelector(":scope > .msg-actions");
+        if (!row || !regenTarget()) return;
+        const isUser = last.classList.contains("user-message");
+        const btn = iconButton("fa-solid fa-rotate-right", isUser ? "Retry" : "Regenerate reply", regenerate);
+        btn.classList.add("regen-btn");
+        row.appendChild(btn);
+    }
+
+    async function regenerate() {
+        if (!canSendMessage || activeReply) return;
+        const target = regenTarget();
+        if (!target) return;
+        canSendMessage = false;
+        const threadId = loadState().currentThread;
+
+        // Drop the reply on screen (saved, or an unsaved error/interrupted one).
+        const last = lastMessageEl();
+        if (last?.classList.contains("bot-message")) last.remove();
+
+        // Only a saved reply has stored data and a memory pair to remove.
+        if (target.hasReply) {
+            const state = loadState();
+            const botMsg = state.chats[threadId].pop();
+            saveState(state);
+            popMemoryPair(threadId, botMsg.text);
+        }
+
+        const { user } = target;
+        let images = user.images || [];
+        const full = fullImages.get(threadId);
+        if (images.length) {
+            if (full?.length === images.length) images = full;
+            else showNotification("Re-sent with the saved 320px image previews; full-size originals aren't kept after a reload.");
+        }
+
+        await requestReply({
+            userMessage: user.text || "", pasted: user.pasted || [], images, threadId,
+            userIP: await getUserIP(), context: chatMemory,
+        });
+    }
+
+    // Removes the last user/bot pair from memory, but only if its bot entry is
+    // the reply being regenerated; a mismatched memory is left alone.
+    function popMemoryPair(threadId, botText) {
+        const mem = readJSON(`chatMemory-${threadId}`, []);
+        const last = mem[mem.length - 1];
+        if (last?.role !== "bot" || last.content !== botText) return;
+        mem.pop();
+        if (mem[mem.length - 1]?.role === "user") mem.pop();
+        writeJSON(`chatMemory-${threadId}`, mem);
+        if (threadId === currentThread) chatMemory = mem;
+    }
+
+    // Edit: the stored messages from the edited one onward, and how many memory
+    // entries they own (each saved reply owns a user/bot pair).
+    function editCut(threadId, fromTs) {
+        const msgs = loadChat(threadId);
+        const start = msgs.findIndex(m => m.ts === fromTs);
+        if (start < 0) return null;
+        const removed = msgs.slice(start);
+        const pairs = removed.filter((m, i) => m.sender === "bot" && removed[i - 1]?.sender === "user").length;
+        return { fromTs, count: removed.length, memEntries: pairs * 2 };
+    }
+
+    // Applied once the edited send is accepted: cut storage, memory, and the old
+    // messages on screen (up to the new turn).
+    function applyEditCut(threadId, cut, memory, editedEl, newEl) {
+        const state = loadState();
+        const msgs = state.chats[threadId] || [];
+        const start = msgs.findIndex(m => m.ts === cut.fromTs);
+        if (start >= 0) {
+            msgs.splice(start, cut.count);
+            saveState(state);
+        }
+        writeJSON(`chatMemory-${threadId}`, memory);
+        if (threadId === currentThread) chatMemory = memory;
+        for (let el = editedEl; el && el !== newEl;) {
+            const next = el.nextElementSibling;
+            el.remove();
+            el = next;
+        }
+    }
+
+    // Yields {event, data} per SSE event. Bytes may be split anywhere, even
+    // inside a UTF-8 character, so decode in streaming mode and only parse
+    // complete (blank-line terminated) events.
+    async function* readSSE(body) {
+        const reader = body.getReader();
+        const decoder = new TextDecoder();
+        let buf = "";
+        for (;;) {
+            const { value, done } = await reader.read();
+            buf += decoder.decode(value, { stream: !done }).replace(/\r\n?/g, "\n");
+            let end;
+            while ((end = buf.indexOf("\n\n")) !== -1) {
+                const block = buf.slice(0, end);
+                buf = buf.slice(end + 2);
+                let event = "message";
+                const data = [];
+                for (const line of block.split("\n")) {
+                    if (line.startsWith("event:")) event = line.slice(6).trim();
+                    else if (line.startsWith("data:")) data.push(line.slice(5).replace(/^ /, ""));
+                }
+                if (data.length) yield { event, data: data.join("\n") }; // ":" pings have no data
+            }
+            if (done) return;
+        }
+    }
+
+    // Renders a /chat/stream reply. On an error or a dropped connection the
+    // partial text stays on screen with a notice and isn't saved; on Stop it's
+    // treated as the finished reply and saved.
+    async function streamReply(response, userMessage, threadId) {
+        let text = "", el = null, painting = false, finished = false, done = null, failure = null, stopped = false;
+
+        // Follow the bottom unless the user scrolls up; resume once they're
+        // back at the bottom. Scroll events from our own writes are ignored.
+        const box = document.getElementById("chat-box");
+        let follow = true, ownTop = -1, lastTop = box ? box.scrollTop : 0;
+        const stick = () => {
+            if (!follow || !box) return;
+            box.scrollTop = box.scrollHeight;
+            ownTop = lastTop = box.scrollTop;
+        };
+        const onScroll = () => {
+            const top = box.scrollTop;
+            if (top === ownTop) return;
+            const gap = box.scrollHeight - top - box.clientHeight;
+            if (gap <= 2) follow = true;            // at the bottom (also a clamp after content shrank)
+            else if (top < lastTop) follow = false; // scrolled up
+            else if (gap <= 8) follow = true;
+            lastTop = top;
+        };
+        box?.addEventListener("scroll", onScroll, { passive: true });
+
+        const paint = () => {
+            painting = false;
+            if (!finished && renderMessage(text, "bot-message", true, el)) stick();
+        };
+
+        try {
+            for await (const ev of readSSE(response.body)) {
+                if (ev.event === "delta") {
+                    text += JSON.parse(ev.data).t;
+                    if (!el) {
+                        removeThinkingBubble();
+                        // Don't drop the reply into another thread's view.
+                        if (loadState().currentThread === threadId) el = renderMessage(text, "bot-message", true);
+                    } else if (!painting) {
+                        painting = true;
+                        requestAnimationFrame(paint);
+                    }
+                } else if (ev.event === "done") {
+                    done = JSON.parse(ev.data);
+                    break;
+                } else if (ev.event === "error") {
+                    failure = JSON.parse(ev.data);
+                    break;
+                }
+            }
+        } catch (err) {
+            stopped = err?.name === "AbortError";
+            if (!stopped) console.error("Stream interrupted:", err);
+        }
+        finished = true;
+        removeThinkingBubble();
+        box?.removeEventListener("scroll", onScroll);
+
+        if (done || (stopped && text)) {
+            const botText = done ? done.response : text;
+            // Highlighting/KaTeX can change the height, so stick once more.
+            if (el) { if (renderMessage(botText, "bot-message", false, el)) stick(); }
+            else if (loadState().currentThread === threadId) renderMessage(botText, "bot-message");
+            saveReply(threadId, done?.memory_note || userMessage, botText);
+            return;
+        }
+        if (stopped) return;   // stopped before the first chunk: nothing to show or save
+
+        const notice = failure?.is_down
+            ? "Mist.AI went offline mid-reply. This answer is incomplete; try again once it's back."
+            : failure
+                ? "The model stopped mid-reply. This answer is incomplete; please try again."
+                : "Connection lost mid-reply. This answer is incomplete; please try again.";
+        // Final (non-streaming) render of what arrived, so it gets highlighting
+        // and a Copy that copies exactly the received text; notice sits above the row.
+        if (el && renderMessage(text, "bot-message", false, el)) {
+            const note = document.createElement("div");
+            note.className = "reply-notice";
+            note.textContent = "⚠️ " + notice;
+            el.insertBefore(note, el.querySelector(".msg-actions"));
+            stick();
+        } else if (!el && loadState().currentThread === threadId) {
+            renderMessage("⚠️ " + notice, "bot-message");
         }
     }
 
@@ -740,29 +1125,31 @@
             if (existing.length >= CONFIG.MAX_PASTES) return;
 
             const clipped = pasted.slice(0, CONFIG.MAX_PASTE_CHARS);
-            pastedItems.push(clipped);
-            addPastedBlock(clipped);
+            // Per-card id so removing one of two identical pastes removes the right one.
+            const item = { id: generateUUID(), text: clipped };
+            pastedItems.push(item);
+            addPastedBlock(item);
         });
     }
 
-    function addPastedBlock(text) {
-        let row = document.getElementById("pasted-blocks-row");
-        if (!row) {
-            row = document.createElement("div");
-            row.id = "pasted-blocks-row";
-            row.classList.add("pasted-blocks-row");
-            const container = document.querySelector(".chat-input-container");
-            const textarea = document.getElementById("user-input");
-            if (!container || !textarea) return;
-            container.insertBefore(row, textarea);
-        }
+    // Images and pasted cards share one tray (#image-preview); it shows while
+    // it has any card.
+    function syncTray() {
+        const tray = document.getElementById("image-preview");
+        if (tray) tray.classList.toggle("active", tray.children.length > 0);
+    }
+
+    function addPastedBlock(item) {
+        const tray = document.getElementById("image-preview");
+        if (!tray) return;
 
         const block = document.createElement("div");
         block.classList.add("pasted-block");
+        block.dataset.id = item.id;
 
         const preview = document.createElement("div");
         preview.classList.add("pasted-block-text");
-        preview.textContent = text;
+        preview.textContent = item.text;
         block.appendChild(preview);
 
         const label = document.createElement("span");
@@ -771,23 +1158,25 @@
         block.appendChild(label);
 
         const removeBtn = document.createElement("button");
+        removeBtn.type = "button";
         removeBtn.classList.add("pasted-remove");
+        removeBtn.setAttribute("aria-label", "Remove pasted text");
+        removeBtn.title = "Remove pasted text";
         removeBtn.textContent = "×";
         removeBtn.onclick = () => {
-            const idx = pastedItems.indexOf(text);
-            if (idx > -1) pastedItems.splice(idx, 1);
+            pastedItems = pastedItems.filter(p => p.id !== item.id);
             block.remove();
-            const rowEl = document.getElementById("pasted-blocks-row");
-            if (rowEl && rowEl.children.length === 0) rowEl.remove();
+            syncTray();
         };
         block.appendChild(removeBtn);
-        row.appendChild(block);
+        tray.appendChild(block);
+        syncTray();
     }
 
     function clearPastedItems() {
-        const row = document.getElementById("pasted-blocks-row");
-        if (row) row.remove();
+        document.querySelectorAll("#image-preview .pasted-block").forEach(b => b.remove());
         pastedItems = [];
+        syncTray();
     }
 
     // State/thread persistence — cached in memory, synced to localStorage.
@@ -839,7 +1228,7 @@
                     saveState(state);
                 };
                 reader.readAsDataURL(msg.file);
-                return;
+                return msg.ts;
             }
         } catch (err) {
             console.error("Attachment handling failed; saving text only:", err);
@@ -848,8 +1237,10 @@
 
         state.chats[threadId].push(msg);
         saveState(state);
+        return msg.ts;
     }
 
+    // Returns the stored message's ts and, unless silent, its rendered element.
     function _storeNewMessage(text, sender = "user", file = null, silent = false, extra = {}) {
         let state = loadState();
         if (!state.currentThread) {
@@ -870,12 +1261,15 @@
         if (thread) { thread.hideHeader = true; saveState(state); }
 
         if (file) message.file = file;
-        addMessage(threadId, message);
+        const ts = addMessage(threadId, message);
 
+        let el = null;
         if (!silent) {
             if (file) showMessageWithImage(text, file, sender);
-            else renderMessage(text, sender === "user" ? "user-message" : "bot-message");
+            else el = renderMessage(text, sender === "user" ? "user-message" : "bot-message");
         }
+        if (el) el.dataset.ts = ts;
+        return { ts, el };
     }
 
     function handleNewMessage(text, sender = "user", file = null) {
@@ -948,6 +1342,7 @@
 
     // Threads.
     function createThread(name) {
+        stopActiveReply();   // switching away acts as Stop
         const state = loadState();
         const id = generateUUID();
         const thread = { id, name: name || `New Chat ${state.threads.length + 1}`, hideHeader: false, pinned: false };
@@ -971,6 +1366,7 @@
     function switchThread(threadId) {
         const state = loadState();
         if (!threadId || !state.chats[threadId]) return;
+        if (threadId !== state.currentThread) stopActiveReply();   // switching away acts as Stop
 
         currentThread = threadId;
         chatMemory = readJSON(`chatMemory-${threadId}`, []);
@@ -982,6 +1378,7 @@
         chatContainer.innerHTML = "";
         const messages = loadChat(threadId);
         messages.forEach(renderStoredMessage);
+        refreshRegenerate();
 
         renderThreads();
 
@@ -1007,6 +1404,7 @@
     }
 
     function deleteChat(threadId) {
+        stopActiveReply();   // a stopped reply for this thread isn't saved (saveReply checks it exists)
         const state = loadState();
         state.threads = state.threads.filter(t => t.id !== threadId);
         delete state.chats[threadId];
@@ -1171,36 +1569,27 @@
         const saveButton = document.createElement("button");
         saveButton.classList.add("save-button");
         saveButton.textContent = "Save";
-        saveButton.onclick = () => saveEditedMessage(messageElement, textarea.value);
+        // Restoring the original nodes keeps attachment cards and the action row.
+        const original = [...messageElement.childNodes];
+        const restore = () => messageElement.replaceChildren(...original);
+        saveButton.onclick = () => saveEditedMessage(messageElement, textarea.value, restore);
 
         const cancelButton = document.createElement("button");
         cancelButton.classList.add("cancel-button");
         cancelButton.textContent = "Cancel";
-        cancelButton.onclick = () => {
-            messageElement.innerHTML = "";
-            const restored = document.createElement("div");
-            restored.textContent = originalContent;
-            messageElement.appendChild(restored);
-            attachEditButton(messageElement, originalContent);
-        };
+        cancelButton.onclick = restore;
 
-        messageElement.innerHTML = "";
-        messageElement.appendChild(textarea);
-        messageElement.appendChild(saveButton);
-        messageElement.appendChild(cancelButton);
+        messageElement.replaceChildren(textarea, saveButton, cancelButton);
     }
 
-    function saveEditedMessage(messageElement, newContent) {
-        const messagesDiv = document.getElementById("chat-box");
-        if (!messagesDiv) return;
-        // Only remove the next sibling if it's actually a live bot reply.
-        const next = messageElement.nextElementSibling;
-        messagesDiv.removeChild(messageElement);
-        if (next && next.classList.contains("bot-message") && !next.classList.contains("thinking")) {
-            messagesDiv.removeChild(next);
-        }
-        sendMessage(newContent);
-        updateMemory("user", newContent);
+    // The edited text goes out as a new message. The old message and everything
+    // after it are removed (on screen, in history and memory) only once the
+    // server accepts the new request; until then, or if it fails, they stay.
+    function saveEditedMessage(messageElement, newContent, restore) {
+        if (!canSendMessage || activeReply || !newContent.trim()) return;
+        restore();
+        const fromTs = Number(messageElement.dataset.ts);
+        sendMessage(newContent, fromTs ? { fromTs, element: messageElement } : null);
     }
 
     // Thinking bubble.
@@ -1279,17 +1668,17 @@
     }
 
     // Memory + backend helpers.
-    function updateMemory(role, content) {
-        if (!currentThread) return;
-        const threadMemory = readJSON(`chatMemory-${currentThread}`, []);
+    function updateMemory(role, content, threadId = currentThread) {
+        if (!threadId) return;
+        const threadMemory = readJSON(`chatMemory-${threadId}`, []);
         const last = threadMemory[threadMemory.length - 1];
         if (last?.role === role && last?.content === content) return;
         threadMemory.push({ role, content });
 
         if (threadMemory.length > CONFIG.MEMORY_CAP) threadMemory.shift();
 
-        writeJSON(`chatMemory-${currentThread}`, threadMemory);
-        chatMemory = threadMemory;
+        writeJSON(`chatMemory-${threadId}`, threadMemory);
+        if (threadId === currentThread) chatMemory = threadMemory;
     }
 
     function getBackendBase() {
@@ -1433,48 +1822,50 @@
         const el = document.createElement("div");
         el.classList.add("message", "user-message");
 
-        if (images.length) {
-            const grid = document.createElement("div");
-            grid.className = "user-image-grid";
+        // Images and pasted cards in one row above the typed text.
+        if (images.length || pasted.length) {
+            const row = document.createElement("div");
+            row.className = "turn-attachments";
             images.forEach((src, i) => {
                 const img = document.createElement("img");
                 img.src = src;
                 img.alt = `Image ${i + 1}`;
-                grid.appendChild(img);
+                row.appendChild(img);
             });
-            el.appendChild(grid);
+            pasted.forEach(p => {
+                const chip = document.createElement("div");
+                chip.classList.add("pasted-chip-inline");
+                const preview = document.createElement("span");
+                preview.textContent = p.slice(0, 120);
+                const label = document.createElement("span");
+                label.classList.add("chip-label");
+                label.textContent = "PASTED";
+                chip.append(preview, label);
+                row.appendChild(chip);
+            });
+            el.appendChild(row);
         }
 
         if (typedText.trim()) {
             const t = document.createElement("div");
             t.textContent = typedText;
-            if (pasted.length) t.style.marginBottom = "8px";
             el.appendChild(t);
         }
-
-        pasted.forEach(p => {
-            const chip = document.createElement("div");
-            chip.classList.add("pasted-chip-inline");
-            const preview = document.createElement("span");
-            preview.textContent = p.slice(0, 50) + (p.length > 50 ? "..." : "");
-            const label = document.createElement("span");
-            label.classList.add("chip-label");
-            label.textContent = "PASTED";
-            chip.append(preview, label);
-            el.appendChild(chip);
-        });
 
         attachEditButton(el, typedText);
         box.appendChild(el);
         box.scrollTop = box.scrollHeight;
+        return el;
     }
 
     function renderStoredMessage(msg) {
         if (msg.sender === "bot") return renderMessage(msg.text, "bot-message");
-        if (msg.pasted?.length || msg.images?.length)
-            return renderUserTurn(msg.text || "", msg.pasted || [], msg.images || []);
         if (msg.file) return showMessageWithImage(msg.text, msg.file, msg.sender);
-        renderMessage(msg.text, "user-message");
+        const el = msg.pasted?.length || msg.images?.length
+            ? renderUserTurn(msg.text || "", msg.pasted || [], msg.images || [])
+            : renderMessage(msg.text, "user-message");
+        // Edit uses this to find the stored message.
+        if (el && msg.ts) el.dataset.ts = msg.ts;
     }
     // Single init sequence — explicit ordering, no scattered listeners.
     document.addEventListener("DOMContentLoaded", () => {
@@ -1614,8 +2005,9 @@
     function renderImagePreviews() {
         const c = document.getElementById("image-preview");
         if (!c) return;
-        c.innerHTML = "";
-        if (!uploadedFiles.length) { c.classList.remove("active"); return; }
+        // Only the image cards; pasted cards in the same tray stay put.
+        c.querySelectorAll(".preview-wrapper").forEach(w => w.remove());
+        const firstPaste = c.querySelector(".pasted-block");
         uploadedFiles.forEach((file, i) => {
             const wrap = document.createElement("div");
             wrap.className = "preview-wrapper";
@@ -1625,13 +2017,16 @@
             img.className = "uploaded-preview";
             img.alt = `Preview ${i + 1}`;
             const rm = document.createElement("button");
+            rm.type = "button";
             rm.className = "remove-btn";
+            rm.setAttribute("aria-label", `Remove image ${i + 1}`);
+            rm.title = "Remove image";
             rm.textContent = "✖";
             rm.addEventListener("click", () => { uploadedFiles.splice(i, 1); renderImagePreviews(); });
             wrap.append(img, rm);
-            c.appendChild(wrap);
+            c.insertBefore(wrap, firstPaste);
         });
-        c.classList.add("active");
+        syncTray();
     }
 
     function clearImagePreviews() {
@@ -1889,7 +2284,7 @@
         if (sendBtn) {
             sendBtn.addEventListener("touchstart", (e) => {
                 e.preventDefault();
-                sendMessage();
+                onSendButton();
             }, { passive: false });
         }
     }
@@ -1924,11 +2319,13 @@
 
     // Public API — only what the HTML calls directly.
     window.sendMessage = sendMessage;
+    window.onSendButton = onSendButton;
     window.swapModel = swapModel;
     window.showRandomPrompt = function () { sendMessage("random prompt"); };
     window.showFunFact = function () { sendMessage("fun fact"); };
     window.handleNewMessage = handleNewMessage;
     window.handleNewMessageSilent = handleNewMessageSilent;
     window.showMessage = showMessage;
+    window.MistRender = { renderMessage, sanitizeHtml, readSSE };
 
 })();

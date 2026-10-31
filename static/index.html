@@ -1,6 +1,9 @@
+<!DOCTYPE html>
+<html lang="en">
+
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
 
     <title>Mist.AI – Personal AI Assistant</title>
 
@@ -33,7 +36,6 @@
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css" />
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
-    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
 
     <!-- Google Analytics -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-GLT3T5YYE9"></script>
@@ -48,8 +50,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.9.4/css/bulma.min.css" />
 
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="styles.css?v=13" />
-    <link rel="stylesheet" href="themes.css?v=13" />
+    <link rel="stylesheet" href="styles.css?v=21" />
+    <link rel="stylesheet" href="themes.css?v=14" />
 
     <!-- Font Awesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
@@ -62,11 +64,25 @@
     <!-- Markdown Support -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/showdown/2.1.0/showdown.min.js"></script>
 
-    <!-- CodeMirror Editor -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.css" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/theme/dracula.min.css" />
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/mode/javascript/javascript.min.js"></script>
+    <!-- Code highlighting: highlight.js core + only the languages we use -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" integrity="sha384-wH75j6z1lH97ZOpMOInqhgKzFkAInZPPSPlZpYKYTOqsaizPvhQZmAtLcPKXpLyH" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script type="module">
+        import hljs from "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/es/core.min.js";
+        import javascript from "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/es/languages/javascript.min.js";
+        import typescript from "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/es/languages/typescript.min.js";
+        import python from "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/es/languages/python.min.js";
+        import xml from "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/es/languages/xml.min.js";
+        import css from "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/es/languages/css.min.js";
+        import bash from "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/es/languages/bash.min.js";
+        import c from "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/es/languages/c.min.js";
+        import cpp from "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/es/languages/cpp.min.js";
+        import json from "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/es/languages/json.min.js";
+        import sql from "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/es/languages/sql.min.js";
+        for (const [name, lang] of Object.entries({ javascript, typescript, python, xml, css, bash, c, cpp, json, sql })) hljs.registerLanguage(name, lang);
+        window.hljs = hljs;
+        // script.js re-highlights any code blocks rendered before this loaded.
+        window.dispatchEvent(new Event("hljs-ready"));
+    </script>
 
     <!-- PWA Manifest -->
     <link rel="manifest" href="/manifest.json" />
@@ -111,17 +127,17 @@
 
         <!-- Sidebar Icons (Visible when collapsed) -->
         <div class="sidebar-icons">
-            <button class="sidebar-icon" onclick="createThread(name)"><i class="fa-solid fa-comments"></i></button>
-            <button class="sidebar-icon" onclick="window.open('https://github.com/Misto0o/Mist.AI', '_blank')"><i
+            <button class="sidebar-icon" data-label="New chat" aria-label="New chat" onclick="createThread(name)"><i class="fa-solid fa-comments"></i></button>
+            <button class="sidebar-icon" data-label="Source code" aria-label="Source code" onclick="window.open('https://github.com/Misto0o/Mist.AI', '_blank')"><i
                     class="fas fa-code"></i></button>
-            <button class="sidebar-icon" onclick="window.open('https://mistai.org/status-page', '_blank')"><i
+            <button class="sidebar-icon" data-label="Status" aria-label="Status" onclick="window.open('https://mistai.org/status-page', '_blank')"><i
                     class="fa-solid fa-signal"></i></button>
-            <button class="sidebar-icon" onclick="window.open('https://mistai.org/credits', '_blank')"><i
+            <button class="sidebar-icon" data-label="Credits" aria-label="Credits" onclick="window.open('https://mistai.org/credits', '_blank')"><i
                     class="fa-solid fa-star"></i></button>
-            <button class="sidebar-icon"
+            <button class="sidebar-icon" data-label="Docs" aria-label="Docs"
                 onclick="window.open('https://misto0o.github.io/MistAI-Desktop/docs.html', '_blank')"><i
                     class="fa-solid fa-book"></i></button>
-            <button class="sidebar-icon" onclick="openReadmeModal()"><i
+            <button class="sidebar-icon" data-label="Help" aria-label="Help" onclick="openReadmeModal()"><i
                     class="fa-solid fa-circle-question"></i></button>
         </div>
         <!-- Menu Content (Hidden when collapsed) -->
@@ -226,7 +242,7 @@
                 <!-- Right: word counter + send -->
                 <div class="input-actions-right">
                     <div id="word-counter">0 / 1200</div>
-                    <button class="send-btn" onclick="sendMessage()" title="Send">
+                    <button class="send-btn" onclick="onSendButton()" title="Send" aria-label="Send">
                         <i class="fa-solid fa-arrow-up"></i>
                     </button>
                 </div>
@@ -240,7 +256,7 @@
                 Cook</a></h5>
     </div>
 
-    <!-- Overlay background (optional for modal effect) -->
+    <!-- Overlay background-->
     <div class="overlay" id="overlay"></div>
 
     <!-- README Modal (can stay globally positioned) -->
@@ -293,7 +309,7 @@
         </select>
     </div>
 
-    <script src="script.js?v=15" defer></script>
+    <script src="script.js?v=22" defer></script>
 </body>
 
 </html>

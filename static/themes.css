@@ -36,6 +36,11 @@
     --bot-bg: #1E293B;
 }
 
+/* Midnight's accent (#2563EB) is too dark for link text on the dark page. */
+body.midnight-theme #chat-box .bot-message a {
+    color: #93B4FF;
+}
+
 .cyberpunk-theme {
     --primary: #00E5FF;
     --primary-hover: #FF4081;

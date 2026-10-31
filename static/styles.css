@@ -43,6 +43,7 @@ body {
 .sidebar {
     width: 80px;
     height: 100vh;
+    height: 100dvh;
     background: linear-gradient(135deg, #1c1c1c 30%, #292929 100%);
     padding: 10px 0;
     position: fixed;
@@ -503,25 +504,6 @@ body.hide-header .header {
     border: none !important;
 }
 
-/* Copy Button */
-.copy-button {
-    position: absolute !important;
-    top: 5px;
-    right: 5px;
-    font-size: 14px;
-    color: white;
-    background: rgba(255, 255, 255, 0.2);
-    padding: 5px;
-    border-radius: 5px;
-    cursor: pointer;
-    opacity: 0;
-    transition: opacity 0.3s ease-in-out;
-}
-
-.bot-message:hover .copy-button {
-    opacity: 1;
-}
-
 /* ========================== */
 /*  CHAT INPUT  ← CHANGED     */
 /* ========================== */
@@ -558,20 +540,21 @@ body.hide-header .header {
 }
 
 /* Image preview sits at top, inside the card */
+/* Attachment tray: image thumbnails and pasted cards side by side, wrapping
+   only when needed (desktop) or scrolling sideways (phones). */
 #image-preview {
     display: none;
     flex-wrap: wrap;
+    align-items: flex-start;
     gap: 8px;
     padding: 10px 14px 0;
     background: transparent;
-    max-height: 110px;
+    max-height: 150px;
     overflow-y: auto;
     margin-bottom: 0;
 }
 
-#image-preview.active { display: flex; flex-wrap: wrap; gap: 8px; }
-.user-image-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
-.user-image-grid img { max-width: 160px; max-height: 160px; border-radius: 8px; object-fit: cover; }
+#image-preview.active { display: flex; }
 
 /* Textarea — transparent, no inner box look */
 #user-input {
@@ -818,6 +801,17 @@ tr:nth-child(odd) {
     background: #1e1e1e;
 }
 
+/* Bubbles are center-aligned; code must not inherit that. */
+.message-code-block,
+.message-code-block pre {
+    text-align: left;
+}
+
+.katex-display {
+    overflow-x: auto;
+    overflow-y: hidden;
+}
+
 .message-code-block .code-header {
     display: flex;
     align-items: center;
@@ -1049,30 +1043,6 @@ tr:nth-child(odd) {
 
 .typing-indicator span:nth-child(3) {
     animation-delay: 0.4s;
-}
-
-.edit-button {
-    position: absolute;
-    top: 6px;
-    right: 6px;
-    opacity: 0;
-    transition: opacity 0.15s ease, transform 0.15s ease;
-    cursor: pointer;
-    background: rgba(0, 0, 0, 0.25);
-    color: #fff;
-    padding: 6px;
-    border-radius: 6px;
-    font-size: 14px;
-    line-height: 1;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    transform: translateY(-2px);
-}
-
-.message:hover .edit-button {
-    opacity: 1;
-    transform: translateY(0);
 }
 
 .edit-textarea {
@@ -1500,21 +1470,6 @@ body:not([class*="-theme"]) .active-thread .thread-link {
     /* no max-height/overflow here — .sidebar-scroll-region handles scrolling now */
 }
 
-/* Pasted blocks row container */
-.pasted-blocks-row {
-    display: flex;
-    flex-direction: row;
-    flex-wrap: nowrap;
-    gap: 6px;
-    padding: 8px 14px 0;
-    overflow-x: auto;
-    scrollbar-width: none;
-}
-
-.pasted-blocks-row::-webkit-scrollbar {
-    display: none;
-}
-
 /* Individual pasted chip */
 .pasted-block {
     position: relative;
@@ -1793,6 +1748,7 @@ body:not([class*="-theme"]) .active-thread .thread-link {
     .sidebar {
         width: 0;
         height: 100vh;
+        height: 100dvh;
         position: fixed;
         top: 0;
         left: 0;
@@ -2178,4 +2134,465 @@ body:not([class*="-theme"]) .active-thread .thread-link {
         background: rgba(0, 0, 0, 0.4);
         border: 1px solid rgba(255, 255, 255, 0.1);
     }
+}
+
+/* ========================== */
+/*  STAGE B: BORDERLESS BOT REPLIES + CODE BLOCKS */
+/* ========================== */
+
+/* Declared on body because themes put --accent on body.<name>-theme. */
+body {
+    --theme-line: var(--accent, var(--accent-color));
+}
+
+/* Bot replies: no bubble. Text uses the page text colour: every theme keeps
+   the same dark page, and some themes' --text was picked for a light bubble
+   (cyberpunk, arctic, golden, cherry). The theme shows in the left rule. */
+#chat-box .message.bot-message {
+    background: none !important;
+    border: 0 !important;
+    border-left: 2px solid var(--theme-line) !important;
+    border-radius: 0;
+    box-shadow: none;
+    color: var(--text-color) !important;
+    text-align: left !important;
+    width: 100%;
+    max-width: min(720px, 100%);
+    padding: 2px 0 2px 16px;   /* action row sits in the margin below */
+    margin-right: auto;
+}
+
+#chat-box .bot-message a {
+    color: var(--theme-line);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+/* User messages keep the right-aligned bubble and the theme outline. */
+[class*="-theme"] #chat-box .message.user-message {
+    border-color: var(--theme-line) !important;
+}
+
+/* Code blocks: one dark surface for every theme so highlight colours stay
+   legible; the theme colours the frame and the language label. */
+.message-code-block {
+    background: #1a1b1e;
+    border: 1px solid color-mix(in srgb, var(--theme-line) 40%, transparent);
+    border-radius: 10px;
+    max-width: 100%;
+    margin: 12px 0;
+}
+
+.message-code-block .code-header {
+    border-bottom: 1px solid color-mix(in srgb, var(--theme-line) 25%, transparent);
+}
+
+.message-code-block .code-lang {
+    color: var(--theme-line);
+    text-transform: none;
+    letter-spacing: 0;
+    font-size: 12px;
+}
+
+.message-code-block pre {
+    margin: 0;
+    padding: 12px 16px;
+    border: 0;
+    border-radius: 0;
+    overflow-x: auto;
+    white-space: pre !important;
+    background: transparent;
+}
+
+.message-code-block pre code,
+.message-code-block pre code.hljs {
+    display: block;
+    font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+    font-size: 13.5px;
+    line-height: 1.6;
+    background: none;
+    padding: 0;
+    color: #e6e6e6;
+    white-space: pre;
+    overflow: visible;   /* github-dark makes code.hljs scroll; keep <pre> the only scroller */
+}
+
+/* Action rows (Copy, Edit, later Regenerate): icon-only buttons in the gap
+   under each message. That gap is margin that's always there, so showing the
+   row never shifts layout. Desktop shows it on hover/focus; phones always. */
+#chat-box .message.bot-message,
+#chat-box .message.user-message {
+    margin-bottom: 40px;
+}
+
+#chat-box .message .msg-actions {
+    position: absolute;
+    top: calc(100% + 2px);
+    display: flex;
+    gap: 2px;
+}
+
+#chat-box .bot-message .msg-actions {
+    left: 10px;
+}
+
+#chat-box .user-message .msg-actions {
+    right: 4px;
+}
+
+#chat-box .bot-message.streaming .msg-actions {
+    visibility: hidden;   /* not clickable or focusable until the reply ends */
+}
+
+/* No editing while a reply is in flight (Regenerate is removed in JS). */
+body.replying #chat-box .user-message .msg-actions {
+    visibility: hidden;
+}
+
+.msg-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: 0;
+    border-radius: 8px;
+    background: none;
+    color: color-mix(in srgb, var(--text-color) 55%, transparent);
+    font-size: 14px;
+    cursor: pointer;
+    touch-action: manipulation;
+}
+
+.msg-action:hover,
+.msg-action:focus-visible {
+    color: var(--theme-line);
+    background: color-mix(in srgb, var(--theme-line) 12%, transparent);
+}
+
+.msg-action:focus-visible {
+    outline: 2px solid var(--theme-line);
+    outline-offset: 2px;
+}
+
+@media (hover: hover) and (min-width: 769px) {
+    #chat-box .message .msg-actions {
+        opacity: 0;
+        transition: opacity 0.15s ease;
+    }
+
+    #chat-box .message:is(:hover, :focus-within) .msg-actions {
+        opacity: 1;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #chat-box .message .msg-actions { transition: none; }
+}
+
+/* Safe areas (notches, home indicator). */
+.chat-input-container {
+    margin-bottom: env(safe-area-inset-bottom);
+}
+
+body {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+}
+
+@media (max-width: 768px) {
+    #chat-box .message.bot-message {
+        max-width: 100%;
+        padding-left: 12px;
+    }
+
+    #chat-box .message.user-message {
+        max-width: 85%;
+    }
+
+    /* pre-wrap on the whole bubble turned Showdown's newlines between blocks into blank lines */
+    #chat-box .message {
+        white-space: normal;
+    }
+
+    /* the mobile `p { text-align: center }` rule; tables and display math keep theirs */
+    #chat-box .bot-message :is(p, li, h1, h2, h3, h4, blockquote) {
+        text-align: left;
+    }
+
+    /* the generic mobile .message a rule makes bot links bold 15px */
+    #chat-box .bot-message a {
+        font-size: inherit !important;
+        font-weight: inherit !important;
+        word-break: break-word !important;
+    }
+
+    .message-code-block .code-copy-btn {
+        min-height: 44px;
+        min-width: 44px;
+    }
+
+    .message-code-block pre code,
+    .message-code-block pre code.hljs {
+        font-size: 12.5px;
+    }
+
+    /* Wide tables scroll inside the message (container only). */
+    #chat-box .message table {
+        display: block;
+        max-width: 100%;
+        overflow-x: auto;
+    }
+}
+
+/* ========================== */
+/*  SIDEBAR: QUICK ACTIONS + RAIL TOOLTIPS */
+/* ========================== */
+
+/* (a) Quick actions wrap instead of overflowing the sidebar on phones. */
+@media (max-width: 768px) {
+    .sidebar-quick-actions {
+        flex-wrap: wrap;
+    }
+
+    .sidebar-chip {
+        flex: 1 1 auto;
+        min-height: 44px;
+        font-size: 13px;
+    }
+
+    #new-thread-btn {
+        min-height: 44px;
+    }
+}
+
+/* (b) Collapsed-rail tooltips from data-label. The sidebar clips overflow, so
+   the tooltip is position: fixed with auto offsets: it keeps its normal
+   (static) position next to the icon but isn't clipped by the sidebar.
+   ponytail: breaks if an ancestor of .sidebar ever gets a transform/filter
+   (fixed would then be relative to it); switch to a JS-positioned tooltip then. */
+.sidebar-icon {
+    position: relative;
+}
+
+.sidebar:not(.expanded) .sidebar-icon[data-label]::after {
+    content: attr(data-label);
+    position: fixed;
+    margin-left: 14px;
+    transform: translateY(-50%);
+    margin-top: 0.55em;
+    padding: 5px 10px;
+    border-radius: 6px;
+    background: #2a2b2f;
+    color: var(--text-color);
+    border: 1px solid var(--accent, var(--accent-color));
+    font: 500 13px/1.3 'Google Sans', Roboto, sans-serif;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.12s ease;
+    z-index: 1100;
+}
+
+@media (hover: hover) {
+    .sidebar:not(.expanded) .sidebar-icon[data-label]:hover::after {
+        opacity: 1;
+        visibility: visible;
+    }
+}
+
+.sidebar:not(.expanded) .sidebar-icon[data-label]:focus-visible::after {
+    opacity: 1;
+    visibility: visible;
+}
+
+.sidebar-icon:focus-visible {
+    outline: 2px solid var(--accent, var(--accent-color));
+    outline-offset: 4px;
+    border-radius: 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .sidebar-icon[data-label]::after { transition: none; }
+}
+
+/* Streaming: shown under a reply that was cut off mid-stream. */
+.reply-notice {
+    margin-top: 10px;
+    font-size: 13px;
+    color: var(--accent, var(--accent-color));
+}
+
+@media (max-width: 768px) {
+    /* Phones: rows always visible, 44px targets, a taller gap to hold them. */
+    #chat-box .message.bot-message,
+    #chat-box .message.user-message {
+        margin-bottom: 52px;
+    }
+
+    #chat-box .bot-message .msg-actions {
+        left: 0;
+    }
+
+    #chat-box .user-message .msg-actions {
+        right: 0;
+    }
+
+    .msg-action {
+        width: 44px;
+        height: 44px;
+        font-size: 16px;
+    }
+}
+
+/* User messages: a soft rounded surface (the page background lifted 7%), no
+   outline. Theme colour shows only in the action icons and focus ring. */
+#chat-box .message.user-message:not(:has(.image-container)) {
+    background: color-mix(in srgb, #ffffff 7%, #202124) !important;
+    border: 0 !important;
+    border-radius: 18px;
+    box-shadow: none;
+    color: var(--text-color) !important;
+    font-weight: 400;
+    text-align: left !important;
+    width: fit-content;
+    max-width: min(560px, 85%);
+    padding: 10px 16px;
+    margin-left: auto;
+}
+
+/* Sent attachments: one row of compact cards above the typed text. */
+#chat-box .turn-attachments {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+#chat-box .turn-attachments img {
+    width: 64px;
+    height: 64px;
+    flex: 0 0 auto;
+    object-fit: cover;
+    border-radius: 10px;
+}
+
+#chat-box .turn-attachments .pasted-chip-inline {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    flex: 0 0 auto;
+    box-sizing: border-box;
+    width: 160px;
+    height: 64px;
+    max-width: none;
+    margin: 0;
+    padding: 7px 10px 5px;
+    white-space: normal;
+}
+
+#chat-box .turn-attachments .pasted-chip-inline > span:first-child {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    word-break: break-all;
+    line-height: 1.35;
+}
+
+#chat-box .turn-attachments .pasted-chip-inline .chip-label {
+    position: static;
+    transform: none;
+    align-self: flex-start;
+}
+
+/* Input tray cards: fixed small sizes, remove buttons always visible. */
+#image-preview .preview-wrapper {
+    flex: 0 0 auto;
+}
+
+#image-preview .uploaded-preview {
+    width: 64px;
+    height: 64px;
+}
+
+#image-preview .remove-btn {
+    opacity: 1;
+}
+
+#image-preview .pasted-block {
+    flex: 0 0 auto;
+    width: 160px;
+    height: 64px;
+    max-height: 64px;
+    padding: 7px 26px 22px 10px;
+}
+
+#image-preview .pasted-block::before {
+    bottom: 20px;
+    height: 18px;
+}
+
+#image-preview .pasted-block-text {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    white-space: normal;
+    word-break: break-all;
+}
+
+#image-preview .pasted-label {
+    bottom: 5px;
+    font-size: 9px;
+    padding: 1px 6px;
+}
+
+@media (max-width: 768px) {
+    /* Bot reply paragraphs are 14px on phones; typed text in attachment turns
+       and .user-text under images inherited 18px / 12px. */
+    #chat-box .message.user-message:not(:has(.image-container)),
+    #chat-box .user-message .user-text {
+        font-size: 14px;
+    }
+
+    /* the mobile `p { text-align: center }` rule, as for bot replies */
+    #chat-box .user-message p {
+        text-align: left;
+    }
+
+    #chat-box .message.user-message:not(:has(.image-container)) {
+        padding: 10px 14px;
+    }
+
+    /* One row of cards that scrolls sideways instead of wrapping. */
+    #image-preview.active,
+    #chat-box .turn-attachments {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        scrollbar-width: none;
+    }
+
+    #image-preview.active {
+        padding: 8px 10px 0;
+    }
+
+    /* 44px tap area around the small remove buttons. */
+    #image-preview :is(.remove-btn, .pasted-remove)::after {
+        content: "";
+        position: absolute;
+        inset: -12px;
+    }
+}
+
+/* Standards mode (doctype) pins: keep today's rail icon spacing (no line-box
+   strut under icon-only buttons) and today's table row height. */
+.sidebar-icon,
+.toggle-btn {
+    line-height: 0;
+}
+
+#chat-box :is(td, th) {
+    line-height: normal;
 }
