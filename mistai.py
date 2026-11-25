@@ -27,6 +27,7 @@ from datetime import datetime
 from functools import wraps
 from types import SimpleNamespace
 import hashlib
+import uuid
 from urllib.parse import urlparse
 
 from flask import (
@@ -534,16 +535,14 @@ async def api_chat():
                 400,
             )
 
-        if model not in VALID_MODELS:
-            return (
-                jsonify(
-                    {
-                        "error": f"Invalid model. Choose from: {', '.join(VALID_MODELS)}",
-                        "is_down": is_down,
-                    }
-                ),
-                400,
-            )
+        if model not in VALID_MODELS or (mode == "agent" and model not in AGENT_PROVIDERS):
+            body = {
+                "error": f"Invalid model. Choose from: {', '.join(VALID_MODELS)}",
+                "is_down": is_down,
+            }
+            if mode == "agent":
+                body["code"] = "invalid_model"
+            return jsonify(body), 400
 
         # Desktop agent mode keeps the system instruction and turn roles
         # separate. Normal web chat remains on the legacy flat-message path
@@ -586,18 +585,29 @@ async def api_chat():
                     jsonify({"error": "Agent mode requires at least one message", "is_down": is_down}),
                     400,
                 )
+            trace_id = new_trace_id()
             try:
-                if model == "gemini":
-                    ai_response = await asyncio.to_thread(
-                        get_gemini_agent_response, system_prompt, cleaned_messages
-                    )
-                else:
-                    ai_response = await asyncio.to_thread(
-                        get_cohere_agent_response, system_prompt, cleaned_messages
-                    )
+                ai_response = await asyncio.to_thread(
+                    call_agent_provider, model, system_prompt, cleaned_messages
+                )
             except Exception as e:
-                log_err(f"Agent model execution failed: {type(e).__name__}: {str(e)[:120]}")
-                return jsonify({"error": "Agent model failed to respond", "is_down": is_down}), 500
+                fail = agent_failure(
+                    e, model, trace_id,
+                    [system_prompt, user_message] + [m["content"] for m in cleaned_messages],
+                )
+                body = {
+                    "error": fail.message or "Agent model failed to respond",
+                    "code": fail.code,
+                    "provider": model,
+                    "trace_id": trace_id,
+                    "is_down": is_down,
+                }
+                if fail.retry_after is not None:
+                    body["retry_after"] = fail.retry_after
+                resp = jsonify(body)
+                if fail.retry_after is not None:
+                    resp.headers["Retry-After"] = str(fail.retry_after)
+                return resp, fail.http_status
 
             if not ai_response:
                 return jsonify({"error": "Empty response from AI model", "is_down": is_down}), 500
@@ -1775,13 +1785,12 @@ async def api_v1_chat():
     if not user_message:
         return jsonify({"error": "Message cannot be empty"}), 400
 
-    if model_choice not in VALID_MODELS:
-        return (
-            jsonify(
-                {"error": f"Invalid model. Choose from: {', '.join(VALID_MODELS)}"}
-            ),
-            400,
-        )
+    is_agent = data.get("mode") == "agent"
+    if model_choice not in VALID_MODELS or (is_agent and model_choice not in AGENT_PROVIDERS):
+        body = {"error": f"Invalid model. Choose from: {', '.join(VALID_MODELS)}"}
+        if is_agent:
+            body["code"] = "invalid_model"
+        return jsonify(body), 400
 
     # Agent mode (MistAI desktop): retain the caller's system prompt and
     # structured conversation roles. Legacy flattened requests use chat below.
@@ -1790,17 +1799,11 @@ async def api_v1_chat():
         and isinstance(data.get("system"), str)
         and isinstance(data.get("messages"), list)
     ):
+        trace_id = new_trace_id()
         try:
-            if model_choice == "gemini":
-                response_content = await asyncio.to_thread(
-                    get_gemini_agent_response, data["system"], data["messages"]
-                )
-            else:
-                # Mistral's free tier is disabled upstream; Cohere handles both
-                # Cohere and Mistral agent-mode requests until it returns.
-                response_content = await asyncio.to_thread(
-                    get_cohere_agent_response, data["system"], data["messages"]
-                )
+            response_content = await asyncio.to_thread(
+                call_agent_provider, model_choice, data["system"], data["messages"]
+            )
             _safe_log_api_usage(
                 api_key,
                 f"agent:{model_choice}",
@@ -1816,11 +1819,26 @@ async def api_v1_chat():
                 "timestamp": datetime.now().isoformat(),
             }), 200
         except Exception as e:
-            log_err(f"Agent API error: {e}")
+            user_texts = [data["system"], user_message] + [
+                m.get("content") for m in data["messages"] if isinstance(m, dict)
+            ]
+            fail = agent_failure(e, model_choice, trace_id, user_texts)
             _safe_log_api_usage(
-                api_key, f"agent:{model_choice}", len(data["system"]), 0, 500
+                api_key, f"agent:{model_choice}", len(data["system"]), 0, fail.http_status
             )
-            return jsonify({"success": False, "error": str(e)}), 500
+            body = {
+                "success": False,
+                "error": fail.message or str(e),
+                "code": fail.code,
+                "provider": model_choice,
+                "trace_id": trace_id,
+            }
+            if fail.retry_after is not None:
+                body["retry_after"] = fail.retry_after
+            resp = jsonify(body)
+            if fail.retry_after is not None:
+                resp.headers["Retry-After"] = str(fail.retry_after)
+            return resp, fail.http_status
 
     try:
         response_content = await get_model_response(model_choice, user_message)
@@ -2653,6 +2671,22 @@ AGENT_COHERE_MODELS = (
     "command-r7b-12-2024",
 )
 AGENT_GEMINI_MODEL = "gemini-2.5-flash"
+AGENT_MISTRAL_MODEL = MISTRAL_MODEL
+# Agent mode is model -> exactly one provider. Anything else is a 400.
+AGENT_PROVIDERS = ("gemini", "mistral", "cohere")
+AGENT_MODEL_LABELS = {
+    "gemini": AGENT_GEMINI_MODEL,
+    "mistral": AGENT_MISTRAL_MODEL,
+    "cohere": "cohere-chain",
+}
+
+
+def _agent_timeout_secs() -> float:
+    """Per-call provider deadline for agent mode; SDK retries are disabled."""
+    try:
+        return max(1.0, float(os.getenv("AGENT_PROVIDER_TIMEOUT_SECS", "12")))
+    except ValueError:
+        return 12.0
 
 
 def _clean_agent_messages(messages):
@@ -2672,20 +2706,39 @@ def get_cohere_agent_response(system_prompt, messages, max_tokens=1024):
     """Send agent prompts as distinct system and role-preserved messages."""
     co = get_cohere_client()
     payload_msgs = [{"role": "system", "content": system_prompt}] + _clean_agent_messages(messages)
+    # One deadline for the whole chain. A 429/5xx/timeout is the provider
+    # telling us to back off, so it ends the chain instead of hammering the
+    # next model; only other errors (e.g. a retired model's 404) fall through.
+    deadline = time.monotonic() + _agent_timeout_secs()
     last_err = None
     for model_name in AGENT_COHERE_MODELS:
+        remaining = deadline - time.monotonic()
+        if remaining < 1:
+            break
         try:
             resp = co.chat(
                 model=model_name,
                 messages=payload_msgs,
                 temperature=0,
                 max_tokens=max_tokens,
+                request_options={
+                    "timeout_in_seconds": max(1, int(remaining)),
+                    "max_retries": 0,
+                },
             )
             return resp.message.content[0].text.strip()
         except Exception as e:
+            _tag_agent_model(e, model_name)
             last_err = e
-            log_warn(f"agent model {model_name} failed ({str(e)[:80]}) -- trying next")
-    raise last_err
+            if _is_fail_fast_error(e):
+                raise
+            log_warn(
+                f"agent model {model_name} failed "
+                f"({type(e).__name__}, status={_provider_status(e)}) -- trying next"
+            )
+    if last_err is not None:
+        raise last_err
+    raise TimeoutError("cohere agent chain deadline exceeded")
 
 
 def get_gemini_agent_response(system_prompt, messages, max_tokens=1024):
@@ -2708,8 +2761,179 @@ def get_gemini_agent_response(system_prompt, messages, max_tokens=1024):
             temperature=0,
             max_output_tokens=max_tokens,
         ),
+        # The SDK default retries 503s for up to 600s; fail fast instead.
+        request_options={"timeout": _agent_timeout_secs(), "retry": None},
     )
     return (response.text or "").strip()
+
+
+def get_mistral_agent_response(system_prompt, messages, max_tokens=1024):
+    """Mistral twin of get_gemini_agent_response: caller's system prompt as
+    the system turn, role-preserved history, last turn sent as the user turn."""
+    cleaned_messages = _clean_agent_messages(messages)
+    if not cleaned_messages:
+        raise ValueError("agent request has no usable messages")
+    turns = cleaned_messages[:-1] + [
+        {"role": "user", "content": cleaned_messages[-1]["content"]}
+    ]
+    timeout = _agent_timeout_secs()
+    response = _http.post(
+        MISTRAL_ENDPOINT,
+        headers={
+            "Authorization": f"Bearer {MISTRAL_API_KEY}",
+            "Content-Type": "application/json",
+        },
+        json={
+            "model": AGENT_MISTRAL_MODEL,
+            "messages": [{"role": "system", "content": system_prompt}] + turns,
+            "temperature": 0,
+            "max_tokens": max_tokens,
+        },
+        timeout=httpx.Timeout(timeout, connect=min(5.0, timeout)),
+    )
+    response.raise_for_status()
+    content = response.json()["choices"][0]["message"]["content"]
+    if isinstance(content, list):  # chunked content parts
+        content = "".join(
+            p.get("text", "") for p in content if isinstance(p, dict)
+        )
+    return (content or "").strip()
+
+
+def call_agent_provider(model, system_prompt, messages):
+    """Agent-mode dispatch: one model value, one provider. Sync; run in a thread."""
+    if model == "gemini":
+        return get_gemini_agent_response(system_prompt, messages)
+    if model == "mistral":
+        return get_mistral_agent_response(system_prompt, messages)
+    if model == "cohere":
+        return get_cohere_agent_response(system_prompt, messages)
+    raise ValueError("unsupported agent model")
+
+
+# --- Agent provider errors: classify, log content-free, respond -------------
+
+_TIMEOUT_EXCEPTIONS = (httpx.TimeoutException, httpx.TransportError, TimeoutError)
+# Fields a provider error body can use to echo the request back. Dropped from
+# logs; descriptive fields like "message"/"detail"/"type" stay.
+_ECHO_KEYS = {"input", "inputs", "messages", "content", "prompt",
+              "text", "system", "contents", "parts", "ctx"}
+
+
+def _tag_agent_model(exc, model_name):
+    try:
+        exc.agent_model_label = model_name
+    except Exception:
+        pass
+
+
+def _provider_status(exc):
+    """Upstream HTTP status from httpx / Cohere ApiError / google api_core, else None."""
+    if isinstance(exc, httpx.HTTPStatusError):
+        return exc.response.status_code
+    for attr in ("status_code", "code"):
+        val = getattr(exc, attr, None)
+        if isinstance(val, int) and not isinstance(val, bool) and 100 <= val <= 599:
+            return int(val)
+    return None
+
+
+def _is_timeout_error(exc):
+    if isinstance(exc, _TIMEOUT_EXCEPTIONS):
+        return True
+    return type(exc).__name__ in ("DeadlineExceeded", "ReadTimeout", "ConnectTimeout")
+
+
+def _is_fail_fast_error(exc):
+    status = _provider_status(exc)
+    return _is_timeout_error(exc) or status == 429 or (status is not None and status >= 500)
+
+
+def _provider_retry_after(exc):
+    """Seconds from Retry-After (httpx/Cohere) or Gemini's RetryInfo, else None."""
+    headers = None
+    if isinstance(exc, httpx.HTTPStatusError):
+        headers = exc.response.headers
+    elif hasattr(getattr(exc, "headers", None), "items"):
+        headers = {str(k).lower(): v for k, v in exc.headers.items()}
+    if headers is not None:
+        raw = headers.get("retry-after")
+        if raw is not None and re.fullmatch(r"\s*\d+(\.\d+)?\s*", str(raw)):
+            return max(0, int(float(raw) + 0.999))
+        return None
+    m = re.search(r"retry[_ ]?delay\W*(?:seconds\W*)?(\d+)", str(getattr(exc, "details", "")) + str(exc), re.I)
+    return int(m.group(1)) if m else None
+
+
+def _scrub_echo(obj):
+    if isinstance(obj, dict):
+        return {k: _scrub_echo(v) for k, v in obj.items() if str(k).lower() not in _ECHO_KEYS}
+    if isinstance(obj, list):
+        return [_scrub_echo(v) for v in obj]
+    return obj
+
+
+def _safe_provider_body(exc, user_texts):
+    """Provider error body for logs: echo fields dropped, caller text redacted, 300 chars."""
+    if isinstance(exc, httpx.HTTPStatusError):
+        raw = exc.response.text
+    elif hasattr(exc, "body"):
+        raw = exc.body
+    else:
+        raw = getattr(exc, "message", "")
+    if isinstance(raw, str):
+        try:
+            raw = json.loads(raw)
+        except ValueError:
+            pass
+    text = raw if isinstance(raw, str) else json.dumps(_scrub_echo(raw), default=str)
+    for t in sorted({u for u in user_texts if isinstance(u, str) and len(u) >= 4}, key=len, reverse=True):
+        text = text.replace(t, "[redacted]")
+    return text[:300]
+
+
+_AGENT_FAILURE_MESSAGES = {
+    "provider_rate_limited": "AI provider is rate limiting requests, retry later",
+    "provider_unavailable": "AI provider is unavailable",
+    "provider_timeout": "AI provider timed out",
+}
+
+
+def agent_failure(exc, model, trace_id, user_texts):
+    """Classify one agent provider failure and log it without user content.
+
+    Returns SimpleNamespace(http_status, code, retry_after, message), where
+    message is None for the catch-all case so callers keep their old text."""
+    status = _provider_status(exc)
+    retry_after = None
+    if _is_timeout_error(exc):
+        http_status, code = 502, "provider_timeout"
+    elif status == 429:
+        http_status, code = 429, "provider_rate_limited"
+        retry_after = _provider_retry_after(exc)
+    elif status is not None and status >= 500:
+        http_status, code = 502, "provider_unavailable"
+    else:
+        http_status, code = 500, "provider_error"
+    label = getattr(exc, "agent_model_label", None) or AGENT_MODEL_LABELS.get(model, "unknown")
+    line = (
+        f"agent provider failure provider={model} model={label} "
+        f"upstream_status={status if status is not None else '-'} "
+        f"error={type(exc).__name__} http={http_status} code={code} trace={trace_id}"
+    )
+    if status is not None and 400 <= status < 500:
+        line += f" body={_safe_provider_body(exc, user_texts)!r}"
+    log_err(line)
+    return SimpleNamespace(
+        http_status=http_status,
+        code=code,
+        retry_after=retry_after,
+        message=_AGENT_FAILURE_MESSAGES.get(code),
+    )
+
+
+def new_trace_id():
+    return uuid.uuid4().hex[:16]
 
 
 async def get_model_response(model: str, prompt: str, max_tokens=MAX_TOKENS) -> str:
